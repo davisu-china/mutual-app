@@ -285,6 +285,10 @@ MINIO_BUCKET_AVATARS=mutual-avatars
 
 ALLOW_ORIGINS=https://$SITE,https://$DOMAIN
 
+# API 对外的挂载前缀。图片 URL 要写进数据库、由浏览器直接请求，
+# 服务端必须知道自己在外面挂在哪个路径下（子路径 /mutual/api，独立域名 /api）。
+PUBLIC_API_PATH=${API_URL_PATH%/}
+
 DAILY_LIKE_LIMIT=10
 MAX_PHOTOS=9
 
@@ -302,6 +306,19 @@ ENV
   echo "  ✓ 已生成 $ENV_FILE"
 else
   echo "  ✓ 保留已有 $ENV_FILE"
+fi
+
+# 后加的变量要能补进老部署的 api.env，否则切换模式后会指向错的路径。
+# 目前只有 PUBLIC_API_PATH：它决定图片 URL 的前缀，配错的话图片会全部 404。
+WANT_PUBLIC_API_PATH="${API_URL_PATH%/}"
+CUR_PUBLIC_API_PATH="$(grep -E '^PUBLIC_API_PATH=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+if [ "$CUR_PUBLIC_API_PATH" != "$WANT_PUBLIC_API_PATH" ]; then
+  cp "$ENV_FILE" "$ENV_FILE.bak.$(date +%Y%m%d-%H%M%S)"
+  { grep -vE '^PUBLIC_API_PATH=' "$ENV_FILE" || true; printf 'PUBLIC_API_PATH=%s\n' "$WANT_PUBLIC_API_PATH"; } > "$ENV_FILE.tmp"
+  cat "$ENV_FILE.tmp" > "$ENV_FILE"   # 原地覆盖保住属主与 600 权限，别用 mv
+  rm -f "$ENV_FILE.tmp"
+  chmod 600 "$ENV_FILE"
+  echo "  ✓ PUBLIC_API_PATH 已置为 $WANT_PUBLIC_API_PATH（原值：${CUR_PUBLIC_API_PATH:-无}）"
 fi
 
 # ================================================================ 6. API 服务

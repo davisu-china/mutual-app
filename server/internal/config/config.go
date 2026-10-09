@@ -37,6 +37,9 @@ type Config struct {
 	BucketPhotos   string
 	BucketAvatars  string
 
+	// API 对外的挂载前缀（/api 或 /mutual/api），媒体 URL 靠它拼成同源路径
+	PublicAPIPath string
+
 	// 业务
 	// 照片自动过审。
 	//
@@ -52,6 +55,13 @@ type Config struct {
 
 	// 时区：额度按这个时区的「今天」重置（PRD 8.1 定的是北京时间）
 	TZ *time.Location
+}
+
+// MediaPathPrefix 是媒体路由对外的前缀，同时也是读图 cookie 的 Path。
+// 单独抽出来是因为有三处要用到（拼 URL、挂路由、设 cookie 作用域），
+// 三者不一致会让图片静默 401。
+func (c *Config) MediaPathPrefix() string {
+	return strings.TrimSuffix(c.PublicAPIPath, "/") + "/v1/media"
 }
 
 func Load() (*Config, error) {
@@ -81,6 +91,11 @@ func Load() (*Config, error) {
 		MinIOPublicURL: getEnv("MINIO_PUBLIC_URL", ""),
 		BucketPhotos:   getEnv("MINIO_BUCKET_PHOTOS", "mutual-photos"),
 		BucketAvatars:  getEnv("MINIO_BUCKET_AVATARS", "mutual-avatars"),
+
+		// API 对外的挂载前缀。图片 URL 要写进数据库、由浏览器直接请求，
+		// 所以服务端必须知道自己在外面挂在哪个路径下：
+		// 子路径部署是 /mutual/api，独立域名是 /api。
+		PublicAPIPath: getEnv("PUBLIC_API_PATH", "/api"),
 
 		// 默认：开发环境自动过审，生产环境必须接审核服务
 		AuditAutoApprove: getEnvBool("AUDIT_AUTO_APPROVE", getEnv("APP_ENV", "dev") == "dev"),

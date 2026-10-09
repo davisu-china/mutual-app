@@ -105,6 +105,7 @@ func main() {
 		Disc:    handler.NewDiscoveryHandler(discSvc, actionSvc, socialSvc),
 		Chat:    handler.NewChatHandler(chatSvc),
 		Upload:  handler.NewUploadHandler(uploadSvc),
+		Media:   handler.NewMediaHandler(uploadSvc, cfg),
 		WS:      handler.NewWSChatHandler(),
 	})
 
@@ -112,7 +113,10 @@ func main() {
 		Addr:              ":" + cfg.Port,
 		Handler:           r,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
+		// 读超时给足：图片上传走本服务中转（见 service/media.go），
+		// 手机弱网传 10MB 可能要几十秒，30 秒会把请求从中间掐断。
+		// 防慢速攻击靠上面的 ReadHeaderTimeout，不靠这个值。
+		ReadTimeout: 120 * time.Second,
 		// 写超时不能太短：WebSocket 是长连接，会被这个值掐断
 		WriteTimeout: 0,
 		IdleTimeout:  120 * time.Second,

@@ -7,11 +7,12 @@ import { useToast } from "@/components/ui/toast";
 import { HeightField } from "@/components/picker/height-field";
 import { BirthdayField, type Birthday } from "@/components/picker/birthday-field";
 import { RegionField, type RegionValue } from "@/components/picker/region-field";
+import { MbtiSlider, dimsToMbti, splitMbti, emptyDims, type MbtiDims } from "@/components/profile/mbti-slider";
 import { api, uploadToPresigned, ApiError } from "@/lib/api";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 import {
-  GENDER, MBTI, OCCUPATION, SMOKING, DRINKING, INCOME, EDUCATION,
+  GENDER, OCCUPATION, SMOKING, DRINKING, INCOME, EDUCATION,
   ELDERCARE, HOUSE, DINK, YES_NO, ACCEPT_3, CAR_PREFER, HOUSE_PREFER,
   DINK_ACCEPT, PARTNER_TAGS, HOBBIES, EDUCATION_MIN,
 } from "@/data/options";
@@ -25,20 +26,19 @@ interface Draft {
   birthday: Birthday | null;
   heightCm: number | null;
   weightKg: number | null;
-  weightPublic: boolean;
   hometown: RegionValue | null;
   residence: RegionValue | null;
   occupation: string | null;
   occupationOther: string;
   mbti: string | null;
+  /** MBTI 四个维度的独立选择；四项都选齐时才合成 mbti */
+  mbtiDims: MbtiDims;
   smoking: number | null;
   drinking: number | null;
   incomeRange: number | null;
-  incomePublic: boolean;
   education: number | null;
   school: string;
   company: string;
-  companyPublic: boolean;
   isOnlyChild: boolean | null;
   eldercarePressure: number | null;
   hasCar: boolean | null;
@@ -70,10 +70,11 @@ interface Draft {
 }
 
 const EMPTY: Draft = {
-  gender: null, birthday: null, heightCm: null, weightKg: null, weightPublic: false,
+  gender: null, birthday: null, heightCm: null, weightKg: null,
   hometown: null, residence: null, occupation: null, occupationOther: "", mbti: null,
-  smoking: null, drinking: null, incomeRange: null, incomePublic: false,
-  education: null, school: "", company: "", companyPublic: false,
+  mbtiDims: emptyDims(),
+  smoking: null, drinking: null, incomeRange: null,
+  education: null, school: "", company: "",
   isOnlyChild: null, eldercarePressure: null, hasCar: null, hasHouse: null, isDink: null,
   avatarObjectKey: null, avatarPreview: null,
   hobbies: [{ name: "", description: "" }, { name: "", description: "" }, { name: "", description: "" }],
@@ -102,13 +103,19 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [d, setD] = useState<Draft>(() => {
     // 进度本地留一份：中途退出、切后台、误刷新都能续填（PRD 3.3）
+    let init: Draft = EMPTY;
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) return { ...EMPTY, ...JSON.parse(raw) };
+      if (raw) init = { ...EMPTY, ...JSON.parse(raw) };
     } catch {
       /* 损坏的草稿直接丢弃 */
     }
-    return EMPTY;
+    // 改版前存下的草稿只有 mbti 字符串、没有四个维度，这里拆回去，
+    // 否则滑杆全停在「还没选」，和已经选好的类型对不上。
+    if (!(init.mbtiDims ?? []).some(Boolean) && init.mbti && init.mbti !== "NONE") {
+      init = { ...init, mbtiDims: splitMbti(init.mbti) };
+    }
+    return init;
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -134,7 +141,6 @@ export default function Onboarding() {
           birthday: bd ?? prev.birthday,
           heightCm: p.heightCm || null,
           weightKg: p.weightKg ?? null,
-          weightPublic: p.weightPublic,
           hometown: p.hometownCity
             ? { province: p.hometownProvince, city: p.hometownCity }
             : prev.hometown,
@@ -144,14 +150,13 @@ export default function Onboarding() {
           occupation: p.occupation || null,
           occupationOther: p.occupationOther ?? "",
           mbti: p.mbti ?? null,
+          mbtiDims: splitMbti(p.mbti),
           smoking: p.smoking || null,
           drinking: p.drinking || null,
           incomeRange: p.incomeRange ?? null,
-          incomePublic: p.incomePublic,
           education: p.education || null,
           school: p.school ?? "",
           company: p.company ?? "",
-          companyPublic: p.companyPublic,
           isOnlyChild: p.isOnlyChild,
           eldercarePressure: p.eldercarePressure ?? null,
           hasCar: p.hasCar,
@@ -208,11 +213,12 @@ export default function Onboarding() {
       case 0:
         return (
           d.gender !== null && d.birthday !== null && d.heightCm !== null &&
-          d.hometown !== null && d.residence !== null && d.occupation !== null &&
+          weightOk(d) && d.hometown !== null && d.residence !== null && d.occupation !== null &&
           d.mbti !== null && d.smoking !== null && d.drinking !== null &&
-          d.incomeRange !== null && d.education !== null && d.isOnlyChild !== null &&
-          d.eldercarePressure !== null && d.hasCar !== null && d.hasHouse !== null &&
-          d.isDink !== null && d.avatarObjectKey !== null
+          d.incomeRange !== null && d.education !== null &&
+          d.school.trim() !== "" && d.company.trim() !== "" &&
+          d.isOnlyChild !== null && d.eldercarePressure !== null && d.hasCar !== null &&
+          d.hasHouse !== null && d.isDink !== null && d.avatarObjectKey !== null
         );
       case 1:
         // 恰好 3 个，且每个都写了 10 字以上
@@ -244,8 +250,11 @@ export default function Onboarding() {
             gender: d.gender,
             birthday: `${d.birthday!.year}-${String(d.birthday!.month).padStart(2, "0")}-${String(d.birthday!.day).padStart(2, "0")}`,
             heightCm: d.heightCm,
+            // 体重/年收入/公司都改成必填且固定对外可见：表单里不再给「对外公开」
+            // 开关，用户没有可选项，所以这里写死 true，免得留一个永远为 false
+            // 的字段让资料对别人显示成「隐藏」。
             weightKg: d.weightKg ?? undefined,
-            weightPublic: d.weightPublic,
+            weightPublic: true,
             hometownProvince: d.hometown!.province,
             hometownCity: d.hometown!.city,
             cityProvince: d.residence!.province,
@@ -257,11 +266,11 @@ export default function Onboarding() {
             smoking: d.smoking,
             drinking: d.drinking,
             incomeRange: d.incomeRange,
-            incomePublic: d.incomePublic,
+            incomePublic: true,
             education: d.education,
-            school: d.school || undefined,
-            company: d.company || undefined,
-            companyPublic: d.companyPublic,
+            school: d.school.trim() || undefined,
+            company: d.company.trim() || undefined,
+            companyPublic: true,
             isOnlyChild: d.isOnlyChild,
             eldercarePressure: d.eldercarePressure,
             hasCar: d.hasCar,
@@ -383,6 +392,14 @@ export default function Onboarding() {
   );
 }
 
+/** 体重的合理区间。必填字段没有上界时，总会有人填 0 或者 999。 */
+const WEIGHT_MIN = 30;
+const WEIGHT_MAX = 200;
+
+function weightOk(d: Draft): boolean {
+  return d.weightKg !== null && d.weightKg >= WEIGHT_MIN && d.weightKg <= WEIGHT_MAX;
+}
+
 /** 未完成时告诉用户「还差什么」，而不是只把按钮置灰 */
 function hintFor(step: number, d: Draft): string {
   switch (step) {
@@ -391,6 +408,8 @@ function hintFor(step: number, d: Draft): string {
       if (d.gender === null) miss.push("性别");
       if (!d.birthday) miss.push("出生年月日");
       if (!d.heightCm) miss.push("身高");
+      if (d.weightKg === null) miss.push("体重");
+      else if (!weightOk(d)) miss.push(`体重（${WEIGHT_MIN}–${WEIGHT_MAX}kg）`);
       if (!d.hometown) miss.push("家乡");
       if (!d.residence) miss.push("现居地");
       if (!d.occupation) miss.push("职业");
@@ -399,6 +418,8 @@ function hintFor(step: number, d: Draft): string {
       if (d.drinking === null) miss.push("喝酒");
       if (!d.incomeRange) miss.push("年收入");
       if (!d.education) miss.push("学历");
+      if (!d.school.trim()) miss.push("学校");
+      if (!d.company.trim()) miss.push("公司");
       if (d.isOnlyChild === null) miss.push("是否独生");
       if (d.eldercarePressure === null) miss.push("养老压力");
       if (d.hasCar === null) miss.push("是否有车");
@@ -508,27 +529,14 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
         gender={d.gender === 1 ? "male" : "female"}
       />
 
-      <div className="flex items-end gap-3">
-        <div className="flex-1">
-          <Input
-            label="体重（kg，选填）"
-            type="number"
-            inputMode="numeric"
-            value={d.weightKg ?? ""}
-            onChange={(e) => set("weightKg", e.target.value ? Number(e.target.value) : null)}
-            placeholder="可不填"
-          />
-        </div>
-        <label className="flex items-center gap-2 pb-3.5 text-[13px] text-muted-2">
-          <input
-            type="checkbox"
-            checked={d.weightPublic}
-            onChange={(e) => set("weightPublic", e.target.checked)}
-            className="h-4 w-4 accent-[#E4596B]"
-          />
-          对外公开
-        </label>
-      </div>
+      <Input
+        label="体重（kg）"
+        type="number"
+        inputMode="numeric"
+        value={d.weightKg ?? ""}
+        onChange={(e) => set("weightKg", e.target.value ? Number(e.target.value) : null)}
+        placeholder={`${WEIGHT_MIN}–${WEIGHT_MAX}`}
+      />
 
       <RegionField label="家乡" value={d.hometown} onChange={(v) => set("hometown", v)} placeholder="请选择家乡" />
       <RegionField label="现居地" value={d.residence} onChange={(v) => set("residence", v)} withDistrict />
@@ -538,28 +546,47 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
         <Input value={d.occupationOther} onChange={(e) => set("occupationOther", e.target.value)} placeholder="简单说明一下" maxLength={20} />
       )}
 
-      <Choice label="MBTI" options={MBTI as { value: string; label: string }[]} value={d.mbti} onChange={(v) => set("mbti", v)} columns={4} />
+      <div>
+        <p className="mb-2 text-[15px] text-muted">MBTI</p>
+        {d.mbti === "NONE" ? (
+          <div className="flex items-center justify-between rounded-field border border-line bg-surface px-3 py-2.5">
+            <span className="text-[14px] text-muted">已选择「不知道」</span>
+            <button type="button" className="text-[13px] text-brand" onClick={() => set("mbti", null)}>
+              改成滑动选择
+            </button>
+          </div>
+        ) : (
+          <>
+            <MbtiSlider
+              dims={d.mbtiDims}
+              onChange={(dims) => {
+                // 两次 set 都是函数式更新，顺序执行不会互相覆盖
+                set("mbtiDims", dims);
+                set("mbti", dimsToMbti(dims));
+              }}
+            />
+            <button
+              type="button"
+              className="mt-2 text-[13px] text-muted-2 underline"
+              onClick={() => {
+                set("mbti", "NONE");
+                set("mbtiDims", emptyDims());
+              }}
+            >
+              不确定、还没测过
+            </button>
+          </>
+        )}
+      </div>
       <Choice label="抽烟" options={SMOKING} value={d.smoking} onChange={(v) => set("smoking", v)} />
       <Choice label="喝酒" options={DRINKING} value={d.drinking} onChange={(v) => set("drinking", v)} />
 
-      <div>
-        <Choice label="年收入" options={INCOME} value={d.incomeRange} onChange={(v) => set("incomeRange", v)} columns={2} />
-        <label className="mt-2 flex items-center gap-2 text-[13px] text-muted-2">
-          <input type="checkbox" checked={d.incomePublic} onChange={(e) => set("incomePublic", e.target.checked)} className="h-4 w-4 accent-[#E4596B]" />
-          对外公开（不公开也会参与匹配计算）
-        </label>
-      </div>
+      <Choice label="年收入" options={INCOME} value={d.incomeRange} onChange={(v) => set("incomeRange", v)} columns={2} />
 
       <Choice label="学历" options={EDUCATION} value={d.education} onChange={(v) => set("education", v)} />
-      <Input label="学校（选填）" value={d.school} onChange={(e) => set("school", e.target.value)} placeholder="可不填" maxLength={30} />
+      <Input label="学校" value={d.school} onChange={(e) => set("school", e.target.value)} placeholder="请输入学校" maxLength={30} />
 
-      <div>
-        <Input label="公司（选填）" value={d.company} onChange={(e) => set("company", e.target.value)} placeholder="可不填" maxLength={30} />
-        <label className="mt-2 flex items-center gap-2 text-[13px] text-muted-2">
-          <input type="checkbox" checked={d.companyPublic} onChange={(e) => set("companyPublic", e.target.checked)} className="h-4 w-4 accent-[#E4596B]" />
-          对外公开
-        </label>
-      </div>
+      <Input label="公司" value={d.company} onChange={(e) => set("company", e.target.value)} placeholder="请输入公司" maxLength={30} />
 
       <Choice label="是否独生" options={YES_NO} value={d.isOnlyChild} onChange={(v) => set("isOnlyChild", v)} />
       <Choice label="有无养老压力" options={ELDERCARE} value={d.eldercarePressure} onChange={(v) => set("eldercarePressure", v)} />

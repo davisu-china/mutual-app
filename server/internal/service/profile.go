@@ -637,6 +637,9 @@ func missingProfileFields(p *model.UserProfile) []string {
 	if p.HeightCm == 0 {
 		m = append(m, "身高")
 	}
+	if p.WeightKg == nil {
+		m = append(m, "体重")
+	}
 	if p.HometownProv == "" {
 		m = append(m, "家乡")
 	}
@@ -660,6 +663,12 @@ func missingProfileFields(p *model.UserProfile) []string {
 	}
 	if p.Education == 0 {
 		m = append(m, "学历")
+	}
+	if p.School == nil || *p.School == "" {
+		m = append(m, "学校")
+	}
+	if p.Company == nil || *p.Company == "" {
+		m = append(m, "公司")
 	}
 	if p.EldercarePressure == 0 {
 		m = append(m, "养老压力")

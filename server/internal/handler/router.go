@@ -24,6 +24,7 @@ type Deps struct {
 	Disc    *DiscoveryHandler
 	Chat    *ChatHandler
 	Upload  *UploadHandler
+	Media   *MediaHandler
 	WS      *WSChatHandler
 }
 
@@ -63,9 +64,22 @@ func NewRouter(d Deps) *gin.Engine {
 		authGroup.POST("/refresh", d.Auth.Refresh)
 	}
 
+	// ---------- 媒体（图片读写）----------
+	//
+	// 单独一组、不用 Bearer 鉴权：<img src> 和直传的 PUT 都是浏览器直接发的，
+	// 带不了 Authorization 头，所以改用签名 cookie 认人（见 middleware.MediaCookie）。
+	// 具体能读哪张图由服务端查库决定，cookie 只证明「这个浏览器登录过」。
+	mediaGroup := v1.Group("/media")
+	{
+		mediaGroup.GET("/*key", d.Media.Get)
+		mediaGroup.PUT("/*key", d.Media.Put)
+	}
+
 	// ---------- 需要登录 ----------
 	authed := v1.Group("")
 	authed.Use(middleware.Auth(d.Issuer))
+	// 顺带把读图 cookie 发下去 / 续签
+	authed.Use(middleware.MediaCookie(d.Cfg.JWTSecret, d.Cfg.MediaPathPrefix(), auth.MediaTokenTTL))
 	{
 		// 资料填写相关：只要登录 + 账号可用即可，**不能加 OnboardGuard**，
 		// 否则用户会被自己的守卫卡住，永远填不完

@@ -25,6 +25,7 @@ import { PhotoGrid } from "../src/components/profile/photo-grid";
 import { ProfileCard } from "../src/components/deck/profile-card";
 import { MatchOverlay } from "../src/components/deck/match-overlay";
 import { WheelPicker } from "../src/components/picker/wheel-picker";
+import { MbtiSlider, splitMbti, dimsToMbti } from "../src/components/profile/mbti-slider";
 import { calcAge } from "../src/components/picker/birthday-field";
 import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
 import { AuthProvider } from "../src/store/auth";
@@ -167,6 +168,31 @@ async function regionChecks() {
   check("fullName 直辖市不重复", fullName("北京市", "北京市", "朝阳区") === "北京 朝阳区");
   check("fullName 普通省市", fullName("浙江省", "杭州市", "西湖区") === "浙江 杭州 西湖区");
 }
+
+/** MBTI 从「16 个格子」改成「四个维度各自滑动」后的检查 */
+function mbtiChecks() {
+  console.log("\n[MBTI 四维滑动]");
+
+  check("ENFP 拆回四个维度", JSON.stringify(splitMbti("ENFP")) === JSON.stringify(["E", "N", "F", "P"]));
+  check("空值拆成四个未选", splitMbti(null).every((x) => x === null));
+  check("「不知道」不当成类型", splitMbti("NONE").every((x) => x === null));
+  check("非四字母的值不认", splitMbti("XDZZ").every((x) => x === null));
+  check("维度对不上不认（EF 顺序错）", splitMbti("EF")[1] === null);
+
+  check("没选齐不合成类型", dimsToMbti(["E", "N", null, "P"]) === null);
+  check("选齐合成 ESTJ", dimsToMbti(["E", "S", "T", "J"]) === "ESTJ");
+
+  const partial = renderToString(<MbtiSlider dims={splitMbti(null)} onChange={() => {}} />);
+  check("四个维度各一个滑杆", (partial.match(/type="range"/g) ?? []).length === 4);
+  check("没选齐时提示继续滑", partial.includes("四个维度都滑一下"));
+  check("滑杆带无障碍标签", partial.includes("aria-label=") && partial.includes("外向"));
+
+  const full = renderToString(<MbtiSlider dims={splitMbti("ENFP")} onChange={() => {}} />);
+  check("选齐后显示合成类型", full.includes("你的类型") && full.includes("ENFP"));
+  check("未选齐就不显示类型", !partial.includes("你的类型"));
+}
+
+mbtiChecks();
 
 // 行政区划那一段需要 await（数据是懒加载的），而构建目标不支持顶层 await，
 // 所以放到 async 函数里跑，跑完再决定退出码。

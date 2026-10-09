@@ -46,20 +46,20 @@ type PresignResult struct {
 
 // PresignPhoto 签发相册上传凭证。
 //
-// 客户端**直传 MinIO**，不经过后端——省一次中转，也避免大文件占用 API 进程（技术方案 9.4）。
-// 预签名 URL 的有效期与 Content-Type 都被钉死，防止被当成免费图床滥用。
+// 客户端拿到的是一个**服务端自己的媒体地址**（上传走本服务的 /v1/media/<key>），
+// 由服务端校验后写进 MinIO。内容类型在签发时就钉死，防止被当成免费图床滥用。
 func (s *UploadService) PresignPhoto(ctx context.Context, uid int64, contentType string) (*PresignResult, error) {
 	if err := s.assertPhotoCapacity(ctx, uid); err != nil {
 		return nil, err
 	}
-	return s.presign(ctx, s.storage.Photos, uid, "photos", contentType)
+	return s.presign(ctx, uid, "photos", contentType)
 }
 
 func (s *UploadService) PresignAvatar(ctx context.Context, uid int64, contentType string) (*PresignResult, error) {
-	return s.presign(ctx, s.storage.Avatars, uid, "avatars", contentType)
+	return s.presign(ctx, uid, "avatars", contentType)
 }
 
-func (s *UploadService) presign(ctx context.Context, bucket string, uid int64, prefix, contentType string) (*PresignResult, error) {
+func (s *UploadService) presign(ctx context.Context, uid int64, prefix, contentType string) (*PresignResult, error) {
 	if !isAllowedImageType(contentType) {
 		return nil, errors.New("仅支持 jpg / png / webp 图片")
 	}
@@ -67,15 +67,15 @@ func (s *UploadService) presign(ctx context.Context, bucket string, uid int64, p
 	ext := extFor(contentType)
 	key := fmt.Sprintf("%s/%d/%s%s", prefix, uid, uuid.NewString(), ext)
 
-	u, err := s.storage.Client.PresignedPutObject(ctx, bucket, key, presignTTL)
-	if err != nil {
-		return nil, fmt.Errorf("签发上传凭证失败: %w", err)
-	}
-
+	// 上传地址指向本服务自己的媒体路由：浏览器 PUT 过来，服务端再写进 MinIO。
+	// 前端那套「presign → 直传 → confirm」的协议不用改，但**地址必须同源**：
+	// 原先返回的是 MinIO 的预签名 URL，主机是 127.0.0.1:9000 且是 http，
+	// 在 https 页面里既够不着（127.0.0.1 是用户自己的机器），
+	// 也会被浏览器当混合内容直接拦掉——头像上传就是这么失败的。
 	return &PresignResult{
-		UploadURL: u.String(),
+		UploadURL: s.MediaPath(key),
 		ObjectKey: key,
-		PublicURL: s.publicURL(bucket, key),
+		PublicURL: s.MediaPath(key),
 		Headers:   map[string]string{"Content-Type": contentType},
 		ExpiresIn: int(presignTTL.Seconds()),
 	}, nil
@@ -103,7 +103,7 @@ func (s *UploadService) ConfirmPhoto(ctx context.Context, uid int64, objectKey s
 
 	p := &model.UserPhoto{
 		UserID:      uid,
-		URL:         s.publicURL(s.storage.Photos, objectKey),
+		URL:         s.MediaPath(objectKey),
 		SortOrder:   maxOrder + 1,
 		AuditStatus: status,
 		Visibility:  "public",
@@ -126,7 +126,7 @@ func (s *UploadService) ConfirmAvatar(ctx context.Context, uid int64, objectKey 
 
 	av := &model.UserAvatar{
 		UserID:      uid,
-		URL:         s.publicURL(s.storage.Avatars, objectKey),
+		URL:         s.MediaPath(objectKey),
 		AuditStatus: status,
 	}
 
@@ -237,16 +237,6 @@ func (s *UploadService) assertPhotoCapacity(ctx context.Context, uid int64) erro
 		return ErrPhotoLimit
 	}
 	return nil
-}
-
-func (s *UploadService) publicURL(bucket, key string) string {
-	// 对象是私有的，URL 只是「key 的稳定表示」，前端展示时再换成预签名 GET。
-	// 这里保留 bucket 前缀，方便将来接入 CDN 时直接改这一处。
-	base := strings.TrimSuffix(s.storage.PublicBase, "/")
-	if base == "" {
-		return fmt.Sprintf("/%s/%s", bucket, key)
-	}
-	return fmt.Sprintf("%s/%s/%s", base, bucket, key)
 }
 
 func isAllowedImageType(ct string) bool {
