@@ -515,6 +515,11 @@ LOC
     cat > /tmp/mutual.loc <<LOC
 
         $MARK
+        # /xxx 不带尾斜杠时不会命中前缀 location /xxx/（alias 型 location 又不像
+        # proxy_pass 那样会自动 301），它会落到主站的 location / 上返回主站的 404。
+        location = ${WEB_URL_PATH%/} {
+            return 301 ${WEB_URL_PATH}\$is_args\$args;
+        }
 $(printf '%s\n' "$PROXY_LOC" | sed 's/^/        /')
 $(printf '%s\n' "$WEB_LOC" | sed 's/^/        /')
 LOC
@@ -530,6 +535,29 @@ LOC
     }' "$NGINX_CONF" > /tmp/mutual.nginx.new
   cat /tmp/mutual.nginx.new > "$NGINX_CONF"   # 原地覆盖，不能 sed -i（换 inode 容器读不到）
   echo "  ✓ 已插入配置"
+fi
+
+# 已经部署过的机器重跑本脚本时，上面那段会直接跳过（配置里有 MARK）。
+# 所以「不带尾斜杠的跳转」要单独补一次，否则老机器只能手工改配置。
+# 放在 nginx -t 之前，失败仍会走回滚。
+if [ "$MODE" = "subpath" ] && ! grep -qF "location = ${WEB_URL_PATH%/} {" "$NGINX_CONF"; then
+  cp "$NGINX_CONF" "$NGINX_CONF.bak.mutual.$(date +%Y%m%d-%H%M%S)"
+  printf '        location = %s {\n            return 301 %s$is_args$args;\n        }\n' \
+    "${WEB_URL_PATH%/}" "$WEB_URL_PATH" > /tmp/mutual.fix.loc
+  awk -v ins=/tmp/mutual.fix.loc -v mark="$MARK" '
+    BEGIN { done = 0 }
+    {
+      if (!done && index($0, mark) > 0) {
+        print            # 先打 MARK 那行，跳转插在它后面，读起来是这段的头部
+        while ((getline l < ins) > 0) print l
+        close(ins)
+        done = 1
+        next
+      }
+      print
+    }' "$NGINX_CONF" > /tmp/mutual.nginx.new
+  cat /tmp/mutual.nginx.new > "$NGINX_CONF"
+  echo "  ✓ 已补上 /${SUBPATH}（不带尾斜杠）的跳转"
 fi
 
 if ! docker exec "$NGINX_CONTAINER" nginx -t; then
