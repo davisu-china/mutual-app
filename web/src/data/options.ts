@@ -29,7 +29,13 @@ export const DRINKING = [
   { value: 3, label: "经常" },
 ];
 
-/** 收入档位。与后端 SMALLINT 取值一一对应（1–7），7 为「不便透露」 */
+/**
+ * 收入档位，与后端 SMALLINT 1–6 一一对应。
+ *
+ * 没有「不便透露」这一档：年收入是必填项，留一个「不想说」等于把必填变成选填。
+ * 伴侣画像里的收入区间是另一套刻度（0–7，0 与 7 都表示「不限」），
+ * 用的是本列表的前 6 项，见 Onboarding 的 INCOME_LABEL_RANGE。
+ */
 export const INCOME = [
   { value: 1, label: "10 万以下" },
   { value: 2, label: "10–20 万" },
@@ -37,7 +43,6 @@ export const INCOME = [
   { value: 4, label: "30–50 万" },
   { value: 5, label: "50–100 万" },
   { value: 6, label: "100 万以上" },
-  { value: 7, label: "不便透露" },
 ];
 
 export const EDUCATION = [

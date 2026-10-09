@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Choice } from "@/components/ui/choice";
+import { OptionSheet } from "@/components/ui/option-sheet";
 import { useToast } from "@/components/ui/toast";
 import { HeightField } from "@/components/picker/height-field";
 import { BirthdayField, type Birthday } from "@/components/picker/birthday-field";
@@ -540,7 +541,13 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
       <Choice label="抽烟" options={SMOKING} value={d.smoking} onChange={(v) => set("smoking", v)} />
       <Choice label="喝酒" options={DRINKING} value={d.drinking} onChange={(v) => set("drinking", v)} />
 
-      <Choice label="年收入" options={INCOME} value={d.incomeRange} onChange={(v) => set("incomeRange", v)} columns={2} />
+      <OptionSheet
+        label="年收入"
+        options={INCOME}
+        value={d.incomeRange}
+        onChange={(v) => set("incomeRange", v)}
+        columns={2}
+      />
 
       <Choice label="学历" options={EDUCATION} value={d.education} onChange={(v) => set("education", v)} />
       <Input label="学校" value={d.school} onChange={(e) => set("school", e.target.value)} placeholder="请输入学校" maxLength={30} />
@@ -799,7 +806,7 @@ function Step4({
               onChange={(e) => { const v = Number(e.target.value); setPref("incomeMax", Math.max(v, p.incomeMin)); }}
               className="h-1.5 w-full accent-[#E4596B]" />
           </div>
-          <p className="mt-1 text-center text-[11px] text-muted-2">0 = 不限</p>
+          <p className="mt-1 text-center text-[11px] text-muted-2">两端拉到底都是「不限」</p>
         </div>
       </div>
 
@@ -837,11 +844,23 @@ function Step4({
   );
 }
 
-function INCOME_LABEL_RANGE(min: number, max: number): string {
+/**
+ * 期望收入的区间文案。
+ *
+ * 刻度是 0–7：0 与 7 都是「不限」（区间两端各一个），六档收入占 1–6。
+ * 所以下限拉到 7 时要按最高档读（「100 万以上起」），不能直接拿 INCOME[6]
+ * ——那里已经没有第七项了（「不便透露」已删）。
+ */
+export function INCOME_LABEL_RANGE(min: number, max: number): string {
   if (min === 0 && max === 7) return "不限";
-  const lo = min === 0 ? "不限" : INCOME[min - 1]?.label ?? "?";
-  const hi = max === 7 ? "不限" : INCOME[max - 1]?.label ?? "?";
+  const lo = min === 0 ? "不限" : bracketLabel(min);
+  const hi = max === 7 ? "不限" : bracketLabel(max);
   return `${lo} — ${hi}`;
+
+  function bracketLabel(step: number): string {
+    const idx = Math.min(Math.max(step, 1), INCOME.length) - 1;
+    return INCOME[idx]?.label ?? "?";
+  }
 }
 
 // ============================ Step 5 ============================

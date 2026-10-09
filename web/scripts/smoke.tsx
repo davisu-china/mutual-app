@@ -26,6 +26,9 @@ import { ProfileCard } from "../src/components/deck/profile-card";
 import { MatchOverlay } from "../src/components/deck/match-overlay";
 import { WheelPicker } from "../src/components/picker/wheel-picker";
 import { MbtiSlider, MbtiField, splitMbti, dimsToMbti } from "../src/components/profile/mbti-slider";
+import { OptionSheet } from "../src/components/ui/option-sheet";
+import { INCOME } from "../src/data/options";
+import { INCOME_LABEL_RANGE } from "../src/pages/Onboarding";
 import { calcAge } from "../src/components/picker/birthday-field";
 import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
 import { AuthProvider } from "../src/store/auth";
@@ -201,7 +204,32 @@ function mbtiChecks() {
   check("已填时同样不占版面", !filled.includes('type="range"'));
 }
 
+/** 「一行 + 弹层」的单选字段，以及收入档位本身的口径 */
+function optionSheetChecks() {
+  console.log("\n[弹层单选 / 年收入]");
+
+  check("收入档位没有「不便透露」", INCOME.every((o) => o.value !== 7));
+  check("收入档位是 6 档（1–6）", INCOME.length === 6 && INCOME[0].value === 1 && INCOME[5].value === 6);
+
+  const empty = renderToString(<OptionSheet label="年收入" options={INCOME} value={null} onChange={() => {}} />);
+  check("未选时只显示一行占位", empty.includes("年收入") && empty.includes("请选择"));
+  check("收起时不渲染选项", !empty.includes("30–50 万"));
+
+  const picked = renderToString(<OptionSheet label="年收入" options={INCOME} value={4} onChange={() => {}} />);
+  check("已选时行内显示档位文案", picked.includes("30–50 万"));
+  check("已选时也不铺开选项", !picked.includes("100 万以上"));
+
+  // 期望收入的区间刻度是 0–7（两端各一个「不限」），六档占 1–6。
+  // 删掉「不便透露」后下限拉到 7 不能再取 INCOME[6]（那里已经空了）。
+  check("区间全开显示不限", INCOME_LABEL_RANGE(0, 7) === "不限");
+  check("区间下限拉到顶按最高档读", INCOME_LABEL_RANGE(7, 7) === "100 万以上 — 不限");
+  check("区间上限拉到顶即不限", INCOME_LABEL_RANGE(3, 7) === "20–30 万 — 不限");
+  check("区间中段正常", INCOME_LABEL_RANGE(0, 4) === "不限 — 30–50 万");
+  check("区间文案里不出现问号", [0,1,3,6,7].every((a) => [0,4,7].every((b) => !INCOME_LABEL_RANGE(a, Math.max(a,b)).includes("?"))));
+}
+
 mbtiChecks();
+optionSheetChecks();
 
 // 行政区划那一段需要 await（数据是懒加载的），而构建目标不支持顶层 await，
 // 所以放到 async 函数里跑，跑完再决定退出码。
