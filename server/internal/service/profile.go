@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -63,20 +62,20 @@ type ProfileView struct {
 	OccupationOther *string `json:"occupationOther,omitempty"`
 	MBTI            *string `json:"mbti,omitempty"`
 
-	Smoking     int16 `json:"smoking"`
-	Drinking    int16 `json:"drinking"`
+	Smoking  int16 `json:"smoking"`
+	Drinking int16 `json:"drinking"`
 	// 仅在 self=true 时填充；他人查看时保持 nil + IncomeHidden=true
 	IncomeRange *int16 `json:"incomeRange,omitempty"`
-	Education   int16 `json:"education"`
+	Education   int16  `json:"education"`
 
 	School  *string `json:"school,omitempty"`
 	Company *string `json:"company,omitempty"`
 
-	IsOnlyChild       bool  `json:"isOnlyChild"`
+	IsOnlyChild       bool   `json:"isOnlyChild"`
 	EldercarePressure *int16 `json:"eldercarePressure,omitempty"`
-	HasCar            bool  `json:"hasCar"`
-	HasHouse          int16 `json:"hasHouse"`
-	IsDink            int16 `json:"isDink"`
+	HasCar            bool   `json:"hasCar"`
+	HasHouse          int16  `json:"hasHouse"`
+	IsDink            int16  `json:"isDink"`
 
 	Completeness int16  `json:"completeness"`
 	AvatarURL    string `json:"avatarUrl"`
@@ -224,14 +223,10 @@ func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, se
 		v.CompanyHidden = true
 	}
 
-	// 头像
-	var av model.UserAvatar
-	if err := db.Where("user_id = ? AND audit_status = ?", targetID, model.AuditApproved).
-		First(&av).Error; err == nil {
-		v.AvatarURL = av.URL
-	}
-
-	// 相册：只看已过审的；「仅配对后可见」的照片只有配对用户才返回
+	// 相册：只看已过审的；「仅配对后可见」的照片只有配对用户才返回。
+	// **头像就是这里的第一张**（用户 2026-10-09 定的口径：只维护一份照片），
+	// 所以顺序要在拿到 photos 之后再取——这样非配对用户看到的「脸」也只会是
+	// 「他有权看到的第一张」，不会通过头像字段漏出 match_only 的照片。
 	var photos []model.UserPhoto
 	q := db.Where("user_id = ? AND audit_status = ?", targetID, model.AuditApproved)
 	if !self {
@@ -242,6 +237,9 @@ func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, se
 		}
 	}
 	if err := q.Order("sort_order asc").Limit(9).Find(&photos).Error; err == nil {
+		if len(photos) > 0 {
+			v.AvatarURL = photos[0].URL
+		}
 		for _, ph := range photos {
 			v.Photos = append(v.Photos, PhotoView{ID: ph.ID, URL: ph.URL, SortOrder: ph.SortOrder})
 		}
@@ -290,30 +288,30 @@ func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, se
 // ---------- 写入 ----------
 
 type UpdateProfileInput struct {
-	Nickname     *string  `json:"nickname"`
-	Gender       *int16   `json:"gender"`
-	Birthday     *string  `json:"birthday"` // YYYY-MM-DD
-	HeightCm     *int16   `json:"heightCm"`
-	WeightKg     *int16   `json:"weightKg"`
-	HometownProv *string  `json:"hometownProvince"`
-	HometownCity *string  `json:"hometownCity"`
-	CityProv     *string  `json:"cityProvince"`
-	CityCity     *string  `json:"city"`
-	CityDistrict *string  `json:"cityDistrict"`
-	Occupation   *string  `json:"occupation"`
-	OccupationOther *string `json:"occupationOther"`
-	MBTI         *string  `json:"mbti"`
-	Smoking      *int16   `json:"smoking"`
-	Drinking     *int16   `json:"drinking"`
-	IncomeRange  *int16   `json:"incomeRange"`
-	Education    *int16   `json:"education"`
-	School       *string  `json:"school"`
-	Company      *string  `json:"company"`
-	IsOnlyChild  *bool    `json:"isOnlyChild"`
-	EldercarePressure *int16 `json:"eldercarePressure"`
-	HasCar       *bool    `json:"hasCar"`
-	HasHouse     *int16   `json:"hasHouse"`
-	IsDink       *int16   `json:"isDink"`
+	Nickname          *string `json:"nickname"`
+	Gender            *int16  `json:"gender"`
+	Birthday          *string `json:"birthday"` // YYYY-MM-DD
+	HeightCm          *int16  `json:"heightCm"`
+	WeightKg          *int16  `json:"weightKg"`
+	HometownProv      *string `json:"hometownProvince"`
+	HometownCity      *string `json:"hometownCity"`
+	CityProv          *string `json:"cityProvince"`
+	CityCity          *string `json:"city"`
+	CityDistrict      *string `json:"cityDistrict"`
+	Occupation        *string `json:"occupation"`
+	OccupationOther   *string `json:"occupationOther"`
+	MBTI              *string `json:"mbti"`
+	Smoking           *int16  `json:"smoking"`
+	Drinking          *int16  `json:"drinking"`
+	IncomeRange       *int16  `json:"incomeRange"`
+	Education         *int16  `json:"education"`
+	School            *string `json:"school"`
+	Company           *string `json:"company"`
+	IsOnlyChild       *bool   `json:"isOnlyChild"`
+	EldercarePressure *int16  `json:"eldercarePressure"`
+	HasCar            *bool   `json:"hasCar"`
+	HasHouse          *int16  `json:"hasHouse"`
+	IsDink            *int16  `json:"isDink"`
 
 	WeightPublic  *bool `json:"weightPublic"`
 	IncomePublic  *bool `json:"incomePublic"`
@@ -327,13 +325,13 @@ func (s *ProfileService) Update(ctx context.Context, uid int64, in UpdateProfile
 			updates := map[string]any{}
 			if in.Nickname != nil {
 				if n := len([]rune(*in.Nickname)); n < 2 || n > 12 {
-					return errors.New("昵称需要 2–12 个字")
+					return invalidInput("昵称需要 2–12 个字")
 				}
 				updates["nickname"] = *in.Nickname
 			}
 			if in.Gender != nil {
 				if *in.Gender != model.GenderMale && *in.Gender != model.GenderFemale {
-					return errors.New("性别取值不合法")
+					return invalidInput("性别取值不合法")
 				}
 				// 性别注册后锁定：已有值就不允许改（PRD 5.1）
 				var cur model.User
@@ -343,14 +341,14 @@ func (s *ProfileService) Update(ctx context.Context, uid int64, in UpdateProfile
 				// 性别一经设定就锁定（PRD 5.1）：允许首次设置，之后不可改。
 				// 否则用户可以改性别进入异性卡池，造成骚扰与数据污染。
 				if cur.Gender != nil && *cur.Gender != *in.Gender {
-					return errors.New("性别不可修改，如需变更请联系客服")
+					return invalidInput("性别不可修改，如需变更请联系客服")
 				}
 				updates["gender"] = *in.Gender
 			}
 			if in.Birthday != nil {
 				bd, err := time.Parse("2006-01-02", *in.Birthday)
 				if err != nil {
-					return errors.New("出生日期格式应为 YYYY-MM-DD")
+					return invalidInput("出生日期格式应为 YYYY-MM-DD")
 				}
 				if calcAge(bd, time.Now()) < 18 {
 					return ErrUnderage
@@ -453,12 +451,12 @@ func (s *ProfileService) SetHobbies(ctx context.Context, uid int64, hobbies []Ho
 	seen := map[string]bool{}
 	for _, h := range hobbies {
 		if seen[h.Name] {
-			return errors.New("兴趣不能重复")
+			return invalidInput("兴趣不能重复")
 		}
 		seen[h.Name] = true
 		n := len([]rune(h.Description))
 		if n < hobbyTextMin || n > hobbyTextMax {
-			return fmt.Errorf("「%s」的介绍需要 %d–%d 字", h.Name, hobbyTextMin, hobbyTextMax)
+			return invalidInput("「%s」的介绍需要 %d–%d 字", h.Name, hobbyTextMin, hobbyTextMax)
 		}
 	}
 
@@ -485,13 +483,13 @@ func (s *ProfileService) SetTexts(ctx context.Context, uid int64, aboutMe, expec
 	if aboutMe != nil {
 		n := len([]rune(*aboutMe))
 		if n < aboutMeMin || n > aboutMeMax {
-			return fmt.Errorf("「关于我」需要 %d–%d 字", aboutMeMin, aboutMeMax)
+			return invalidInput("「关于我」需要 %d–%d 字", aboutMeMin, aboutMeMax)
 		}
 	}
 	if expect != nil {
 		n := len([]rune(*expect))
 		if n < aboutMeMin || n > aboutMeMax {
-			return fmt.Errorf("「期待的那个他/她」需要 %d–%d 字", aboutMeMin, aboutMeMax)
+			return invalidInput("「期待的那个他/她」需要 %d–%d 字", aboutMeMin, aboutMeMax)
 		}
 	}
 
@@ -518,10 +516,10 @@ func (s *ProfileService) SetTexts(ctx context.Context, uid int64, aboutMe, expec
 
 func (s *ProfileService) SetPreference(ctx context.Context, uid int64, v PreferenceView) error {
 	if v.HeightMin < 130 || v.HeightMax > 230 || v.HeightMin > v.HeightMax {
-		return errors.New("期望身高范围不合法")
+		return invalidInput("期望身高范围不合法")
 	}
 	if v.IncomeMin < 0 || v.IncomeMax > 7 || v.IncomeMin > v.IncomeMax {
-		return errors.New("期望收入范围不合法")
+		return invalidInput("期望收入范围不合法")
 	}
 
 	p := model.PartnerPreference{
@@ -570,7 +568,7 @@ func (s *ProfileService) CompleteOnboarding(ctx context.Context, uid int64) erro
 			return err
 		}
 		if u.Gender == nil {
-			return errors.New("请先填写性别")
+			return invalidInput("请先填写性别")
 		}
 		if calcAge(u.Birthday, time.Now()) < 18 {
 			return ErrUnderage
@@ -579,44 +577,47 @@ func (s *ProfileService) CompleteOnboarding(ctx context.Context, uid int64) erro
 		var p model.UserProfile
 		if err := tx.First(&p, uid).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New("请先填写本人画像")
+				return invalidInput("请先填写本人画像")
 			}
 			return err
 		}
 		if missing := missingProfileFields(&p); len(missing) > 0 {
-			return fmt.Errorf("还有未填写的必填项：%v", missing)
+			return invalidInput("还有未填写的必填项：%v", missing)
 		}
 
 		var hobbies []model.UserHobby
 		tx.Where("user_id = ?", uid).Find(&hobbies)
 		if len(hobbies) != 3 {
-			return errors.New("请填写恰好 3 个兴趣爱好")
+			return invalidInput("请填写恰好 3 个兴趣爱好")
 		}
 		for _, h := range hobbies {
 			if len([]rune(h.Description)) < hobbyTextMin {
-				return fmt.Errorf("「%s」的介绍太短", h.Name)
+				return invalidInput("「%s」的介绍太短", h.Name)
 			}
 		}
 
 		var t model.UserText
 		if err := tx.First(&t, uid).Error; err != nil || t.AboutMe == nil ||
 			len([]rune(*t.AboutMe)) < aboutMeMin {
-			return errors.New("请填写「关于我」")
+			return invalidInput("请填写「关于我」")
 		}
 		if t.ExpectPartner == nil || len([]rune(*t.ExpectPartner)) < aboutMeMin {
-			return errors.New("请填写「期待的那个他/她」")
+			return invalidInput("请填写「期待的那个他/她」")
 		}
 
 		var prefCount int64
 		tx.Model(&model.PartnerPreference{}).Where("user_id = ?", uid).Count(&prefCount)
 		if prefCount == 0 {
-			return errors.New("请填写伴侣画像")
+			return invalidInput("请填写伴侣画像")
 		}
 
-		var avCount int64
-		tx.Model(&model.UserAvatar{}).Where("user_id = ?", uid).Count(&avCount)
-		if avCount == 0 {
-			return errors.New("请上传头像")
+		// 头像就是相册第一张，所以这里要求的是「至少一张已过审照片」
+		var photoCount int64
+		tx.Model(&model.UserPhoto{}).
+			Where("user_id = ? AND audit_status = ?", uid, model.AuditApproved).
+			Count(&photoCount)
+		if photoCount == 0 {
+			return invalidInput("请至少上传一张照片")
 		}
 
 		now := time.Now()

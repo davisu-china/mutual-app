@@ -47,8 +47,8 @@ interface Draft {
   hasCar: boolean | null;
   hasHouse: number | null;
   isDink: number | null;
-  avatarObjectKey: string | null;
-  avatarPreview: string | null;
+  photoObjectKey: string | null;
+  photoPreview: string | null;
   // step 2
   hobbies: { name: string; description: string }[];
   // step 3 / 5
@@ -78,7 +78,7 @@ const EMPTY: Draft = {
   smoking: null, drinking: null, incomeRange: null,
   education: null, school: "", company: "",
   isOnlyChild: null, eldercarePressure: null, hasCar: null, hasHouse: null, isDink: null,
-  avatarObjectKey: null, avatarPreview: null,
+  photoObjectKey: null, photoPreview: null,
   hobbies: [{ name: "", description: "" }, { name: "", description: "" }, { name: "", description: "" }],
   aboutMe: "", expectPartner: "",
   pref: {
@@ -161,9 +161,10 @@ export default function Onboarding() {
           hasCar: p.hasCar,
           hasHouse: p.hasHouse || null,
           isDink: p.isDink || null,
-          // 已上传过头像就不用再传一次；这里塞一个占位让校验通过
-          avatarObjectKey: p.avatarUrl ? "__existing__" : prev.avatarObjectKey,
-          avatarPreview: p.avatarUrl || prev.avatarPreview,
+          // 已经有照片就不用再传一次；这里塞一个占位让校验通过
+          // （avatarUrl 现在就是相册第一张，见后端 profile.build）
+          photoObjectKey: p.avatarUrl ? "__existing__" : prev.photoObjectKey,
+          photoPreview: p.avatarUrl || prev.photoPreview,
           hobbies: p.hobbies?.length
             ? p.hobbies.map((h) => ({ name: h.name, description: h.description }))
             : prev.hobbies,
@@ -217,7 +218,7 @@ export default function Onboarding() {
           d.incomeRange !== null && d.education !== null &&
           d.school.trim() !== "" && d.company.trim() !== "" &&
           d.isOnlyChild !== null && d.eldercarePressure !== null && d.hasCar !== null &&
-          d.hasHouse !== null && d.isDink !== null && d.avatarObjectKey !== null
+          d.hasHouse !== null && d.isDink !== null && d.photoObjectKey !== null
         );
       case 1:
         // 恰好 3 个，且每个都写了 10 字以上
@@ -275,8 +276,8 @@ export default function Onboarding() {
             hasHouse: d.hasHouse,
             isDink: d.isDink,
           });
-          if (d.avatarObjectKey && d.avatarObjectKey !== "__existing__") {
-            await api.post("/users/me/avatar/confirm", { objectKey: d.avatarObjectKey });
+          if (d.photoObjectKey && d.photoObjectKey !== "__existing__") {
+            await api.post("/users/me/photos/confirm", { objectKey: d.photoObjectKey });
           }
           break;
         }
@@ -423,7 +424,7 @@ function hintFor(step: number, d: Draft): string {
       if (d.hasCar === null) miss.push("是否有车");
       if (!d.hasHouse) miss.push("是否有房");
       if (!d.isDink) miss.push("是否丁克");
-      if (!d.avatarObjectKey) miss.push("头像");
+      if (!d.photoObjectKey) miss.push("照片");
       return miss.length ? `还差：${miss.join("、")}` : "";
     }
     case 1: {
@@ -460,18 +461,19 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  async function pickAvatar(file: File) {
+  // 头像＝相册第一张，所以这里传的就是相册里的第一张照片
+  async function pickPhoto(file: File) {
     setUploading(true);
     try {
       const pre = await api.post<{ uploadUrl: string; objectKey: string; publicUrl: string }>(
-        "/users/me/avatar/presign",
+        "/users/me/photos/presign",
         { contentType: file.type || "image/jpeg" }
       );
       await uploadToPresigned(pre.uploadUrl, file);
-      set("avatarObjectKey", pre.objectKey);
-      set("avatarPreview", URL.createObjectURL(file));
+      set("photoObjectKey", pre.objectKey);
+      set("photoPreview", URL.createObjectURL(file));
     } catch (e) {
-      toast(e instanceof ApiError ? e.message : "头像上传失败", "error");
+      toast(e instanceof ApiError ? e.message : "照片上传失败", "error");
     } finally {
       setUploading(false);
     }
@@ -484,18 +486,18 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
         这些会决定给你推荐谁，也会出现在别人看到的卡片上。
       </p>
 
-      {/* 头像 */}
+      {/* 第一张照片：它就是你的头像 / 封面（见 PRD 头像口径） */}
       <div className="flex justify-center pb-1">
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
           className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-dashed border-line bg-surface transition-colors hover:border-brand/50"
         >
-          {d.avatarPreview ? (
-            <img src={d.avatarPreview} alt="" className="h-full w-full object-cover" />
+          {d.photoPreview ? (
+            <img src={d.photoPreview} alt="" className="h-full w-full object-cover" />
           ) : (
             <span className="flex h-full flex-col items-center justify-center gap-1 text-[12px] text-muted-2">
-              {uploading ? "上传中…" : "上传头像"}
+              {uploading ? "上传中…" : "上传照片"}
             </span>
           )}
         </button>
@@ -506,13 +508,15 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void pickAvatar(f);
+            if (f) void pickPhoto(f);
             e.target.value = "";
           }}
         />
       </div>
-      {!d.avatarObjectKey && (
-        <p className="text-center text-[12px] text-muted-2">头像是必填项</p>
+      {!d.photoObjectKey && (
+        <p className="text-center text-[12px] text-muted-2">
+          至少一张照片（它就是你的头像，之后可以在「我的」里加更多并调整顺序）
+        </p>
       )}
 
       <Choice label="性别" options={GENDER} value={d.gender} onChange={(v) => set("gender", v)} />

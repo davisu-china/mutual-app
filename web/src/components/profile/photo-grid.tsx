@@ -211,7 +211,7 @@ export function PhotoGrid({ photos, onChange }: { photos: Photo[]; onChange: (p:
       </div>
 
       <p className="mt-2 text-[11.5px] leading-relaxed text-muted-2">
-        第 1 张是封面图，会出现在划卡与广场列表里
+        第 1 张就是你的头像与封面，会出现在划卡、广场和聊天列表里
       </p>
 
       <input

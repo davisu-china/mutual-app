@@ -201,7 +201,14 @@ func (s *DiscoveryService) fetchCandidates(
 		       u.created_at
 		FROM users u
 		JOIN user_profiles p ON p.user_id = u.id
-		LEFT JOIN user_avatars av ON av.user_id = u.id AND av.audit_status = 'approved'
+		-- 头像＝相册里第一张已过审的照片（用户 2026-10-09 定的口径：只维护一份照片）。
+		-- 用 LATERAL 而不是关联子查询，让「取第一张」只算一次；别名仍叫 av，
+		-- 所以上面 SELECT 里的 COALESCE(av.url,'') 和后面的扫描代码都不用动。
+		LEFT JOIN LATERAL (
+		    SELECT ph.url FROM user_photos ph
+		     WHERE ph.user_id = u.id AND ph.audit_status = 'approved'
+		     ORDER BY ph.sort_order ASC LIMIT 1
+		) av ON true
 		LEFT JOIN partner_preferences pref ON pref.user_id = u.id
 		WHERE u.id <> ?
 		  AND u.gender = ?
@@ -484,7 +491,14 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 		       0,0,0,0,0,0,0,0,0,0,0,'{}','{}'
 		FROM users u
 		JOIN user_profiles p ON p.user_id = u.id
-		LEFT JOIN user_avatars av ON av.user_id = u.id AND av.audit_status = 'approved'
+		-- 头像＝相册里第一张已过审的照片（用户 2026-10-09 定的口径：只维护一份照片）。
+		-- 用 LATERAL 而不是关联子查询，让「取第一张」只算一次；别名仍叫 av，
+		-- 所以上面 SELECT 里的 COALESCE(av.url,'') 和后面的扫描代码都不用动。
+		LEFT JOIN LATERAL (
+		    SELECT ph.url FROM user_photos ph
+		     WHERE ph.user_id = u.id AND ph.audit_status = 'approved'
+		     ORDER BY ph.sort_order ASC LIMIT 1
+		) av ON true
 		WHERE u.id <> ?
 		  AND u.status = 'active'
 		  AND u.onboarded_at IS NOT NULL

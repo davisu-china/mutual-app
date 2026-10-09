@@ -71,7 +71,13 @@ func mapErr(c *gin.Context, err error) {
 		fail(c, http.StatusBadRequest, "EMPTY_MESSAGE", err.Error())
 
 	default:
-		// 未知错误统一 500，不把内部细节透给客户端
+		// 「用户填的内容不合法」这类错误的消息是写给用户看的，原样透出（400）。
+		// 剩下的未知错误统一 500，不把内部细节漏给客户端。
+		var inv service.InvalidInputError
+		if errors.As(err, &inv) {
+			fail(c, http.StatusBadRequest, "INVALID_INPUT", inv.Msg)
+			return
+		}
 		fail(c, http.StatusInternalServerError, "INTERNAL", "服务暂时不可用，请稍后重试")
 	}
 }

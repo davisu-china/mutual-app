@@ -120,7 +120,7 @@ console.log("\n=== 2. 关键组件渲染 ===");
   const html = renderPage("PhotoGrid", <PhotoGrid photos={photos} onChange={() => {}} />);
   check("相册标出主图", html.includes("主图"));
   check("相册有上传入口（图标版，带无障碍标签）", html.includes('aria-label="添加照片"') && html.includes("<svg"));
-  check("提示第一张是封面", html.includes("封面图"));
+  check("提示第 1 张就是头像与封面", html.includes("头像与封面"));
 }
 
 {
@@ -306,6 +306,10 @@ function iconChecks() {
   const rowNoIcon = renderToString(<FieldRow label="不存在的字段" value="x" onClick={() => {}} />);
   check("有图标的字段是「图标 + 行尾箭头」两个 svg", svgCount(row) === 2, `实际 ${svgCount(row)}`);
   check("没登记的字段只有行尾箭头（不多画）", svgCount(rowNoIcon) === 1 && rowNoIcon.includes("不存在的字段"));
+
+  // 头像＝相册第一张：onboarding 那一栏应当传的是「照片」而不是「头像」
+  const ob = renderToString(wrap(<Onboarding />, "/onboarding"));
+  check("onboarding 要求传照片（不再是单独的头像）", ob.includes("上传照片") && ob.includes("它就是你的头像"));
 
   const empty = renderToString(<Empty title="还没有人喜欢你" desc="多传几张照片" />);
   check("空态有默认图标底衬", empty.includes("<svg") && empty.includes("还没有人喜欢你"));

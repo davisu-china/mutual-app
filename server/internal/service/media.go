@@ -114,10 +114,10 @@ func (s *UploadService) isMatchedWith(ctx context.Context, a, b int64) (bool, er
 func (s *UploadService) PutMedia(ctx context.Context, key, contentType string, r io.Reader, size int64) error {
 	prefix, _, ok := ParseMediaKey(key)
 	if !ok {
-		return errors.New("对象名不合法")
+		return invalidInput("对象名不合法")
 	}
 	if !isAllowedImageType(contentType) {
-		return errors.New("仅支持 jpg / png / webp 图片")
+		return invalidInput("仅支持 jpg / png / webp 图片")
 	}
 	_, err := s.storage.Client.PutObject(ctx, s.bucketOf(prefix), key, r, size,
 		minio.PutObjectOptions{ContentType: contentType})

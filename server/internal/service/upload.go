@@ -61,7 +61,7 @@ func (s *UploadService) PresignAvatar(ctx context.Context, uid int64, contentTyp
 
 func (s *UploadService) presign(ctx context.Context, uid int64, prefix, contentType string) (*PresignResult, error) {
 	if !isAllowedImageType(contentType) {
-		return nil, errors.New("仅支持 jpg / png / webp 图片")
+		return nil, invalidInput("仅支持 jpg / png / webp 图片")
 	}
 
 	ext := extFor(contentType)
@@ -163,9 +163,13 @@ func (s *UploadService) DeletePhoto(ctx context.Context, uid, photoID int64) err
 
 // ReorderPhotos 提交拖拽后的新顺序。
 //
-// 走「两步更新」：先把这组顺序号整体推到负数区间，再写回目标值。
-// 否则直接更新会撞 (user_id, sort_order) 的唯一约束——
-// 唯一约束是 DEFERRABLE 的，但用负号区间更稳妥，也不依赖事务隔离级别。
+// 直接按新顺序逐条写回即可：uq_photo_order 是 DEFERRABLE INITIALLY DEFERRED，
+// 唯一性推迟到事务提交时才校验，所以中途出现重复值不会被拒。
+//
+// ⚠️ 这里原本先把整组顺序号取负「腾位置」，但表上有
+// CHECK (sort_order BETWEEN 1 AND 9) —— 负值直接违反约束，事务整条回滚。
+// 也就是说**相册拖拽排序一直是坏的**，任何一次换序都会失败。
+// 约束本来就是延迟的，那一步从一开始就是多余的。
 func (s *UploadService) ReorderPhotos(ctx context.Context, uid int64, orderedIDs []int64) error {
 	if len(orderedIDs) == 0 {
 		return ErrBadOrderPayload
@@ -190,14 +194,6 @@ func (s *UploadService) ReorderPhotos(ctx context.Context, uid int64, orderedIDs
 			}
 		}
 
-		// 第一步：整体挪到负数区间，腾出位置
-		if err := tx.Exec(`
-			UPDATE user_photos SET sort_order = -sort_order WHERE user_id = ?
-		`, uid).Error; err != nil {
-			return err
-		}
-
-		// 第二步：按新顺序写回
 		for i, id := range orderedIDs {
 			if err := tx.Exec(`
 				UPDATE user_photos SET sort_order = ? WHERE id = ? AND user_id = ?

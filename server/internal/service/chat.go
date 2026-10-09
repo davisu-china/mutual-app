@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	ErrNotInConversation = errors.New("无权访问该会话")
+	ErrNotInConversation  = errors.New("无权访问该会话")
 	ErrConversationClosed = errors.New("会话已关闭")
-	ErrEmptyMessage      = errors.New("消息内容不能为空")
+	ErrEmptyMessage       = errors.New("消息内容不能为空")
 )
 
 const maxMessageLen = 1000
@@ -77,7 +77,14 @@ func (s *ChatService) Conversations(ctx context.Context, uid int64, limit int) (
 		JOIN match_records m ON m.id = c.match_id
 		JOIN users u ON u.id = CASE WHEN c.user_a = $1 THEN c.user_b ELSE c.user_a END
 		LEFT JOIN user_profiles p ON p.user_id = u.id
-		LEFT JOIN user_avatars av ON av.user_id = u.id AND av.audit_status = 'approved'
+		-- 头像＝相册里第一张已过审的照片（用户 2026-10-09 定的口径：只维护一份照片）。
+		-- 用 LATERAL 而不是关联子查询，让「取第一张」只算一次；别名仍叫 av，
+		-- 所以上面 SELECT 里的 COALESCE(av.url,'') 和后面的扫描代码都不用动。
+		LEFT JOIN LATERAL (
+		    SELECT ph.url FROM user_photos ph
+		     WHERE ph.user_id = u.id AND ph.audit_status = 'approved'
+		     ORDER BY ph.sort_order ASC LIMIT 1
+		) av ON true
 		LEFT JOIN LATERAL (
 		    SELECT msg_type, content FROM messages
 		    WHERE conversation_id = c.id

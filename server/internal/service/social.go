@@ -19,16 +19,16 @@ func NewSocialService(db *gorm.DB) *SocialService {
 
 // Interactor 是「谁喜欢我 / 谁看过我」列表里的一行。
 type Interactor struct {
-	UserID       int64      `json:"userId"`
-	Nickname     string     `json:"nickname"`
-	Age          int        `json:"age"`
-	Gender       int16      `json:"gender"`
-	HeightCm     int16      `json:"heightCm"`
-	CityCity     string     `json:"city"`
-	Occupation   string     `json:"occupation"`
-	AvatarURL    string     `json:"avatarUrl"`
-	Completeness int16      `json:"completeness"`
-	ActedAt      time.Time  `json:"actedAt"`
+	UserID       int64     `json:"userId"`
+	Nickname     string    `json:"nickname"`
+	Age          int       `json:"age"`
+	Gender       int16     `json:"gender"`
+	HeightCm     int16     `json:"heightCm"`
+	CityCity     string    `json:"city"`
+	Occupation   string    `json:"occupation"`
+	AvatarURL    string    `json:"avatarUrl"`
+	Completeness int16     `json:"completeness"`
+	ActedAt      time.Time `json:"actedAt"`
 	// 只有「谁喜欢我」才有：对方喜欢我的时间
 	LikedAt *time.Time `json:"likedAt,omitempty"`
 	// 已经配对的话带上 matchId，前端可直接跳会话
@@ -52,7 +52,14 @@ func (s *SocialService) LikesMe(ctx context.Context, uid int64, limit int) ([]In
 		FROM user_actions a
 		JOIN users u ON u.id = a.from_user
 		JOIN user_profiles p ON p.user_id = u.id
-		LEFT JOIN user_avatars av ON av.user_id = u.id AND av.audit_status = 'approved'
+		-- 头像＝相册里第一张已过审的照片（用户 2026-10-09 定的口径：只维护一份照片）。
+		-- 用 LATERAL 而不是关联子查询，让「取第一张」只算一次；别名仍叫 av，
+		-- 所以上面 SELECT 里的 COALESCE(av.url,'') 和后面的扫描代码都不用动。
+		LEFT JOIN LATERAL (
+		    SELECT ph.url FROM user_photos ph
+		     WHERE ph.user_id = u.id AND ph.audit_status = 'approved'
+		     ORDER BY ph.sort_order ASC LIMIT 1
+		) av ON true
 		WHERE a.to_user = ?
 		  AND a.action = 'like'
 		  AND u.status = 'active'
@@ -108,7 +115,14 @@ func (s *SocialService) VisitsMe(ctx context.Context, uid int64, limit int) ([]I
 		FROM user_actions a
 		JOIN users u ON u.id = a.from_user
 		JOIN user_profiles p ON p.user_id = u.id
-		LEFT JOIN user_avatars av ON av.user_id = u.id AND av.audit_status = 'approved'
+		-- 头像＝相册里第一张已过审的照片（用户 2026-10-09 定的口径：只维护一份照片）。
+		-- 用 LATERAL 而不是关联子查询，让「取第一张」只算一次；别名仍叫 av，
+		-- 所以上面 SELECT 里的 COALESCE(av.url,'') 和后面的扫描代码都不用动。
+		LEFT JOIN LATERAL (
+		    SELECT ph.url FROM user_photos ph
+		     WHERE ph.user_id = u.id AND ph.audit_status = 'approved'
+		     ORDER BY ph.sort_order ASC LIMIT 1
+		) av ON true
 		WHERE a.to_user = ?
 		  AND a.action = 'visit'
 		  AND u.status = 'active'
@@ -186,7 +200,14 @@ func (s *SocialService) MatchList(ctx context.Context, uid int64, limit int) ([]
 		FROM match_records m
 		JOIN users u ON u.id = CASE WHEN m.user_a = ? THEN m.user_b ELSE m.user_a END
 		JOIN user_profiles p ON p.user_id = u.id
-		LEFT JOIN user_avatars av ON av.user_id = u.id AND av.audit_status = 'approved'
+		-- 头像＝相册里第一张已过审的照片（用户 2026-10-09 定的口径：只维护一份照片）。
+		-- 用 LATERAL 而不是关联子查询，让「取第一张」只算一次；别名仍叫 av，
+		-- 所以上面 SELECT 里的 COALESCE(av.url,'') 和后面的扫描代码都不用动。
+		LEFT JOIN LATERAL (
+		    SELECT ph.url FROM user_photos ph
+		     WHERE ph.user_id = u.id AND ph.audit_status = 'approved'
+		     ORDER BY ph.sort_order ASC LIMIT 1
+		) av ON true
 		WHERE (m.user_a = ? OR m.user_b = ?)
 		  AND m.status = ?
 		ORDER BY m.matched_at DESC
