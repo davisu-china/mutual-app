@@ -29,6 +29,16 @@ func NewChatService(db *gorm.DB) *ChatService {
 	return &ChatService{db: db}
 }
 
+// PeerView 是「对话里的另一个人」，聊天室标题和消息头像都靠它。
+//
+// 之前聊天室的标题是「会话 3」这种占位符——因为消息接口只回消息，前端根本
+// 不知道对面是谁。让对方信息跟着消息一起回来，是为了一次请求就把这一屏渲染完整。
+type PeerView struct {
+	UserID    int64  `json:"userId"`
+	Nickname  string `json:"nickname"`
+	AvatarURL string `json:"avatarUrl"`
+}
+
 type ConversationView struct {
 	ID            int64      `json:"id"`
 	MatchID       int64      `json:"matchId"`
@@ -121,6 +131,28 @@ func (s *ChatService) Conversations(ctx context.Context, uid int64, limit int) (
 }
 
 // Messages 拉取历史消息（游标分页，按 seq 倒序取，返回时正序）。
+// Peer 取这段会话里的另一个人（头像＝相册第一张，和列表口径一致）。
+func (s *ChatService) Peer(ctx context.Context, uid, convID int64) (*PeerView, error) {
+	if err := s.assertMember(ctx, uid, convID); err != nil {
+		return nil, err
+	}
+	var out PeerView
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT u.id, u.nickname, COALESCE(av.url, '') AS avatar_url
+		FROM conversations c
+		JOIN users u ON u.id = CASE WHEN c.user_a = $2 THEN c.user_b ELSE c.user_a END
+		LEFT JOIN LATERAL (
+		    SELECT ph.url FROM user_photos ph
+		     WHERE ph.user_id = u.id AND ph.audit_status = 'approved'
+		     ORDER BY ph.sort_order ASC LIMIT 1
+		) av ON true
+		WHERE c.id = $1`, convID, uid).Row().Scan(&out.UserID, &out.Nickname, &out.AvatarURL)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (s *ChatService) Messages(ctx context.Context, uid, convID int64, beforeSeq int64, limit int) ([]MessageView, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 30

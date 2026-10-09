@@ -103,6 +103,8 @@ export function ChatRoom() {
   const convId = Number(id);
 
   const [msgs, setMsgs] = useState<Message[] | null>(null);
+  const [peer, setPeer] = useState<{ userId: number; nickname: string; avatarUrl: string } | null>(null);
+  const [myAvatar, setMyAvatar] = useState("");
   const [text, setText] = useState("");
   const [frozen, setFrozen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -116,8 +118,12 @@ export function ChatRoom() {
 
   const load = useCallback(async () => {
     try {
-      const r = await api.get<{ items: Message[] }>(`/conversations/${convId}/messages`);
+      const r = await api.get<{
+        items: Message[];
+        peer: { userId: number; nickname: string; avatarUrl: string };
+      }>(`/conversations/${convId}/messages`);
       setMsgs(r.items ?? []);
+      setPeer(r.peer ?? null);
       await api.post(`/conversations/${convId}/read`);
       scrollToBottom(false);
     } catch (e) {
@@ -128,6 +134,11 @@ export function ChatRoom() {
 
   useEffect(() => {
     void load();
+    // 自己的头像：消息行要展示「谁发的」，左侧对方、右侧自己
+    api
+      .get<{ avatarUrl: string }>("/users/me")
+      .then((p) => setMyAvatar(p.avatarUrl))
+      .catch(() => {});
   }, [load]);
 
   // WebSocket：在线时对方的消息即时到达
@@ -235,9 +246,31 @@ export function ChatRoom() {
         <button type="button" onClick={() => nav("/chat")} className="text-muted-2" aria-label="返回">
           <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
         </button>
-        <span className="flex-1 text-[15px] font-semibold text-ink">
-          {msgs?.length ? `会话 ${convId}` : "聊天"}
-        </span>
+        <button
+          type="button"
+          onClick={() => peer && nav(`/u/${peer.userId}`)}
+          disabled={!peer}
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left disabled:cursor-default"
+        >
+          {peer?.avatarUrl ? (
+            <img
+              src={peer.avatarUrl}
+              alt=""
+              decoding="async"
+              className="h-9 w-9 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <span className="h-9 w-9 shrink-0 rounded-full bg-line-soft" aria-hidden="true" />
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-semibold text-ink">
+              {peer?.nickname ?? "聊天"}
+            </span>
+            <span className="block text-[11.5px] text-muted-2">
+              {frozen ? "会话已关闭" : "点这里看 TA 的资料"}
+            </span>
+          </span>
+        </button>
       </header>
 
       <main className="mx-auto w-full max-w-[520px] flex-1 overflow-y-auto overscroll-contain px-4 py-4">
@@ -248,31 +281,17 @@ export function ChatRoom() {
             <p className="mb-4 text-center text-[11.5px] text-muted-2">
               你们互相喜欢之后开始了这段对话
             </p>
-            {msgs.map((m) => {
-              // 用当前登录用户 id 判断左右，而不是靠 0 之类的哨兵值
-              const mine = m.fromUser === myId || m.fromUser === -1;
-              return (
-                <div key={`${m.id}-${m.clientMsgId ?? ""}`} className="mb-2 flex">
-                  <div
-                    className={cn(
-                      "max-w-[76%] break-words rounded-2xl px-3.5 py-2.5 text-[14px] leading-relaxed",
-                      mine
-                        ? "ml-auto rounded-br-[5px] bg-gradient-to-br from-[#EF7183] to-[#D8445C] text-white"
-                        : "rounded-bl-[5px] border border-line-soft bg-surface text-ink",
-                      m.status === "failed" && "opacity-60"
-                    )}
-                  >
-                    {m.content}
-                    {m.status === "sending" && (
-                      <span className="ml-2 text-[11px] opacity-60">发送中</span>
-                    )}
-                    {m.status === "failed" && (
-                      <span className="ml-2 text-[11px] opacity-80">发送失败</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {msgs.map((m, i) => (
+              <MessageRow
+                key={`${m.id}-${m.clientMsgId ?? ""}`}
+                message={m}
+                mine={m.fromUser === myId || m.fromUser === -1}
+                myAvatar={myAvatar}
+                peerAvatar={peer?.avatarUrl ?? ""}
+                // 同一个人连着发的，只在第一条显示头像——每条都画会糊成一片
+                showAvatar={i === 0 || msgs[i - 1].fromUser !== m.fromUser}
+              />
+            ))}
             <div ref={bottomRef} />
           </>
         )}
@@ -305,6 +324,60 @@ export function ChatRoom() {
           </button>
         </div>
       </footer>
+    </div>
+  );
+}
+
+/**
+ * 一条消息。
+ *
+ * 头像不是可有可无的装饰：只靠气泡左右分色，用户扫下来还是要在脑子里过一遍
+ * 「这条是谁发的」。左右各挂一张脸之后一眼就能分清（和主流 IM 一致）。
+ * 同一人连续发言时只在第一条画头像，其余留出等宽占位，纵向对齐不跳动。
+ */
+export function MessageRow({
+  message,
+  mine,
+  myAvatar,
+  peerAvatar,
+  showAvatar,
+}: {
+  message: Message;
+  mine: boolean;
+  myAvatar: string;
+  peerAvatar: string;
+  showAvatar: boolean;
+}) {
+  const avatar = mine ? myAvatar : peerAvatar;
+  return (
+    <div className={cn("mb-2 flex items-end gap-2", mine && "flex-row-reverse")}>
+      {showAvatar ? (
+        avatar ? (
+          <img
+            src={avatar}
+            alt=""
+            decoding="async"
+            className="h-8 w-8 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <span className="h-8 w-8 shrink-0 rounded-full bg-line-soft" aria-hidden="true" />
+        )
+      ) : (
+        <span className="h-8 w-8 shrink-0" aria-hidden="true" />
+      )}
+      <div
+        className={cn(
+          "max-w-[76%] break-words rounded-2xl px-3.5 py-2.5 text-[14px] leading-relaxed",
+          mine
+            ? "rounded-br-[5px] bg-gradient-to-br from-[#EF7183] to-[#D8445C] text-white"
+            : "rounded-bl-[5px] border border-line-soft bg-surface text-ink",
+          message.status === "failed" && "opacity-60"
+        )}
+      >
+        {message.content}
+        {message.status === "sending" && <span className="ml-2 text-[11px] opacity-60">发送中</span>}
+        {message.status === "failed" && <span className="ml-2 text-[11px] opacity-80">发送失败</span>}
+      </div>
     </div>
   );
 }

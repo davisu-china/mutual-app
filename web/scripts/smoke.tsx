@@ -20,7 +20,7 @@ import Plaza from "../src/pages/Plaza";
 import Likes from "../src/pages/Likes";
 import Profile from "../src/pages/Profile";
 import UserDetail from "../src/pages/UserDetail";
-import { ChatEntry, ChatList, ChatRoom } from "../src/pages/Chat";
+import { ChatEntry, ChatList, ChatRoom, MessageRow } from "../src/pages/Chat";
 import { PhotoGrid } from "../src/components/profile/photo-grid";
 import { ProfileCard } from "../src/components/deck/profile-card";
 import { MatchOverlay } from "../src/components/deck/match-overlay";
@@ -47,7 +47,7 @@ import { WEIGHT_DEFAULT_BY_GENDER, WEIGHT_QUICK_PICKS_BY_GENDER, WeightField } f
 import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
 import { AuthProvider } from "../src/store/auth";
 import { ToastProvider } from "../src/components/ui/toast";
-import type { Card, Photo } from "../src/lib/api";
+import type { Card, Message, Photo } from "../src/lib/api";
 
 let failed = 0;
 function check(name: string, cond: boolean, extra = "") {
@@ -131,6 +131,35 @@ console.log("\n=== 2. 关键组件渲染 ===");
   );
   check("配对文案说人话（不是「匹配成功」）", html.includes("你们互相喜欢"));
   check("有去聊天入口", html.includes("去打个招呼"));
+}
+
+// 聊天：消息行要能看出「谁发的」——左右各挂一张头像
+{
+  const msg: Message = {
+    id: 1, fromUser: 2, msgType: "text", content: "你好呀", seq: 1,
+    status: "ok", createdAt: new Date().toISOString(),
+  };
+  console.log("\n[聊天消息行]");
+  const mine = renderToString(
+    <MessageRow message={msg} mine myAvatar="/m/mine.jpg" peerAvatar="/m/peer.jpg" showAvatar />
+  );
+  check("自己的消息用自己的头像", mine.includes("/m/mine.jpg") && !mine.includes("/m/peer.jpg"));
+  const peer = renderToString(
+    <MessageRow message={msg} mine={false} myAvatar="/m/mine.jpg" peerAvatar="/m/peer.jpg" showAvatar />
+  );
+  check("对方的消息用对方的头像", peer.includes("/m/peer.jpg") && !peer.includes("/m/mine.jpg"));
+  const grouped = renderToString(
+    <MessageRow message={msg} mine={false} myAvatar="/m/mine.jpg" peerAvatar="/m/peer.jpg" showAvatar={false} />
+  );
+  check("连着发的第二条不再画头像（留等宽占位）", !grouped.includes("<img") && grouped.includes("你好呀"));
+  const failed = renderToString(
+    <MessageRow message={{ ...msg, status: "failed" }} mine myAvatar="/m/mine.jpg" peerAvatar="" showAvatar />
+  );
+  check("发送失败仍然标出来", failed.includes("发送失败"));
+  const noAvatar = renderToString(
+    <MessageRow message={msg} mine={false} myAvatar="" peerAvatar="" showAvatar />
+  );
+  check("没有头像时用占位圆点，不塌陷", noAvatar.includes("rounded-full") && noAvatar.includes("你好呀"));
 }
 
 {

@@ -34,12 +34,20 @@ func (h *ChatHandler) Messages(c *gin.Context) {
 	}
 	beforeSeq, _ := strconv.ParseInt(c.DefaultQuery("beforeSeq", "0"), 10, 64)
 
-	msgs, err := h.svc.Messages(c.Request.Context(), middleware.UserID(c), convID, beforeSeq, 30)
+	uid := middleware.UserID(c)
+	msgs, err := h.svc.Messages(c.Request.Context(), uid, convID, beforeSeq, 30)
 	if err != nil {
 		mapErr(c, err)
 		return
 	}
-	ok(c, gin.H{"items": msgs})
+	// 对方是谁一并带回：聊天室标题要显示昵称与头像，
+	// 否则前端只能显示「会话 3」这种没有信息量的占位符。
+	peer, err := h.svc.Peer(c.Request.Context(), uid, convID)
+	if err != nil {
+		mapErr(c, err)
+		return
+	}
+	ok(c, gin.H{"items": msgs, "peer": peer})
 }
 
 type sendReq struct {
