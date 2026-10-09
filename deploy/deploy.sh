@@ -131,6 +131,16 @@ log "同步产物"
 # 差别只在 vhost 里怎么引用它
 mkdir -p "$WEB_STAGE" "$WEB_DIR" "$API_DIR"
 install -m 0755 /tmp/mutual-api "$API_DIR/mutual-api"
+# 日志文件必须在这里就建好并交给运行用户。
+#
+# $API_DIR 是 root 用 mkdir 建的（755），而服务以 $RUN_USER 身份跑，
+# 第 6 步里 sh 的重定向 `>> $API_DIR/api.log` 打不开文件 —— sh 直接退出码 1，
+# **二进制根本没被执行**，于是 systemd 无限重启，日志里连一行报错都没有
+# （因为报错本身就要写进那个建不出来的文件）。
+# 症状极具迷惑性：进程在跑、端口没人听、journal 里只有 exit-code。
+touch "$API_DIR/api.log"
+chown "$RUN_USER" "$API_DIR/api.log"
+chmod 0640 "$API_DIR/api.log"
 rm -rf "${WEB_STAGE:?}/"*
 cp -r "$REPO/web/dist-deploy/." "$WEB_STAGE/"
 cp -r "$REPO/web/dist-deploy/." "$WEB_DIR/"
@@ -336,6 +346,14 @@ for _ in $(seq 1 25); do
 done
 echo
 if [ "$API_OK" != "1" ]; then
+  # 日志文件不存在是最难查的一种：服务日志里什么都看不到。
+  # 根因几乎总是目录属主不对（服务用户建不出文件 ⇒ sh 的重定向直接失败）。
+  if [ ! -f "$API_DIR/api.log" ]; then
+    echo "⚠️  $API_DIR/api.log 不存在。"
+    echo "    服务以 $RUN_USER 运行，但 $API_DIR 属主是 $(stat -c '%U:%G %a' "$API_DIR" 2>/dev/null)。"
+    echo "    若属主不是 $RUN_USER，sh 无法创建日志文件、退出码 1，二进制从未被执行。"
+    echo "    修：chown $RUN_USER $API_DIR  然后 systemctl restart mutual-api"
+  fi
   echo "--- journalctl ---"; journalctl -u mutual-api -n 30 --no-pager 2>/dev/null || true
   echo "--- $API_DIR/api.log ---"; tail -30 "$API_DIR/api.log" 2>/dev/null || true
   die "API 没起来，日志见上"
