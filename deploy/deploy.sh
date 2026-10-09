@@ -53,6 +53,9 @@ fi
 # 宿主 $NGINX_HTML 的只读挂载，所以网站文件必须放在这里容器才看得见。
 WEB_IN_CONTAINER="/usr/share/nginx/html/mutual"
 WEB_STAGE="$NGINX_HTML/mutual"
+# React Native App 的网页预览（react-native-web）落点：/app/
+APP_IN_CONTAINER="/usr/share/nginx/html/app"
+APP_STAGE="$NGINX_HTML/app"
 
 # 两种模式的差异收敛成两个变量
 if [ -n "$SUBPATH" ]; then
@@ -149,6 +152,26 @@ rm -rf "${WEB_DIR:?}/"*
 cp -r "$REPO/web/dist-deploy/." "$WEB_DIR/"
 chmod -R a+rX "$WEB_STAGE" "$WEB_DIR"
 echo "  ✓ 后端 $(du -h "$API_DIR/mutual-api" | cut -f1)，前端 $(find "$WEB_STAGE" -type f | wc -l) 个文件"
+
+# App 的网页预览：同一份 React Native 组件代码编译成网页（react-native-web）。
+# 放在 /app/ 下，方便在手机上先用浏览器看 UI —— 真机手感（触觉、原生滚轮惯性）
+# 还是得用 Expo Go。构建失败不阻断整体部署：它只是个预览，不该拖垮线上。
+if [ -d "$REPO/mobile" ]; then
+  if sudo -u "$RUN_USER" -H bash -lc "
+      set -e
+      cd '$REPO/mobile'
+      NODE_ENV=development npm install --no-audit --no-fund >/dev/null 2>&1
+      NODE_ENV=development npx expo export --platform web --output-dir /tmp/mutual-app-web --clear >/dev/null
+    "; then
+    mkdir -p "$APP_STAGE"
+    rm -rf "${APP_STAGE:?}/"*
+    cp -r /tmp/mutual-app-web/. "$APP_STAGE/"
+    chmod -R a+rX "$APP_STAGE"
+    echo "  ✓ App 网页预览已就位（$(find "$APP_STAGE" -type f | wc -l) 个文件）"
+  else
+    warn "App 网页预览构建失败（不影响网站与接口）"
+  fi
+fi
 
 # ================================================================ 4. 数据库
 log "准备数据库"
@@ -432,7 +455,11 @@ WEB_LOC="location ${LOC_MOD}${WEB_URL_PATH} {
 # 而 index.html 必须不缓存：不给这个头，浏览器会按「距上次修改时间的 10%」
 # 启发式缓存，于是**部署完了用户可能几个小时都看不到新版本**——
 # 自己测的时候最容易误判成「改了没生效」。
-CACHE_LOC="location ^~ ${WEB_URL_PATH}assets/ {
+CACHE_LOC="location ^~ /app/ {
+    alias ${APP_IN_CONTAINER}/;
+    try_files \$uri \$uri/ /app/index.html;
+}
+    location ^~ ${WEB_URL_PATH}assets/ {
     alias ${WEB_IN_CONTAINER}/assets/;
     add_header Cache-Control \"public, max-age=31536000, immutable\";
 }
@@ -643,6 +670,27 @@ LOC
     END { if (!done) exit 3 }' "$NGINX_CONF" > /tmp/mutual.nginx.new || die "没找到锚点「$ANCHOR」，无法补缓存头配置"
   cat /tmp/mutual.nginx.new > "$NGINX_CONF"
   echo "  ✓ 已补上静态资源缓存头（assets 永久缓存 / index.html 不缓存）"
+fi
+
+# App 网页预览的 location 同样要能补进老部署
+if ! grep -qF "location ^~ /app/ {" "$NGINX_CONF"; then
+  cp "$NGINX_CONF" "$NGINX_CONF.bak.mutual.$(date +%Y%m%d-%H%M%S)"
+  if [ "$MODE" = "subpath" ]; then ANCHOR="$MARK"; else ANCHOR="server_name $DOMAIN;"; fi
+  cat > /tmp/mutual.app.loc <<LOC
+        location ^~ /app/ {
+            alias ${APP_IN_CONTAINER}/;
+            try_files \$uri \$uri/ /app/index.html;
+        }
+LOC
+  awk -v ins=/tmp/mutual.app.loc -v anchor="$ANCHOR" '
+    BEGIN { done = 0 }
+    { print }
+    { if (!done && index($0, anchor) > 0) {
+        while ((getline l < ins) > 0) print l
+        close(ins); done = 1
+      } }' "$NGINX_CONF" > /tmp/mutual.nginx.new || die "补 /app/ 配置失败"
+  cat /tmp/mutual.nginx.new > "$NGINX_CONF"
+  echo "  ✓ 已补上 App 网页预览的 /app/ 路由"
 fi
 
 if ! docker exec "$NGINX_CONTAINER" nginx -t; then

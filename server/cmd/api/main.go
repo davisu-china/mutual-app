@@ -105,7 +105,7 @@ func main() {
 		Disc:    handler.NewDiscoveryHandler(discSvc, actionSvc, socialSvc),
 		Chat:    handler.NewChatHandler(chatSvc),
 		Upload:  handler.NewUploadHandler(uploadSvc),
-		Media:   handler.NewMediaHandler(uploadSvc, cfg),
+		Media:   handler.NewMediaHandler(uploadSvc, cfg, issuer),
 		WS:      handler.NewWSChatHandler(),
 	})
 

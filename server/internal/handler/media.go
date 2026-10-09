@@ -24,25 +24,36 @@ const maxUploadByte = 10 << 20
 // 浏览器里的 <img> 和上传的 PUT 都带不了 Authorization 头，所以这里用签名 cookie
 // 认人（见 auth.MediaCookieName / middleware.MediaCookie），而不是 Bearer。
 type MediaHandler struct {
-	svc *service.UploadService
-	cfg *config.Config
+	svc    *service.UploadService
+	cfg    *config.Config
+	issuer *auth.Issuer
 }
 
-func NewMediaHandler(svc *service.UploadService, cfg *config.Config) *MediaHandler {
-	return &MediaHandler{svc: svc, cfg: cfg}
+func NewMediaHandler(svc *service.UploadService, cfg *config.Config, issuer *auth.Issuer) *MediaHandler {
+	return &MediaHandler{svc: svc, cfg: cfg, issuer: issuer}
 }
 
-// viewer 从读图 cookie 里取用户 id；没有或无效返回 0。
+// viewer 认两种凭证：
+//  1. 读图 cookie —— 浏览器里的 <img> 带不了 Authorization 头，只能靠 cookie；
+//  2. Authorization: Bearer —— 原生 App（React Native）的图片组件支持自定义头，
+//     让它复用登录令牌即可，不必去模拟浏览器那套 cookie。
+//
+// 两者取其一，都没有就返回 0（调用方回 401）。
 func (h *MediaHandler) viewer(c *gin.Context) int64 {
-	raw, err := c.Cookie(auth.MediaCookieName)
-	if err != nil || raw == "" {
-		return 0
+	if raw, err := c.Cookie(auth.MediaCookieName); err == nil && raw != "" {
+		if uid, _, ok := auth.VerifyMediaToken(h.cfg.JWTSecret, raw); ok {
+			return uid
+		}
 	}
-	uid, _, ok := auth.VerifyMediaToken(h.cfg.JWTSecret, raw)
-	if !ok {
-		return 0
+	if h.issuer != nil {
+		raw := c.GetHeader("Authorization")
+		if strings.HasPrefix(raw, "Bearer ") {
+			if claims, err := h.issuer.Parse(strings.TrimPrefix(raw, "Bearer "), auth.TypeAccess); err == nil {
+				return claims.UserID
+			}
+		}
 	}
-	return uid
+	return 0
 }
 
 // 对象 key 是路由通配段，gin 会带上前导斜杠

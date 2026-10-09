@@ -1,0 +1,179 @@
+/**
+ * 渲染冒烟测试。
+ *
+ * 和 Web 版同一个思路：类型对、打包过，都不代表运行时不会炸（hook 用错、
+ * 访问 undefined、图标名写错）。这里把每个页面**真的渲染一遍**，
+ * 只在渲染期出错就会被抓住。
+ *
+ * 网络全部打桩：测试不该依赖线上接口是否可用。
+ */
+import { render, screen } from "@testing-library/react-native";
+
+// 接口层整体打桩：页面挂载时会拉数据，真打网络会让测试又慢又不稳
+jest.mock("@/lib/api", () => {
+  const ok = async (v: unknown) => v;
+  return {
+    API_BASE: "https://example.test/api/v1",
+    ORIGIN: "https://example.test",
+    ApiError: class ApiError extends Error {
+      code = "X";
+      status = 0;
+    },
+    api: {
+      get: jest.fn(async () => ({})),
+      post: jest.fn(ok),
+      patch: jest.fn(ok),
+      put: jest.fn(ok),
+      del: jest.fn(ok),
+      postPublic: jest.fn(ok),
+    },
+    mediaImage: () => ({ uri: "https://example.test/x.jpg" }),
+    tokens: { access: "", load: async () => {}, save: async () => {}, clear: async () => {} },
+    setUnauthorizedHandler: () => {},
+    setOnboardingRequiredHandler: () => {},
+  };
+});
+
+// 整体替身：不去 requireActual，真实模块会拉进未转译的 ESM（standard-navigation）
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+  useLocalSearchParams: () => ({ id: "1" }),
+  useFocusEffect: (cb: () => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const React = require("react");
+    React.useEffect(cb, []);
+  },
+  Redirect: () => null,
+  Stack: () => null,
+  Tabs: () => null,
+  Link: () => null,
+}));
+
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { AuthProvider } from "@/lib/auth";
+import { ToastProvider } from "@/ui/feedback";
+import { Button } from "@/ui/button";
+import { Choice, Chip } from "@/ui/chip";
+import { FieldRow } from "@/ui/field-row";
+import { Input } from "@/ui/input";
+import { Sheet } from "@/ui/sheet";
+import { WheelPicker } from "@/ui/wheel-picker";
+import { Empty, Skeleton } from "@/ui/feedback";
+import { ProfileCard } from "@/components/profile-card";
+import { MatchOverlay } from "@/components/match-overlay";
+import Login from "../app/login";
+import Onboarding from "../app/onboarding";
+import Discover from "../app/(tabs)/index";
+import Plaza from "../app/(tabs)/plaza";
+import Likes from "../app/(tabs)/likes";
+import ChatList from "../app/(tabs)/chat";
+import ChatRoom from "../app/chat/[id]";
+import UserDetail from "../app/user/[id]";
+import Me from "../app/(tabs)/me";
+import type { Card } from "@/lib/types";
+
+const card: Card = {
+  userId: 2, nickname: "小晴", age: 24, gender: 2, heightCm: 165,
+  city: "上海市", cityProvince: "上海市", occupation: "互联网/IT · 产品经理",
+  education: 3, distanceKm: 4, hasDistance: true,
+  avatarUrl: "/api/v1/media/photos/2/a.jpg", photos: ["/api/v1/media/photos/2/a.jpg"],
+  hobbies: ["摄影", "美食"], completeness: 92, softMismatch: ["收入"],
+};
+
+function wrap(ui: React.ReactElement) {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider
+        initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } }}
+      >
+        <AuthProvider>
+          <ToastProvider>{ui}</ToastProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+let failed = 0;
+function check(name: string, cond: boolean, extra = "") {
+  // eslint-disable-next-line no-console
+  console.log(`  ${cond ? "✅" : "❌"} ${name}${extra ? "  " + extra : ""}`);
+  if (!cond) failed++;
+}
+
+function renderScreen(name: string, ui: React.ReactElement) {
+  try {
+    const r = render(wrap(ui));
+    check(`${name} 渲染无异常`, !!r);
+    return r;
+  } catch (e) {
+    check(`${name} 渲染无异常`, false, String(e).slice(0, 180));
+    return null;
+  }
+}
+
+describe("页面与组件渲染", () => {
+  it("所有页面都能渲染出来", () => {
+    renderScreen("登录页", <Login />);
+    renderScreen("发现（划卡）", <Discover />);
+    renderScreen("恋爱广场", <Plaza />);
+    renderScreen("心动", <Likes />);
+    renderScreen("消息列表", <ChatList />);
+    renderScreen("聊天室", <ChatRoom />);
+    renderScreen("我的", <Me />);
+    renderScreen("TA 的主页", <UserDetail />);
+    renderScreen("资料向导", <Onboarding />);
+    expect(failed).toBe(0);
+  });
+
+  it("关键组件渲染出该有的东西", () => {
+    const c = render(wrap(<ProfileCard card={card} />));
+    check("卡片显示昵称", !!c.getByText("小晴"));
+    check("卡片显示年龄与城市", !!c.getByText(/24 岁 · 上海市 · 165cm/));
+    check("卡片显示职业", !!c.getByText(/互联网\/IT · 产品经理/));
+    check("卡片显示兴趣标签", !!c.getByText("摄影"));
+    check("软条件不符有提示", !!c.getByText("部分条件不符"));
+
+    const b = render(wrap(<Button label="喜欢" onPress={() => {}} />));
+    check("按钮显示文案", !!b.getByText("喜欢"));
+
+    const f = render(wrap(<FieldRow label="职业" value="互联网/IT · 产品经理" onPress={() => {}} />));
+    check("字段行显示标签与值", !!f.getByText("职业") && !!f.getByText("互联网/IT · 产品经理"));
+
+    const ch = render(wrap(<Choice label="学历" options={[{ value: 3, label: "本科" }]} value={3} onChange={() => {}} />));
+    check("选项组渲染标签", !!ch.getByText("学历") && !!ch.getByText("本科"));
+
+    const w = render(wrap(<WheelPicker options={[{ value: 170, label: "170" }, { value: 171, label: "171" }]} value={170} onChange={() => {}} />));
+    check("滚轮渲染出选项", !!w.getByText("170"));
+
+    const s = render(wrap(<Sheet open onClose={() => {}} title="身高" confirmText="确定"><Chip label="不限" on onPress={() => {}} /></Sheet>));
+    check("弹层渲染标题与内容", !!s.getByText("身高") && !!s.getByText("不限"));
+
+    const e = render(wrap(<Empty title="还没有人喜欢你" desc="多传几张照片" />));
+    check("空态渲染标题与说明", !!e.getByText("还没有人喜欢你"));
+
+    const sk = render(wrap(<Skeleton height={20} />));
+    check("骨架屏渲染", !!sk);
+
+    const i = render(wrap(<Input label="手机号" value="" onChangeText={() => {}} />));
+    check("输入框渲染标签", !!i.getByText("手机号"));
+
+    const m = render(
+      wrap(
+        <MatchOverlay
+          visible
+          myAvatar="/a.jpg"
+          peerAvatar="/b.jpg"
+          peerNickname="小晴"
+          onChat={() => {}}
+          onClose={() => {}}
+        />
+      )
+    );
+    check("配对页文案说人话", !!m.getByText("你们互相喜欢"));
+    check("配对页有去聊天入口", !!m.getByText("去打个招呼"));
+
+    expect(failed).toBe(0);
+  });
+});
