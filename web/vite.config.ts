@@ -11,5 +11,16 @@ export default defineConfig({
     // ESM 下没有 __dirname，用 import.meta.url 推导路径
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: {
+      // 开发时把 /api 转到本地后端，前端代码里不需要写死后端地址。
+      // WebSocket 也要走这个代理（ws: true），否则聊天连不上。
+      "/api": {
+        target: process.env.VITE_API_TARGET ?? "http://127.0.0.1:8080",
+        changeOrigin: true,
+        ws: true,
+      },
+    },
+  },
 });

@@ -11,8 +11,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.1",
     "@types/node": "^26.6.4",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.18.2",
+    "react-router-dom": "^6.30.6",
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {

@@ -1,146 +1,145 @@
-import { useState } from "react";
-import { HeightField } from "@/components/picker/height-field";
-import {
-  BirthdayField,
-  calcAge,
-  type Birthday,
-} from "@/components/picker/birthday-field";
-import { RegionField, type RegionValue } from "@/components/picker/region-field";
-import { shortName } from "@/data/regions";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/store/auth";
+import { ToastProvider } from "@/components/ui/toast";
+import { Spinner } from "@/components/ui/button";
+import Login from "@/pages/Login";
+import Onboarding from "@/pages/Onboarding";
+import Discover from "@/pages/Discover";
+import Plaza from "@/pages/Plaza";
+import Likes from "@/pages/Likes";
+import Profile from "@/pages/Profile";
+import UserDetail from "@/pages/UserDetail";
+import { ChatEntry, ChatList, ChatRoom } from "@/pages/Chat";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-/**
- * Onboarding 第 1 步的表单演示。
- *
- * 这一页不是最终形态，而是把三个高交互组件放在真实语境里看效果——
- * 它们最终会嵌进「本人画像」那一步，和职业、学历等普通字段排在一起。
- */
 export default function App() {
-  const [gender, setGender] = useState<"male" | "female">("female");
-  const [height, setHeight] = useState<number | null>(null);
-  const [birthday, setBirthday] = useState<Birthday | null>(null);
-  const [hometown, setHometown] = useState<RegionValue | null>(null);
-  const [residence, setResidence] = useState<RegionValue | null>(null);
+  return (
+    <BrowserRouter>
+      <ToastProvider>
+        <AuthProvider>
+          <Shell />
+        </AuthProvider>
+      </ToastProvider>
+    </BrowserRouter>
+  );
+}
 
-  const filled = [height, birthday, hometown, residence].filter(Boolean).length;
+function Shell() {
+  const { userId, onboarded, ready } = useAuth();
+  const loc = useLocation();
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-paper text-brand">
+        <Spinner className="h-6 w-6" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  // 未完成 Onboarding 时**强制**停在向导页——这是产品规则，
+  // 后端中间件也拦着，这里只是让用户不去撞那个错误
+  if (!onboarded && !loc.pathname.startsWith("/onboarding")) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  if (onboarded && loc.pathname.startsWith("/onboarding")) {
+    // 已完成的用户点「编辑」也应该能进，所以不强制跳走，只在完成后由页面自己 nav
+  }
+
+  const hideTab =
+    loc.pathname.startsWith("/onboarding") ||
+    loc.pathname.startsWith("/chat/") ||
+    loc.pathname.startsWith("/u/");
 
   return (
-    <div className="min-h-screen bg-paper">
-      <div className="mx-auto flex min-h-screen max-w-[440px] flex-col">
-        {/* 顶部：进度 */}
-        <header className="sticky top-0 z-10 border-b border-line-soft bg-paper/95 px-5 py-3.5 backdrop-blur">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[13px] text-muted-2">本人画像</span>
-            <span className="text-[13px] font-medium text-brand">
-              {filled} / 4 已填写
-            </span>
-          </div>
-          <div className="h-1 w-full overflow-hidden rounded-full bg-line-soft">
-            <div
-              className="h-full rounded-full bg-brand transition-[width] duration-300 ease-out"
-              style={{ width: `${(filled / 4) * 100}%` }}
-            />
-          </div>
-        </header>
-
-        <main className="flex-1 px-5 py-6">
-          <h1 className="mb-1 text-[22px] font-bold text-ink">先认识一下你</h1>
-          <p className="mb-6 text-[14px] leading-relaxed text-muted">
-            这几项会直接影响给你推荐谁，也会出现在别人看到的卡片上。
-          </p>
-
-          {/* 性别决定身高的默认落点 */}
-          <div className="mb-4">
-            <p className="mb-2 text-[15px] text-muted">性别</p>
-            <div className="flex gap-2">
-              {(["female", "male"] as const).map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setGender(g)}
-                  className={
-                    "flex-1 rounded-field border py-3 text-[15px] transition-colors " +
-                    (gender === g
-                      ? "border-brand bg-brand-soft font-medium text-brand-dark"
-                      : "border-line bg-surface text-ink hover:border-brand/40")
-                  }
-                >
-                  {g === "female" ? "女" : "男"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <BirthdayField value={birthday} onChange={setBirthday} />
-            <HeightField
-              value={height}
-              onChange={setHeight}
-              gender={gender}
-            />
-            <RegionField
-              label="家乡"
-              value={hometown}
-              onChange={setHometown}
-              placeholder="请选择家乡"
-            />
-            <RegionField
-              label="现居地"
-              value={residence}
-              onChange={setResidence}
-            />
-          </div>
-
-          {/* 实时把选择结果汇总出来，方便核对 */}
-          <div className="mt-7 rounded-card border border-line bg-surface p-4">
-            <p className="mb-2.5 text-[12px] font-medium tracking-wide text-muted-2">
-              当前已选
-            </p>
-            <dl className="space-y-1.5 text-[14px]">
-              <Row label="性别" value={gender === "female" ? "女" : "男"} />
-              <Row
-                label="出生"
-                value={
-                  birthday
-                    ? `${birthday.year}-${String(birthday.month).padStart(2, "0")}-${String(birthday.day).padStart(2, "0")}（${calcAge(birthday)} 岁）`
-                    : "—"
-                }
-              />
-              <Row label="身高" value={height ? `${height} cm` : "—"} />
-              <Row
-                label="家乡"
-                value={
-                  hometown
-                    ? `${shortName(hometown.province)} ${shortName(hometown.city)}`
-                    : "—"
-                }
-              />
-              <Row
-                label="现居"
-                value={
-                  residence
-                    ? `${shortName(residence.province)} ${shortName(residence.city)}`
-                    : "—"
-                }
-              />
-            </dl>
-          </div>
-
-          <p className="mt-6 text-center text-[12px] leading-relaxed text-muted-2">
-            交互说明：身高用滚轮（100 个连续值需精确到厘米），
-            <br />
-            生日三列联动并实时算年龄，省市以搜索为主路径。
-          </p>
-        </main>
-      </div>
+    <div className={hideTab ? "" : "pb-[68px]"}>
+      <Routes>
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/" element={<Discover />} />
+        <Route path="/plaza" element={<Plaza />} />
+        <Route path="/likes" element={<Likes />} />
+        <Route path="/chat" element={<ChatList />} />
+        <Route path="/chat/new" element={<ChatEntry />} />
+        <Route path="/chat/:id" element={<ChatRoom />} />
+        <Route path="/me" element={<Profile />} />
+        <Route path="/u/:id" element={<UserDetail />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      {!hideTab && <TabBar />}
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function TabBar() {
+  const nav = useNavigate();
+  const loc = useLocation();
+  const [badge, setBadge] = useState({ likes: 0, unread: 0 });
+
+  // 角标是最主要的召回钩子，切页时刷新一次
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => {
+      api
+        .get<{ likes: number; unread: number }>("/counts")
+        .then((c) => !cancelled && setBadge({ likes: c.likes, unread: c.unread }))
+        .catch(() => {});
+    };
+    tick();
+    const t = window.setInterval(tick, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [loc.pathname]);
+
+  const tabs = [
+    { path: "/", label: "发现" },
+    { path: "/plaza", label: "广场" },
+    { path: "/likes", label: "心动", dot: badge.likes },
+    { path: "/chat", label: "消息", dot: badge.unread },
+    { path: "/me", label: "我的" },
+  ];
+
   return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="shrink-0 text-muted-2">{label}</dt>
-      <dd className="truncate font-medium tabular-nums text-ink">{value}</dd>
-    </div>
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line-soft bg-surface/95 backdrop-blur">
+      <div className="mx-auto flex max-w-[520px] pb-safe pt-1.5">
+        {tabs.map((t) => {
+          const on = t.path === "/" ? loc.pathname === "/" : loc.pathname.startsWith(t.path);
+          return (
+            <button
+              key={t.path}
+              type="button"
+              onClick={() => nav(t.path)}
+              className="relative flex flex-1 flex-col items-center gap-0.5 py-1.5"
+            >
+              <span
+                className={cn(
+                  "text-[12.5px] transition-colors",
+                  on ? "font-semibold text-brand" : "text-muted-2"
+                )}
+              >
+                {t.label}
+              </span>
+              {t.dot ? (
+                <span className="absolute right-[22%] top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                  {t.dot > 99 ? "99+" : t.dot}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
