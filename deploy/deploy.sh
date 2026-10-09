@@ -130,6 +130,16 @@ if [ "$DB_MODE" = "local" ]; then
     echo "  ✓ PostgreSQL 二进制已就位"
   fi
 
+  # 端口被占时**不盲目 kill** —— 那可能是别人的数据库。
+  # 只提示，由人决定。
+  if ss -ltn 2>/dev/null | grep -q ":$PG_PORT " && [ ! -s "$PG_DATA/PG_VERSION" ]; then
+    die "端口 $PG_PORT 已被占用，但它不是本项目的数据库实例。
+
+  查看占用者：  ss -ltnp | grep :$PG_PORT
+  换个端口：    sudo PG_PORT=5434 $0
+  或先停掉占用者再重跑。"
+  fi
+
   if [ ! -s "$PG_DATA/PG_VERSION" ]; then
     mkdir -p "$PG_DATA/sock"
     chown -R "$RUN_USER" "$PG_DATA"
