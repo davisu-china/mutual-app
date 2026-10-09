@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    /* 移动端点击不出现灰色高亮块，交互更干净 */
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* 尊重系统的「减少动态效果」设置 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* 滚轮选择器需要隐藏滚动条但保留滚动能力 */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* 底部安全区（iPhone 刘海屏） */
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
+}
