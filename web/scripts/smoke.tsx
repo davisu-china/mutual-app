@@ -33,7 +33,8 @@ import { RangeField } from "../src/components/ui/range-slider";
 import { ProvinceMultiField } from "../src/components/picker/province-field";
 import { UniversityField } from "../src/components/picker/university-field";
 import { loadUniversities, searchSchools, OTHER_SCHOOL } from "../src/data/universities";
-import { OCCUPATION } from "../src/data/options";
+import { OccupationField } from "../src/components/picker/occupation-field";
+import { INDUSTRIES, occupationValue, parseOccupation } from "../src/data/occupation";
 import { calcAge, defaultBirthdayFor, AGE_DEFAULT_BY_GENDER } from "../src/components/picker/birthday-field";
 import { HEIGHT_DEFAULT_BY_GENDER, HEIGHT_QUICK_PICKS, HeightField } from "../src/components/picker/height-field";
 import { WEIGHT_DEFAULT_BY_GENDER, WEIGHT_QUICK_PICKS_BY_GENDER, WeightField } from "../src/components/picker/weight-field";
@@ -278,6 +279,41 @@ rangeAndProvinceChecks();
 occupationChecks();
 defaultsChecks();
 
+/** 职业：一级行业 + 二级岗位 */
+function occupationChecks() {
+  console.log("\n[职业层级]");
+
+  const roles = INDUSTRIES.flatMap((x) => x.roles);
+
+  check("行业数在 15–20 之间", INDUSTRIES.length >= 15 && INDUSTRIES.length <= 20, `实际 ${INDUSTRIES.length}`);
+  check("行业名不重复", new Set(INDUSTRIES.map((x) => x.name)).size === INDUSTRIES.length);
+  check("每个行业最多 10 个岗位（一眼扫完）", INDUSTRIES.every((x) => x.roles.length <= 10));
+  check("二级岗位总数 50+", roles.length >= 50, `实际 ${roles.length}`);
+  check("同一行业里岗位不重复", INDUSTRIES.every((x) => new Set(x.roles).size === x.roles.length));
+  check(
+    "覆盖主流行业",
+    ["互联网/IT", "金融", "医疗健康", "教育/科研", "政府/公共事业", "制造/工业", "法律"].every((n) =>
+      INDUSTRIES.some((x) => x.name === n)
+    )
+  );
+  check(
+    "兜底项没有二级（点一下选完）",
+    INDUSTRIES.filter((x) => x.roles.length === 0).map((x) => x.name).sort().join(",") === "其他,学生"
+  );
+
+  check("落库值拼成「行业 · 岗位」", occupationValue("金融", "银行") === "金融 · 银行");
+  check("没有二级时只存行业", occupationValue("学生") === "学生");
+  const rt = parseOccupation(occupationValue("互联网/IT", "产品经理"));
+  check("值能拆回行业与岗位", rt.industry === "互联网/IT" && rt.role === "产品经理");
+  check("学生能拆回行业", parseOccupation("学生").industry === "学生");
+  check("改造前的旧值显示不受影响", parseOccupation("互联网").role === "互联网");
+
+  const empty = renderToString(<OccupationField label="职业" value="" onChange={() => {}} />);
+  check("职业字段收起时只占一行", empty.includes("请选择") && !empty.includes("互联网/IT"));
+  const filled = renderToString(<OccupationField label="职业" value="金融 · 银行" onChange={() => {}} />);
+  check("已选时显示完整「行业 · 岗位」", filled.includes("金融 · 银行"));
+}
+
 /**
  * 身高/体重/年龄的默认落点。
  *
@@ -292,39 +328,34 @@ function defaultsChecks() {
     const w = WEIGHT_DEFAULT_BY_GENDER[g];
     check(`${name}身高默认值合理（${h}）`, h >= 150 && h <= 185);
     check(`${name}体重默认值合理（${w}）`, w >= 45 && w <= 85);
-
-    const hNear = HEIGHT_QUICK_PICKS.some((v) => Math.abs(v - h) <= 5);
-    const wNear = (WEIGHT_QUICK_PICKS_BY_GENDER[g] ?? []).some((v) => Math.abs(v - w) <= 5);
-    check(`${name}身高默认值附近有快捷档位`, hNear);
-    check(`${name}体重默认值附近有快捷档位`, wNear);
+    check(`${name}身高默认值附近有快捷档位`, HEIGHT_QUICK_PICKS.some((v) => Math.abs(v - h) <= 5));
+    check(
+      `${name}体重默认值附近有快捷档位`,
+      (WEIGHT_QUICK_PICKS_BY_GENDER[g] ?? []).some((v) => Math.abs(v - w) <= 5)
+    );
   }
-  check("男性默认值比女性高/重", HEIGHT_DEFAULT_BY_GENDER.male > HEIGHT_DEFAULT_BY_GENDER.female
-    && WEIGHT_DEFAULT_BY_GENDER.male > WEIGHT_DEFAULT_BY_GENDER.female);
+  check(
+    "男性默认值比女性高/重",
+    HEIGHT_DEFAULT_BY_GENDER.male > HEIGHT_DEFAULT_BY_GENDER.female &&
+      WEIGHT_DEFAULT_BY_GENDER.male > WEIGHT_DEFAULT_BY_GENDER.female
+  );
 
   const today = new Date(2026, 9, 9);
   check("年龄默认值：男 28 岁", calcAge(defaultBirthdayFor("male", today), today) === AGE_DEFAULT_BY_GENDER.male);
   check("年龄默认值：女 26 岁", calcAge(defaultBirthdayFor("female", today), today) === AGE_DEFAULT_BY_GENDER.female);
-  check("年龄默认值在合法的 18–70 内", Object.values(AGE_DEFAULT_BY_GENDER).every((a) => a >= 18 && a <= 70));
+  check("年龄默认值落在合法的 18–70 内", Object.values(AGE_DEFAULT_BY_GENDER).every((a) => a >= 18 && a <= 70));
 
   const w = renderToString(<WeightField value={null} onChange={() => {}} gender="female" />);
   check("体重字段收起时只占一行（不渲染滚轮）", w.includes("体重") && w.includes("请选择") && !w.includes('role="option"'));
   const h = renderToString(<HeightField value={175} onChange={() => {}} gender="male" />);
   check("身高字段已填时显示带单位的值", h.includes("175 cm"));
+
+  const uniEmpty = renderToString(<UniversityField label="学校" value="" onChange={() => {}} />);
+  check("院校字段收起时只占一行", uniEmpty.includes("请选择学校") && !uniEmpty.includes(">北京<"));
+  const uni = renderToString(<UniversityField label="学校" value="浙江大学" onChange={() => {}} />);
+  check("院校字段已选时显示校名", uni.includes("浙江大学"));
 }
 
-/** 职业选项本身的口径 */
-function occupationChecks() {
-  console.log("\n[职业]");
-  check("选项足够全（40 项以上）", OCCUPATION.length >= 40, `实际 ${OCCUPATION.length}`);
-  check("保留兜底的「其他」", OCCUPATION.some((o) => o.value === "其他"));
-  check("没有重复项", new Set(OCCUPATION.map((o) => o.value)).size === OCCUPATION.length);
-  check("老的取值还在（不破坏已有数据）", ["互联网", "金融", "医疗", "学生"].every((v) => OCCUPATION.some((o) => o.value === v)));
-
-  const empty = renderToString(<UniversityField label="学校" value="" onChange={() => {}} />);
-  check("院校字段收起时只占一行", empty.includes("请选择学校") && !empty.includes(">北京<"));
-  const picked = renderToString(<UniversityField label="学校" value="浙江大学" onChange={() => {}} />);
-  check("院校字段已选时显示校名", picked.includes("浙江大学"));
-}
 
 /** 院校名单：数据完整性 + 搜索（中文/全拼/首字母/简称） */
 async function universityChecks() {

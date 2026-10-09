@@ -7,6 +7,7 @@ import { OptionSheet } from "@/components/ui/option-sheet";
 import { RangeField } from "@/components/ui/range-slider";
 import { ProvinceMultiField } from "@/components/picker/province-field";
 import { UniversityField } from "@/components/picker/university-field";
+import { OccupationField } from "@/components/picker/occupation-field";
 import { useToast } from "@/components/ui/toast";
 import { HeightField } from "@/components/picker/height-field";
 import { WeightField } from "@/components/picker/weight-field";
@@ -17,7 +18,7 @@ import { api, uploadToPresigned, ApiError } from "@/lib/api";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 import {
-  GENDER, OCCUPATION, SMOKING, DRINKING, INCOME, EDUCATION,
+  GENDER, SMOKING, DRINKING, INCOME, EDUCATION,
   ELDERCARE, HOUSE, DINK, YES_NO, ACCEPT_3, CAR_PREFER, HOUSE_PREFER,
   DINK_ACCEPT, PARTNER_TAGS, HOBBIES, EDUCATION_MIN,
 } from "@/data/options";
@@ -530,14 +531,7 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
       <RegionField label="家乡" value={d.hometown} onChange={(v) => set("hometown", v)} placeholder="请选择家乡" />
       <RegionField label="现居地" value={d.residence} onChange={(v) => set("residence", v)} withDistrict />
 
-      <OptionSheet
-        label="职业"
-        options={OCCUPATION}
-        value={d.occupation}
-        onChange={(v) => set("occupation", v)}
-        columns={2}
-        searchable
-      />
+      <OccupationField label="职业" value={d.occupation ?? ""} onChange={(v) => set("occupation", v)} />
 
       <MbtiField value={d.mbti} onChange={(v) => set("mbti", v)} />
       <Choice label="抽烟" options={SMOKING} value={d.smoking} onChange={(v) => set("smoking", v)} />
