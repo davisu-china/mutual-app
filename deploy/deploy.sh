@@ -141,8 +141,11 @@ install -m 0755 /tmp/mutual-api "$API_DIR/mutual-api"
 touch "$API_DIR/api.log"
 chown "$RUN_USER" "$API_DIR/api.log"
 chmod 0640 "$API_DIR/api.log"
+# 两个目录都要先清空再拷：产物是带内容哈希的，只覆盖不清理的话，
+# 每次部署都会留下上一版的一堆 index-xxxx.js（实测堆到十几个）。
 rm -rf "${WEB_STAGE:?}/"*
 cp -r "$REPO/web/dist-deploy/." "$WEB_STAGE/"
+rm -rf "${WEB_DIR:?}/"*
 cp -r "$REPO/web/dist-deploy/." "$WEB_DIR/"
 chmod -R a+rX "$WEB_STAGE" "$WEB_DIR"
 echo "  ✓ 后端 $(du -h "$API_DIR/mutual-api" | cut -f1)，前端 $(find "$WEB_STAGE" -type f | wc -l) 个文件"
