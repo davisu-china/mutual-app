@@ -34,7 +34,18 @@ NGINX_HTML="${NGINX_HTML:-/opt/jianjian/deploy/nginx/html}"
 NGINX_CONTAINER="${NGINX_CONTAINER:-jianjian-nginx}"
 CERTBOT_DIR="${CERTBOT_DIR:-/opt/jianjian/deploy/certbot}"
 LE_EMAIL="${LE_EMAIL:-898168605@qq.com}"
-RUN_USER="${RUN_USER:-${SUDO_USER:-metabot}}"
+# 运行用户（构建、跑服务、拥有数据库文件的身份）。
+#
+# 不能简单用 SUDO_USER：**已经是 root 时再执行 sudo，SUDO_USER 会是 root**，
+# 于是脚本去找 /root/.local/go（不存在）而失败。改成从仓库属主推断，
+# 那才是真正拥有 node_modules 和 Go 工具链的人。
+if [ -z "${RUN_USER:-}" ]; then
+  RUN_USER="$(stat -c '%U' "$REPO" 2>/dev/null || echo metabot)"
+  if [ "$RUN_USER" = "root" ] || ! id "$RUN_USER" >/dev/null 2>&1; then
+    RUN_USER="${SUDO_USER:-metabot}"
+  fi
+  [ "$RUN_USER" = "root" ] && RUN_USER=metabot
+fi
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # 网页在 nginx 容器里的固定落点。容器的 /usr/share/nginx/html 是
@@ -79,8 +90,18 @@ if [ "$MODE" = "domain" ] && [ ! -d "$CERTBOT_DIR/conf/live/$DOMAIN" ]; then
   fi
 fi
 
-GO_BIN="$(command -v go 2>/dev/null || echo "$RUN_USER/.local/go/bin/go")"
-[ -x "$GO_BIN" ] || die "找不到 go，README 有免 root 的装法"
+GO_BIN=""
+for cand in "$(command -v go 2>/dev/null)" "$RUN_USER/.local/go/bin/go" \
+            "/home/$RUN_USER/.local/go/bin/go" /usr/local/go/bin/go /usr/lib/go/bin/go; do
+  if [ -n "$cand" ] && [ -x "$cand" ]; then GO_BIN="$cand"; break; fi
+done
+if [ -z "$GO_BIN" ]; then
+  die "找不到 go。查找过：
+    $(command -v go 2>/dev/null || echo 'PATH 里没有')
+    /home/$RUN_USER/.local/go/bin/go
+    /usr/local/go/bin/go
+  可以显式指定：sudo RUN_USER=$RUN_USER GO_BIN=/path/to/go $0"
+fi
 command -v docker >/dev/null || die "找不到 docker"
 echo "  ✓ 环境检查通过（模式：$MODE）"
 
