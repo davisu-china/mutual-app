@@ -189,6 +189,7 @@ export interface Profile {
   hometownCity: string;
   cityProvince: string;
   city: string;
+  cityDistrict?: string;
   occupation: string;
   occupationOther?: string;
   mbti?: string;

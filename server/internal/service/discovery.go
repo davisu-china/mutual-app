@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -23,13 +25,31 @@ const (
 	plazaPageSize     = 20
 )
 
+// 曝光均衡参数（PRD 8.4）。
+//
+// 为什么必须做：完全按匹配分排序的结果是少数高吸引力用户吃掉绝大部分曝光，
+// 其余人长期零配对后流失，卡池随之萎缩——马太效应会杀死交友产品的生态。
+const (
+	// 统计近多少天的曝光
+	exposureWindowDays = 7
+	// 一周内曝光到这个次数，降权达到上限
+	exposureSaturation = 400
+	// 曝光降权上限。**刻意压得比 newcomerBoost 小**：
+	// 均衡是纠偏，不该盖过匹配度本身——否则会推一堆不合适但「没人看过」的人。
+	maxExposurePenalty = 0.18
+	// 新用户保护期与加权
+	newcomerWindow = 72 * time.Hour
+	newcomerBoost  = 0.15
+)
+
 type DiscoveryService struct {
 	db  *gorm.DB
 	svc *ProfileService
+	exp *ExposureService
 }
 
-func NewDiscoveryService(db *gorm.DB, svc *ProfileService) *DiscoveryService {
-	return &DiscoveryService{db: db, svc: svc}
+func NewDiscoveryService(db *gorm.DB, svc *ProfileService, exp *ExposureService) *DiscoveryService {
+	return &DiscoveryService{db: db, svc: svc, exp: exp}
 }
 
 // Candidate 是一个候选人的原始数据（画像 + 伴侣偏好），用于算分。
@@ -57,6 +77,10 @@ type Candidate struct {
 	AvatarURL    string
 	PhotoURLs    []string
 	HobbyNames   []string
+
+	// 近 7 天被曝光次数 + 注册时间，用于推荐公平性调控
+	RecentExposure int
+	CreatedAt      time.Time
 
 	// 对方的伴侣偏好，用于反向匹配
 	PrefHeightMin, PrefHeightMax int16
@@ -133,7 +157,14 @@ func (s *DiscoveryService) Cards(ctx context.Context, uid int64, limit int) ([]C
 		}
 		cards := s.scoreAndRank(cands, me, targetGender)
 		if len(cards) > 0 {
-			return cards[:min(limit, len(cards))], nil
+			top := cards[:min(limit, len(cards))]
+			// 曝光在返回后才记，且是异步的——不阻塞响应
+			ids := make([]int64, 0, len(top))
+			for _, c := range top {
+				ids = append(ids, c.UserID)
+			}
+			s.exp.RecordExposures(ids)
+			return top, nil
 		}
 	}
 	return []CardView{}, nil
@@ -163,7 +194,11 @@ func (s *DiscoveryService) fetchCandidates(
 		       COALESCE(pref.smoking_accept, 0), COALESCE(pref.drinking_accept, 0),
 		       COALESCE(pref.only_child_accept, 0), COALESCE(pref.car_prefer, 0),
 		       COALESCE(pref.house_prefer, 0), COALESCE(pref.dink_accept, 0),
-		       COALESCE(pref.hometown_provinces, '{}'), COALESCE(pref.tags, '{}')
+		       COALESCE(pref.hometown_provinces, '{}'), COALESCE(pref.tags, '{}'),
+		       COALESCE((SELECT SUM(es.exposed_count) FROM exposure_stats es
+		                 WHERE es.user_id = u.id
+		                   AND es.stat_date > CURRENT_DATE - ` + strconv.Itoa(exposureWindowDays) + `), 0) AS recent_exposure,
+		       u.created_at
 		FROM users u
 		JOIN user_profiles p ON p.user_id = u.id
 		LEFT JOIN user_avatars av ON av.user_id = u.id AND av.audit_status = 'approved'
@@ -190,12 +225,14 @@ func (s *DiscoveryService) fetchCandidates(
 		args = append(args, me.CityProv)
 	}
 
-	// 曝光均衡：曝光过量的用户降序后置，新用户优先（PRD 8.4）
+	// 候选集的选取顺序：**先按曝光量从少到多**。
+	//
+	// 匹配分算不出来（要读对方的偏好表），所以 SQL 这边只能做粗筛。真正合理的
+	// 做法是「先用公平性选出候选池，再在池内按匹配度排序」——把这两个目标拆到
+	// 两层，各司其职。若反过来（先按匹配度取前 N 人再做公平性），被曝光过量的
+	// 头部用户会持续占据候选池，均衡就永远调不动。
 	sb.WriteString(`
-		ORDER BY p.completeness DESC,
-		         COALESCE((SELECT es.exposed_count FROM exposure_stats es
-		                   WHERE es.user_id = u.id
-		                   ORDER BY es.stat_date DESC LIMIT 1), 0) ASC
+		ORDER BY recent_exposure ASC, p.completeness DESC, u.id DESC
 		LIMIT ?
 	`)
 	args = append(args, limit)
@@ -221,6 +258,7 @@ func (s *DiscoveryService) fetchCandidates(
 			&c.PrefSmoking, &c.PrefDrinking,
 			&c.PrefOnlyChild, &c.PrefCar, &c.PrefHouse, &c.PrefDink,
 			&c.PrefProvinces, &c.PrefTags,
+			&c.RecentExposure, &c.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("扫描候选行失败: %w", err)
 		}
@@ -248,6 +286,21 @@ func (s *DiscoveryService) scoreAndRank(cands []Candidate, me *Candidate, target
 		score := fwd*0.6 + rev*0.4
 		// 完整度高的人优先曝光（同等条件下）
 		score += float64(c.Completeness) / 100 * 0.1
+
+		// ---- 曝光均衡 ----
+		// 曝光越多扣得越多，上限 maxExposurePenalty。
+		// 用线性而不是指数：线性在小曝光量下几乎不惩罚，不会因为「被看了 3 次」
+		// 就被压下去；到上限后也不再恶化，避免把人彻底雪藏。
+		penalty := float64(c.RecentExposure) / exposureSaturation * maxExposurePenalty
+		if penalty > maxExposurePenalty {
+			penalty = maxExposurePenalty
+		}
+		score -= penalty
+
+		// 新用户加权：注册 72 小时内保证曝光，否则新人拿不到 Like 就流失了
+		if !c.CreatedAt.IsZero() && time.Since(c.CreatedAt) < newcomerWindow {
+			score += newcomerBoost
+		}
 
 		card := CardView{
 			UserID:       c.UserID,

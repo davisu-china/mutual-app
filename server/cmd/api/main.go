@@ -70,9 +70,11 @@ func main() {
 	)
 
 	// ---- 服务层 ----
+	exposureSvc := service.NewExposureService(db)
+
 	authSvc := service.NewAuthService(db, issuer)
-	profileSvc := service.NewProfileService(db)
-	discSvc := service.NewDiscoveryService(db, profileSvc)
+	profileSvc := service.NewProfileService(db, exposureSvc)
+	discSvc := service.NewDiscoveryService(db, profileSvc, exposureSvc)
 	socialSvc := service.NewSocialService(db)
 	chatSvc := service.NewChatService(db)
 
@@ -81,7 +83,7 @@ func main() {
 	actionSvc := service.NewActionService(db, cfg, func(a, b, matchID int64) {
 		handler.PushMatch(a, b, matchID)
 		log.Printf("[info] 配对成功 match=%d a=%d b=%d", matchID, a, b)
-	})
+	}, exposureSvc)
 
 	var uploadSvc *service.UploadService
 	if storage != nil {

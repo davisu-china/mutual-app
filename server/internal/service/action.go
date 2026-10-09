@@ -25,13 +25,14 @@ var (
 type MatchHook func(userA, userB int64, matchID int64)
 
 type ActionService struct {
-	db     *gorm.DB
-	cfg    *config.Config
+	db      *gorm.DB
+	cfg     *config.Config
 	onMatch MatchHook
+	exp     *ExposureService
 }
 
-func NewActionService(db *gorm.DB, cfg *config.Config, onMatch MatchHook) *ActionService {
-	return &ActionService{db: db, cfg: cfg, onMatch: onMatch}
+func NewActionService(db *gorm.DB, cfg *config.Config, onMatch MatchHook, exp *ExposureService) *ActionService {
+	return &ActionService{db: db, cfg: cfg, onMatch: onMatch, exp: exp}
 }
 
 type ActionResult struct {
@@ -161,7 +162,11 @@ func (s *ActionService) doLike(ctx context.Context, in ActionInput) (*ActionResu
 		return nil, err
 	}
 
-	// 事务提交后再触发外部动作（推送、WS 广播）
+	// 事务提交后再触发外部动作（推送、WS 广播、统计）。
+	// 放在提交后是刻意的：统计失败不该回滚一笔已经成立的 Like。
+	if !res.AlreadyActed {
+		s.exp.Bump(in.ToUser, "like")
+	}
 	if res.Matched && res.MatchID > 0 && s.onMatch != nil {
 		s.onMatch(in.FromUser, in.ToUser, res.MatchID)
 	}
@@ -216,6 +221,8 @@ func (s *ActionService) doVisit(ctx context.Context, in ActionInput) (*ActionRes
 	if err != nil {
 		return nil, err
 	}
+	s.exp.Bump(in.ToUser, "visit")
+
 	var res ActionResult
 	if err := s.fillQuota(s.db.WithContext(ctx), in.FromUser, s.cfg.Today(),
 		int16(s.cfg.DailyLikeLimit), &res); err != nil {

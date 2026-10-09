@@ -15,6 +15,7 @@ import {
   ELDERCARE, HOUSE, DINK, YES_NO, ACCEPT_3, CAR_PREFER, HOUSE_PREFER,
   DINK_ACCEPT, PARTNER_TAGS, HOBBIES, EDUCATION_MIN,
 } from "@/data/options";
+import { PROVINCE_NAMES, provinceShort } from "@/data/regions";
 
 const STEPS = ["本人画像", "兴趣爱好", "关于我", "伴侣画像", "期待的他"] as const;
 
@@ -137,7 +138,9 @@ export default function Onboarding() {
           hometown: p.hometownCity
             ? { province: p.hometownProvince, city: p.hometownCity }
             : prev.hometown,
-          residence: p.city ? { province: p.cityProvince, city: p.city } : prev.residence,
+          residence: p.city
+            ? { province: p.cityProvince, city: p.city, district: p.cityDistrict }
+            : prev.residence,
           occupation: p.occupation || null,
           occupationOther: p.occupationOther ?? "",
           mbti: p.mbti ?? null,
@@ -247,6 +250,7 @@ export default function Onboarding() {
             hometownCity: d.hometown!.city,
             cityProvince: d.residence!.province,
             city: d.residence!.city,
+            cityDistrict: d.residence!.district,
             occupation: d.occupation,
             occupationOther: d.occupation === "其他" ? d.occupationOther : undefined,
             mbti: d.mbti,
@@ -527,7 +531,7 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
       </div>
 
       <RegionField label="家乡" value={d.hometown} onChange={(v) => set("hometown", v)} placeholder="请选择家乡" />
-      <RegionField label="现居地" value={d.residence} onChange={(v) => set("residence", v)} />
+      <RegionField label="现居地" value={d.residence} onChange={(v) => set("residence", v)} withDistrict />
 
       <Choice label="职业" options={OCCUPATION} value={d.occupation} onChange={(v) => set("occupation", v)} />
       {d.occupation === "其他" && (
@@ -718,10 +722,8 @@ function Step4({
   setPref: <K extends keyof Draft["pref"]>(k: K, v: Draft["pref"][K]) => void;
 }) {
   const p = d.pref;
-  const PROVINCES = useMemo(
-    () => ["北京市","上海市","天津市","重庆市","河北省","山西省","辽宁省","吉林省","黑龙江省","江苏省","浙江省","安徽省","福建省","江西省","山东省","河南省","湖北省","湖南省","广东省","广西壮族自治区","海南省","四川省","贵州省","云南省","西藏自治区","陕西省","甘肃省","青海省","宁夏回族自治区","新疆维吾尔自治区"],
-    []
-  );
+  // 省份名单来自国家统计局口径（构建期生成），不再手写维护
+  const PROVINCES = PROVINCE_NAMES;
 
   return (
     <div className="space-y-6">
@@ -786,7 +788,7 @@ function Step4({
                   on ? "border-brand bg-brand-soft font-medium text-brand-dark" : "border-line text-ink"
                 )}
               >
-                {prov.replace(/(省|市|自治区|特别行政区|维吾尔|壮族|回族)/g, "")}
+                {provinceShort(prov)}
               </button>
             );
           })}

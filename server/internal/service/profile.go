@@ -26,11 +26,12 @@ const (
 )
 
 type ProfileService struct {
-	db *gorm.DB
+	db  *gorm.DB
+	exp *ExposureService
 }
 
-func NewProfileService(db *gorm.DB) *ProfileService {
-	return &ProfileService{db: db}
+func NewProfileService(db *gorm.DB, exp *ExposureService) *ProfileService {
+	return &ProfileService{db: db, exp: exp}
 }
 
 // ---------- 输出 DTO ----------
@@ -150,8 +151,9 @@ func (s *ProfileService) PublicProfile(ctx context.Context, viewerID, targetID i
 		return nil, err
 	}
 
-	// 记录访问（失败不影响主流程）
+	// 记录访问：写动作流水（用于「谁看过我」）+ 累加统计（用于曝光均衡）
 	_ = s.recordVisit(ctx, viewerID, targetID)
+	s.exp.Bump(targetID, "visit")
 	return v, nil
 }
 

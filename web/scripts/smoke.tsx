@@ -26,7 +26,7 @@ import { ProfileCard } from "../src/components/deck/profile-card";
 import { MatchOverlay } from "../src/components/deck/match-overlay";
 import { WheelPicker } from "../src/components/picker/wheel-picker";
 import { calcAge } from "../src/components/picker/birthday-field";
-import { searchCities, shortName, REGIONS } from "../src/data/regions";
+import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
 import { AuthProvider } from "../src/store/auth";
 import { ToastProvider } from "../src/components/ui/toast";
 import type { Card, Photo } from "../src/lib/api";
@@ -129,16 +129,48 @@ check("生日当天算已过", calcAge({ year: 1998, month: 10, day: 9 }, new Da
 check("闰年 2/29 在平年 2/28 未过", calcAge({ year: 2000, month: 2, day: 29 }, new Date(2026, 1, 28)) === 25);
 check("闰年 2/29 在平年 3/1 已过", calcAge({ year: 2000, month: 2, day: 29 }, new Date(2026, 2, 1)) === 26);
 
-console.log("\n=== 4. 省市搜索 ===");
-check("中文搜「杭州」命中", searchCities("杭州").some((h) => h.city === "杭州市"));
-check("拼音全拼「hangzhou」命中", searchCities("hangzhou").some((h) => h.city === "杭州市"));
-check("拼音首字母「hz」命中", searchCities("hz").some((h) => h.city === "杭州市"));
-check("搜省名「广东」返回省内城市", searchCities("广东").length >= 20);
-check("空关键词返回空", searchCities("   ").length === 0);
-check("搜不存在的返回空", searchCities("不存在的城市名").length === 0);
-check("省份数据 34 个", REGIONS.length === 34, `实际 ${REGIONS.length}`);
-check("shortName 去掉「市」", shortName("杭州市") === "杭州");
-check("shortName 保留「自治州」", shortName("延边朝鲜族自治州") === "延边朝鲜族自治州");
+async function regionChecks() {
+  console.log("\n=== 4. 行政区划与搜索 ===");
+  const regions = await loadRegions();
+  const cityCount = regions.reduce((n, p) => n + p.cities.length, 0);
+  const districtCount = regions.reduce(
+    (n, p) => n + p.cities.reduce((m, c) => m + c.districts.length, 0), 0
+  );
+  check("省级 34 个", regions.length === 34, `实际 ${regions.length}`);
+  check("市级数量合理", cityCount >= 350, `实际 ${cityCount}`);
+  check("区县数量合理（官方数据 3000+）", districtCount >= 3000, `实际 ${districtCount}`);
+  check("静态省份名单与完整树一致", PROVINCE_NAMES.length === regions.length);
+  check("含港澳台", ["香港特别行政区", "澳门特别行政区", "台湾省"].every((n) =>
+    regions.some((p) => p.name === n)));
 
-console.log(failed === 0 ? "\n全部通过 ✅" : `\n有 ${failed} 项失败 ❌`);
-process.exit(failed === 0 ? 0 : 1);
+  const bj = regions.find((p) => p.name === "北京市")!;
+  check("直辖市被标记", bj?.isMunicipality === true);
+  check("直辖市不出现「市辖区」", !bj.cities.some((c) => c.name === "市辖区"));
+  check("直辖市下挂的是区", (bj.cities[0]?.districts.length ?? 0) >= 16);
+
+  const searcher = (kw: string, limit?: number) => searchRegions(regions, kw, limit);
+
+  check("中文搜「杭州」命中", searcher("杭州").some((h) => h.city === "杭州市"));
+  check("拼音全拼「hangzhou」命中", searcher("hangzhou").some((h) => h.city === "杭州市"));
+  check("拼音首字母「hz」命中", searcher("hz").some((h) => h.city === "杭州市"));
+  check("搜省名「广东」返回省内城市", searcher("广东").length >= 15);
+  check("能搜到区级（西湖区）", searcher("西湖").some((h) => h.district === "西湖区"));
+  check("区级支持拼音（xihu）", searcher("xihu").some((h) => h.district === "西湖区"));
+  check("区级支持首字母（xh）", searcher("xh").some((h) => h.district === "西湖区"));
+  check("港澳台可搜（台北）", searcher("台北").some((h) => h.city === "台北市"));
+  check("空关键词返回空", searcher("   ").length === 0);
+  check("搜不存在的返回空", searcher("不存在的城市名").length === 0);
+  check("结果数量受 limit 约束", searcher("a", 5).length <= 5);
+
+  check("shortName 去掉「市」", shortName("杭州市") === "杭州");
+  check("shortName 保留「自治州」", shortName("延边朝鲜族自治州") === "延边朝鲜族自治州");
+  check("fullName 直辖市不重复", fullName("北京市", "北京市", "朝阳区") === "北京 朝阳区");
+  check("fullName 普通省市", fullName("浙江省", "杭州市", "西湖区") === "浙江 杭州 西湖区");
+}
+
+// 行政区划那一段需要 await（数据是懒加载的），而构建目标不支持顶层 await，
+// 所以放到 async 函数里跑，跑完再决定退出码。
+regionChecks().then(() => {
+  console.log(failed === 0 ? "\n全部通过 ✅" : `\n有 ${failed} 项失败 ❌`);
+  process.exit(failed === 0 ? 0 : 1);
+});

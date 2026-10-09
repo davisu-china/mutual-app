@@ -6,6 +6,7 @@ import { ProfileCard } from "@/components/deck/profile-card";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, type Card } from "@/lib/api";
 import { EDUCATION } from "@/data/options";
+import { PROVINCE_NAMES, provinceShort } from "@/data/regions";
 import { cn } from "@/lib/utils";
 
 interface Filter {
@@ -17,6 +18,9 @@ interface Filter {
   cityProvince?: string;
   education?: number;
 }
+
+// 省份筛选用的官方名单（国家统计局口径，34 个省级行政区）
+const PROVINCES = PROVINCE_NAMES;
 
 /**
  * 恋爱广场。
@@ -116,6 +120,21 @@ export default function Plaza() {
                 clear={() => setF({ ...f, heightMin: undefined, heightMax: undefined })}
                 active={f.heightMin !== undefined || f.heightMax !== undefined}
               />
+            </Row>
+
+            <Row label="省份">
+              <Chip on={!f.cityProvince} onClick={() => setF({ ...f, cityProvince: undefined })}>
+                不限
+              </Chip>
+              {PROVINCES.map((p) => (
+                <Chip
+                  key={p}
+                  on={f.cityProvince === p}
+                  onClick={() => setF({ ...f, cityProvince: p })}
+                >
+                  {provinceShort(p)}
+                </Chip>
+              ))}
             </Row>
 
             <Row label="学历">

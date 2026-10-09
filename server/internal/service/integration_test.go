@@ -111,7 +111,7 @@ func TestIntegrationConcurrentMatchIsIdempotent(t *testing.T) {
 	b := seedUser(t, db, "139"+suffix, model.GenderFemale, 165)
 	cleanUsers(t, db, a.ID, b.ID)
 
-	svc := NewActionService(db, cfg, nil)
+	svc := NewActionService(db, cfg, nil, NewExposureService(db))
 
 	// 双方同时发起 Like。
 	// 没有唯一约束兜底的话，这里会建出两条 match 和两个 conversation。
@@ -183,7 +183,7 @@ func TestIntegrationQuotaNotOverConsumed(t *testing.T) {
 		cleanUsers(t, db, tu.ID)
 	}
 
-	svc := NewActionService(db, cfg, nil)
+	svc := NewActionService(db, cfg, nil, NewExposureService(db))
 
 	// 12 个 goroutine 抢 5 个额度
 	var wg sync.WaitGroup
@@ -252,7 +252,7 @@ func TestIntegrationDuplicateLikeIsIdempotent(t *testing.T) {
 	b := seedUser(t, db, "134"+suffix, model.GenderFemale, 165)
 	cleanUsers(t, db, a.ID, b.ID)
 
-	svc := NewActionService(db, cfg, nil)
+	svc := NewActionService(db, cfg, nil, NewExposureService(db))
 
 	r1, err := svc.Do(ctx, ActionInput{FromUser: a.ID, ToUser: b.ID, Action: model.ActionLike, Source: model.SourceCard})
 	if err != nil {
@@ -337,7 +337,108 @@ func TestIntegrationMessageIdempotent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 测试 5：解除配对后会话只读
+// 测试 5：曝光统计真的在写（而不是只被读）
+// ---------------------------------------------------------------------------
+
+func TestIntegrationExposureIsRecorded(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano()%100000000)
+	viewer := seedUser(t, db, "128"+suffix, model.GenderMale, 178)
+	target := seedUser(t, db, "129"+suffix, model.GenderFemale, 165)
+	cleanUsers(t, db, viewer.ID, target.ID)
+
+	exp := NewExposureService(db)
+
+	// 同步跑一遍（真实路径是异步的，测试里直接调内部写入逻辑太绕，
+	// 这里用「调用后轮询等它落库」的方式，顺便验证了异步不会丢）
+	exp.RecordExposures([]int64{target.ID, target.ID, target.ID})
+	exp.Bump(target.ID, "like")
+	exp.Bump(target.ID, "visit")
+
+	deadline := time.Now().Add(3 * time.Second)
+	var exposed, liked, visited int
+	for time.Now().Before(deadline) {
+		db.Raw(`SELECT exposed_count, liked_count, visited_count FROM exposure_stats
+		        WHERE user_id = ? AND stat_date = CURRENT_DATE`, target.ID).
+			Row().Scan(&exposed, &liked, &visited)
+		if exposed == 3 && liked == 1 && visited == 1 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	if exposed != 3 {
+		t.Errorf("曝光次数应为 3，实际 %d —— 统计没落库", exposed)
+	}
+	if liked != 1 {
+		t.Errorf("被喜欢次数应为 1，实际 %d", liked)
+	}
+	if visited != 1 {
+		t.Errorf("被访问次数应为 1，实际 %d", visited)
+	}
+
+	// 同一天重复写应该是累加而不是新增行
+	var rows int64
+	db.Model(&model.ExposureStat{}).Where("user_id = ?", target.ID).Count(&rows)
+	if rows != 1 {
+		t.Errorf("同一天应只有一行，实际 %d 行 —— ON CONFLICT 没生效", rows)
+	}
+
+	_ = ctx
+}
+
+// ---------------------------------------------------------------------------
+// 测试 6：曝光量真的影响排序
+// ---------------------------------------------------------------------------
+
+func TestIntegrationExposureAffectsRanking(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano()%100000000)
+	me := seedUser(t, db, "126"+suffix, model.GenderMale, 178)
+	cleanUsers(t, db, me.ID)
+
+	// 造两个条件完全相同的候选人，唯一差别是其中一人的历史曝光量
+	fresh := seedUser(t, db, "1271"+suffix[:5], model.GenderFemale, 165)
+	hot := seedUser(t, db, "1272"+suffix[:5], model.GenderFemale, 165)
+	cleanUsers(t, db, fresh.ID, hot.ID)
+
+	// 给 hot 堆上大量曝光（超过 saturation，触发满额降权）
+	today := time.Now().Format("2006-01-02")
+	if err := db.Exec(`INSERT INTO exposure_stats (user_id, stat_date, exposed_count)
+	                   VALUES (?, ?, ?)`, hot.ID, today, exposureSaturation*2).Error; err != nil {
+		t.Fatalf("造曝光数据失败: %v", err)
+	}
+
+	disc := NewDiscoveryService(db, NewProfileService(db, NewExposureService(db)), NewExposureService(db))
+	cards, err := disc.Cards(ctx, me.ID, 10)
+	if err != nil {
+		t.Fatalf("拉卡片失败: %v", err)
+	}
+
+	var freshIdx, hotIdx = -1, -1
+	for i, c := range cards {
+		if c.UserID == fresh.ID {
+			freshIdx = i
+		}
+		if c.UserID == hot.ID {
+			hotIdx = i
+		}
+	}
+	if freshIdx < 0 || hotIdx < 0 {
+		t.Fatalf("两个候选人应都出现在卡池里（fresh=%d hot=%d）", freshIdx, hotIdx)
+	}
+	if freshIdx > hotIdx {
+		t.Errorf("曝光少的应排在前面：fresh 在第 %d 位，hot 在第 %d 位 —— 均衡没生效",
+			freshIdx, hotIdx)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 测试 7：解除配对后会话只读
 // ---------------------------------------------------------------------------
 
 func TestIntegrationUnmatchFreezesConversation(t *testing.T) {
@@ -356,7 +457,7 @@ func TestIntegrationUnmatchFreezesConversation(t *testing.T) {
 	conv := &model.Conversation{MatchID: m.ID, UserA: lo, UserB: hi, Status: model.ConvActive}
 	db.Create(conv)
 
-	svc := NewActionService(db, cfg, nil)
+	svc := NewActionService(db, cfg, nil, NewExposureService(db))
 	if err := svc.Unmatch(ctx, a.ID, m.ID); err != nil {
 		t.Fatalf("解除配对失败: %v", err)
 	}
