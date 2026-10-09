@@ -27,6 +27,10 @@ import { MatchOverlay } from "../src/components/deck/match-overlay";
 import { WheelPicker } from "../src/components/picker/wheel-picker";
 import { MbtiSlider, MbtiField, splitMbti, dimsToMbti } from "../src/components/profile/mbti-slider";
 import { OptionSheet } from "../src/components/ui/option-sheet";
+import { Empty } from "../src/components/ui/empty";
+import { FieldRow } from "../src/components/ui/field-row";
+import { fieldIcon } from "../src/components/ui/icons";
+import { Heart } from "lucide-react";
 import { INCOME } from "../src/data/options";
 import { INCOME_LABEL_RANGE } from "../src/pages/Onboarding";
 import { RangeField } from "../src/components/ui/range-slider";
@@ -114,7 +118,7 @@ console.log("\n=== 2. 关键组件渲染 ===");
   ];
   const html = renderPage("PhotoGrid", <PhotoGrid photos={photos} onChange={() => {}} />);
   check("相册标出主图", html.includes("主图"));
-  check("相册有上传入口", html.includes("＋"));
+  check("相册有上传入口（图标版，带无障碍标签）", html.includes('aria-label="添加照片"') && html.includes("<svg"));
   check("提示第一张是封面", html.includes("封面图"));
 }
 
@@ -277,7 +281,27 @@ mbtiChecks();
 optionSheetChecks();
 rangeAndProvinceChecks();
 occupationChecks();
+iconChecks();
 defaultsChecks();
+
+/** 图标：加得再多也只是装饰，这里只盯「接线通不通」和「别把无障碍丢掉」 */
+function iconChecks() {
+  console.log("\n[图标]");
+
+  check("常见字段都能查到图标", ["身高", "体重", "出生年月日", "家乡", "职业", "学历", "学校", "公司", "年收入", "MBTI", "抽烟", "喝酒"].every((l) => fieldIcon(l) !== null));
+  check("没登记的字段返回 null 而不是报错", fieldIcon("不存在的字段") === null);
+
+  const svgCount = (h: string) => (h.match(/<svg/g) ?? []).length;
+  const row = renderToString(<FieldRow label="年收入" value="30–50 万" onClick={() => {}} />);
+  const rowNoIcon = renderToString(<FieldRow label="不存在的字段" value="x" onClick={() => {}} />);
+  check("有图标的字段是「图标 + 行尾箭头」两个 svg", svgCount(row) === 2, `实际 ${svgCount(row)}`);
+  check("没登记的字段只有行尾箭头（不多画）", svgCount(rowNoIcon) === 1 && rowNoIcon.includes("不存在的字段"));
+
+  const empty = renderToString(<Empty title="还没有人喜欢你" desc="多传几张照片" />);
+  check("空态有默认图标底衬", empty.includes("<svg") && empty.includes("还没有人喜欢你"));
+  const emptyCustom = renderToString(<Empty icon={Heart} title="喜欢的空态" />);
+  check("空态可换图标", emptyCustom.includes("<svg"));
+}
 
 /** 职业：一级行业 + 二级岗位 */
 function occupationChecks() {

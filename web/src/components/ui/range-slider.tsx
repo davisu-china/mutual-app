@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { fieldIcon } from "@/components/ui/icons";
 
 interface Props {
   label: string;
@@ -42,6 +43,7 @@ export function RangeField({
   endLabels,
   onChange,
 }: Props) {
+  const Icon = fieldIcon(label);
   const span = max - min || 1;
   const pct = (v: number) => ((v - min) / span) * 100;
   const bothSame = valueMin === valueMax;
@@ -66,7 +68,10 @@ export function RangeField({
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between gap-3">
-        <p className="text-[15px] text-muted">{label}</p>
+        <p className="flex items-center gap-2 text-[15px] text-muted">
+          {Icon && <Icon size={18} strokeWidth={1.9} className="shrink-0 text-muted-2" aria-hidden="true" />}
+          {label}
+        </p>
         <p className="truncate text-[15px] font-medium tabular-nums text-ink">
           {formatRange ? formatRange(valueMin, valueMax) : `${format(valueMin)} – ${format(valueMax)}`}
         </p>

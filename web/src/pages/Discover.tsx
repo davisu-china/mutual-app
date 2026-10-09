@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Clock, Compass, Flame, Heart, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ProfileCard } from "@/components/deck/profile-card";
@@ -138,10 +139,11 @@ export default function Discover() {
         <span className="text-[17px] font-bold tracking-tight text-ink">相悦</span>
         <span
           className={cn(
-            "rounded-full px-3 py-1 text-[12px] font-medium tabular-nums",
+            "flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium tabular-nums",
             exhausted ? "bg-line-soft text-muted-2" : "bg-brand-soft text-brand-dark"
           )}
         >
+          <Flame size={13} strokeWidth={2.2} aria-hidden="true" />
           今日还可喜欢 {quota.remain} 人
         </span>
       </header>
@@ -152,6 +154,7 @@ export default function Discover() {
             <CardSkeleton />
           ) : cards.length === 0 ? (
             <Empty
+              icon={exhausted ? Clock : Compass}
               title={exhausted ? "今日额度已用完" : "暂时没有新的推荐"}
               desc={
                 exhausted
@@ -214,12 +217,12 @@ export default function Discover() {
             onClick={() => act("pass")}
             className={cn(
               "flex h-14 w-14 items-center justify-center rounded-full border border-line bg-surface",
-              "text-[20px] text-[#8B8489] shadow-sm transition-all duration-150",
+              "text-[#8B8489] shadow-sm transition-all duration-150",
               "active:scale-95 disabled:opacity-40",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             )}
           >
-            ✕
+            <X size={26} strokeWidth={2.2} aria-hidden="true" />
           </button>
 
           <button
@@ -228,14 +231,14 @@ export default function Discover() {
             disabled={!top || busy || exhausted}
             onClick={() => act("like")}
             className={cn(
-              "flex h-16 w-16 items-center justify-center rounded-full text-[24px] text-white",
+              "flex h-16 w-16 items-center justify-center rounded-full text-white",
               "bg-gradient-to-br from-[#EF7183] to-[#D8445C]",
               "shadow-[0_6px_18px_rgba(228,89,107,.38)] transition-all duration-150",
               "active:scale-95 disabled:opacity-40 disabled:shadow-none",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
             )}
           >
-            ♥
+            <Heart size={30} strokeWidth={2.2} fill="currentColor" aria-hidden="true" />
           </button>
         </div>
 

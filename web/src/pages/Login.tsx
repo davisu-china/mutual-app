@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { HeartHandshake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/store/auth";
@@ -42,6 +43,9 @@ export default function Login() {
     <div className="flex min-h-screen flex-col justify-center bg-paper px-6 pb-16">
       <div className="mx-auto w-full max-w-[400px]">
         <div className="mb-10 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#F4909F] to-[#E4596B] shadow-brand">
+            <HeartHandshake size={30} strokeWidth={1.9} className="text-white" aria-hidden="true" />
+          </div>
           <h1 className="font-sans text-[34px] font-bold tracking-tight text-ink">相悦</h1>
           <p className="mt-2 text-[14px] text-muted-2">两情相悦，才值得开始</p>
         </div>

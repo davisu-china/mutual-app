@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Eye, Heart, type LucideIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Empty, ListSkeleton } from "@/components/ui/empty";
@@ -75,10 +76,10 @@ export default function Likes() {
     <div className="min-h-screen bg-paper">
       <header className="sticky top-0 z-10 border-b border-line-soft bg-paper/95 backdrop-blur">
         <div className="mx-auto flex max-w-[520px] items-center gap-5 px-5 pb-0 pt-3">
-          <TabBtn on={tab === "likes"} onClick={() => setTab("likes")}>
+          <TabBtn on={tab === "likes"} onClick={() => setTab("likes")} icon={Heart}>
             喜欢我
           </TabBtn>
-          <TabBtn on={tab === "visits"} onClick={() => setTab("visits")}>
+          <TabBtn on={tab === "visits"} onClick={() => setTab("visits")} icon={Eye}>
             看过我
           </TabBtn>
         </div>
@@ -95,6 +96,7 @@ export default function Likes() {
           <ListSkeleton rows={5} />
         ) : list.length === 0 ? (
           <Empty
+            icon={tab === "likes" ? Heart : Eye}
             title={tab === "likes" ? "还没有人喜欢你" : "还没有人看过你"}
             desc={
               tab === "likes"
@@ -173,16 +175,27 @@ export default function Likes() {
   );
 }
 
-function TabBtn({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabBtn({
+  on,
+  onClick,
+  children,
+  icon: Icon,
+}: {
+  on: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  icon?: LucideIcon;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "border-b-2 pb-2.5 text-[14.5px] transition-colors",
+        "flex items-center gap-1.5 border-b-2 pb-2.5 text-[14.5px] transition-colors",
         on ? "border-brand font-semibold text-brand" : "border-transparent text-muted-2"
       )}
     >
+      {Icon && <Icon size={17} strokeWidth={on ? 2.3 : 1.9} aria-hidden="true" />}
       {children}
     </button>
   );

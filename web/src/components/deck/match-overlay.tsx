@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Heart } from "lucide-react";
 import { useEffect } from "react";
 import { haptic } from "@/lib/haptics";
 
@@ -88,6 +89,15 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
           )}
         </motion.div>
       </div>
+
+      <motion.div
+        initial={{ scale: 0.4, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.36, type: "spring", stiffness: 260, damping: 18 }}
+        className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-brand/15"
+      >
+        <Heart size={28} strokeWidth={2} className="text-[#F2748A]" aria-hidden="true" />
+      </motion.div>
 
       <motion.h3
         initial={{ y: 12, opacity: 0 }}

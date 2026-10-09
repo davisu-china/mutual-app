@@ -8,6 +8,8 @@ import {
   EDUCATION_LABEL, INCOME_LABEL, SMOKING, DRINKING, HOUSE, DINK,
 } from "@/data/options";
 import { cn } from "@/lib/utils";
+import { fieldIcon } from "@/components/ui/icons";
+import { EyeOff } from "lucide-react";
 
 const label = (arr: { value: number; label: string }[], v?: number) =>
   v === undefined || v === null ? "—" : arr.find((x) => x.value === v)?.label ?? "—";
@@ -55,7 +57,7 @@ export default function UserDetail() {
   if (p === "error") {
     return (
       <div className="min-h-screen bg-paper">
-        <Empty title="看不到这个人的资料" desc="对方可能已经注销，或者你们之间存在拉黑关系。" />
+        <Empty icon={EyeOff} title="看不到这个人的资料" desc="对方可能已经注销，或者你们之间存在拉黑关系。" />
       </div>
     );
   }
@@ -187,9 +189,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Item({ k, v, muted }: { k: string; v: string; muted?: boolean }) {
+  const Icon = fieldIcon(k);
   return (
     <div>
-      <dt className="text-[12px] text-muted-2">{k}</dt>
+      <dt className="flex items-center gap-1.5 text-[12px] text-muted-2">
+        {Icon && <Icon size={13} strokeWidth={2} aria-hidden="true" />}
+        {k}
+      </dt>
       <dd className={cn("mt-0.5", muted ? "text-muted-2" : "text-ink")}>{v}</dd>
     </div>
   );

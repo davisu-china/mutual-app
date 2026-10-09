@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Search, SlidersHorizontal, Store } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton, Empty } from "@/components/ui/empty";
@@ -77,17 +78,21 @@ export default function Plaza() {
     <div className="min-h-screen bg-paper">
       <header className="sticky top-0 z-10 border-b border-line-soft bg-paper/95 backdrop-blur">
         <div className="mx-auto flex max-w-[520px] items-center justify-between px-5 py-3">
-          <span className="text-[17px] font-bold text-ink">恋爱广场</span>
+          <span className="flex items-center gap-2 text-[17px] font-bold text-ink">
+            <Store size={19} strokeWidth={2} className="text-brand" aria-hidden="true" />
+            恋爱广场
+          </span>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-[13px] transition-colors",
+              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] transition-colors",
               activeCount > 0
                 ? "border-brand bg-brand-soft font-medium text-brand-dark"
                 : "border-line text-muted"
             )}
           >
+            <SlidersHorizontal size={14} strokeWidth={2.1} aria-hidden="true" />
             筛选{activeCount > 0 ? ` · ${activeCount}` : ""}
           </button>
         </div>
@@ -162,6 +167,7 @@ export default function Plaza() {
           <ListSkeleton rows={4} />
         ) : cards.length === 0 ? (
           <Empty
+            icon={Search}
             title="没有找到符合条件的人"
             desc="试着放宽一些条件——比如去掉学历要求，或扩大年龄范围。"
             action={

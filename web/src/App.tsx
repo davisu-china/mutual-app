@@ -13,6 +13,7 @@ import { ChatEntry, ChatList, ChatRoom } from "@/pages/Chat";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Compass, Heart, LayoutGrid, MessageCircle, UserRound } from "lucide-react";
 
 export default function App() {
   return (
@@ -62,7 +63,7 @@ function Shell() {
     loc.pathname.startsWith("/u/");
 
   return (
-    <div className={hideTab ? "" : "pb-[68px]"}>
+    <div className={hideTab ? "" : "pb-[76px]"}>
       <Routes>
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/onboarding" element={<Onboarding />} />
@@ -104,11 +105,11 @@ function TabBar() {
   }, [loc.pathname]);
 
   const tabs = [
-    { path: "/", label: "发现" },
-    { path: "/plaza", label: "广场" },
-    { path: "/likes", label: "心动", dot: badge.likes },
-    { path: "/chat", label: "消息", dot: badge.unread },
-    { path: "/me", label: "我的" },
+    { path: "/", label: "发现", Icon: Compass },
+    { path: "/plaza", label: "广场", Icon: LayoutGrid },
+    { path: "/likes", label: "心动", Icon: Heart, dot: badge.likes },
+    { path: "/chat", label: "消息", Icon: MessageCircle, dot: badge.unread },
+    { path: "/me", label: "我的", Icon: UserRound },
   ];
 
   return (
@@ -121,8 +122,15 @@ function TabBar() {
               key={t.path}
               type="button"
               onClick={() => nav(t.path)}
-              className="relative flex flex-1 flex-col items-center gap-0.5 py-1.5"
+              className="relative flex flex-1 flex-col items-center gap-1 py-1.5"
             >
+              {/* 选中态把图标加粗一档，比只换颜色更容易一眼扫到 */}
+              <t.Icon
+                size={22}
+                strokeWidth={on ? 2.4 : 1.8}
+                className={cn("transition-colors", on ? "text-brand" : "text-muted-2")}
+                aria-hidden="true"
+              />
               <span
                 className={cn(
                   "text-[12.5px] transition-colors",
@@ -132,7 +140,7 @@ function TabBar() {
                 {t.label}
               </span>
               {t.dot ? (
-                <span className="absolute right-[22%] top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                <span className="absolute right-[22%] top-0 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
                   {t.dot > 99 ? "99+" : t.dot}
                 </span>
               ) : null}

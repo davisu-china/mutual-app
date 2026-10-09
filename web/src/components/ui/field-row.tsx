@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fieldIcon } from "@/components/ui/icons";
 
 interface FieldRowProps {
   label: string;
@@ -11,6 +13,8 @@ interface FieldRowProps {
   onClick: () => void;
   /** 校验未通过时的提示 */
   error?: string;
+  /** 行首图标；不传则按 label 自动查（见 ui/icons） */
+  icon?: LucideIcon;
 }
 
 /**
@@ -30,8 +34,10 @@ export function FieldRow({
   hint,
   onClick,
   error,
+  icon,
 }: FieldRowProps) {
   const filled = value !== undefined && value !== null && value !== "";
+  const Icon = icon ?? fieldIcon(label);
   return (
     <div>
       <button
@@ -45,7 +51,17 @@ export function FieldRow({
           error ? "border-brand" : "border-line hover:border-line/80"
         )}
       >
-        <span className="shrink-0 text-[15px] text-muted">{label}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          {Icon && (
+            <Icon
+              size={18}
+              strokeWidth={1.9}
+              className={cn("shrink-0", filled ? "text-brand" : "text-muted-2")}
+              aria-hidden="true"
+            />
+          )}
+          <span className="shrink-0 text-[15px] text-muted">{label}</span>
+        </span>
         <span className="flex min-w-0 items-center gap-2">
           <span
             className={cn(

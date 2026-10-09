@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ImagePlus, X } from "lucide-react";
 import { api, uploadToPresigned, ApiError, type Photo } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import { haptic } from "@/lib/haptics";
@@ -187,7 +188,7 @@ export function PhotoGrid({ photos, onChange }: { photos: Photo[]; onChange: (p:
               className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-[12px] leading-none text-white"
               aria-label="删除"
             >
-              ×
+              <X size={13} strokeWidth={2.8} aria-hidden="true" />
             </button>
           </div>
         ))}
@@ -197,9 +198,14 @@ export function PhotoGrid({ photos, onChange }: { photos: Photo[]; onChange: (p:
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
-            className="flex aspect-square items-center justify-center rounded-[9px] border-[1.5px] border-dashed border-line text-[22px] text-brand transition-colors hover:border-brand/50 disabled:opacity-50"
+            aria-label="添加照片"
+            className="flex aspect-square items-center justify-center rounded-[9px] border-[1.5px] border-dashed border-line text-brand transition-colors hover:border-brand/50 disabled:opacity-50"
           >
-            {uploading ? <span className="text-[12px] text-muted-2">上传中</span> : "＋"}
+            {uploading ? (
+              <span className="text-[12px] text-muted-2">上传中</span>
+            ) : (
+              <ImagePlus size={22} strokeWidth={1.8} aria-hidden="true" />
+            )}
           </button>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, MessageCircle, Send } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Empty, ListSkeleton } from "@/components/ui/empty";
@@ -39,6 +40,7 @@ export function ChatList() {
           <ListSkeleton rows={5} />
         ) : list.length === 0 ? (
           <Empty
+            icon={MessageCircle}
             title="还没有聊天"
             desc="互相喜欢之后就会自动建立会话，来打个招呼吧。"
             action={<Button variant="outline" onClick={() => nav("/")}>去划卡</Button>}
@@ -230,8 +232,8 @@ export function ChatRoom() {
   return (
     <div className="flex h-screen flex-col bg-paper">
       <header className="flex shrink-0 items-center gap-3 border-b border-line-soft bg-paper/95 px-4 py-3 backdrop-blur">
-        <button type="button" onClick={() => nav("/chat")} className="text-[15px] text-muted-2" aria-label="返回">
-          ←
+        <button type="button" onClick={() => nav("/chat")} className="text-muted-2" aria-label="返回">
+          <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
         </button>
         <span className="flex-1 text-[15px] font-semibold text-ink">
           {msgs?.length ? `会话 ${convId}` : "聊天"}
@@ -299,7 +301,7 @@ export function ChatRoom() {
             aria-label="发送"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#EF7183] to-[#D8445C] text-white transition-transform active:scale-95 disabled:opacity-40"
           >
-            ↑
+            <Send size={17} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
       </footer>

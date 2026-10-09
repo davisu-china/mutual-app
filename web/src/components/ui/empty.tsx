@@ -1,18 +1,24 @@
 import type { ReactNode } from "react";
+import { Inbox, type LucideIcon } from "lucide-react";
 
 /** 空态。给一句「为什么空」和「可以做什么」，不要只画一个插图。 */
 export function Empty({
   title,
   desc,
   action,
+  icon: Icon = Inbox,
 }: {
   title: string;
   desc?: string;
   action?: ReactNode;
+  /** 圆形底衬上的图标；调用方按场景给（心动的空态给心，消息的给对话框） */
+  icon?: LucideIcon;
 }) {
   return (
     <div className="flex flex-col items-center justify-center px-8 py-20 text-center">
-      <div className="mb-4 h-14 w-14 rounded-full bg-brand-soft" />
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-soft">
+        <Icon size={26} strokeWidth={1.8} className="text-brand" aria-hidden="true" />
+      </div>
       <p className="text-[16px] font-medium text-ink">{title}</p>
       {desc && <p className="mt-2 max-w-[280px] text-[14px] leading-relaxed text-muted-2">{desc}</p>}
       {action && <div className="mt-6">{action}</div>}

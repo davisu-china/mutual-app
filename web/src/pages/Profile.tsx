@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/empty";
 import { PhotoGrid } from "@/components/profile/photo-grid";
+import { ChevronRight, Heart, Pencil, Store, type LucideIcon } from "lucide-react";
+import { fieldIcon } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, type Photo, type Profile as ProfileT } from "@/lib/api";
 import { useAuth } from "@/store/auth";
@@ -127,9 +129,9 @@ export default function Profile() {
         </div>
 
         <div className="rounded-card border border-line bg-surface">
-          <MenuItem onClick={() => nav("/onboarding")}>编辑资料与伴侣偏好</MenuItem>
-          <MenuItem onClick={() => nav("/likes")}>谁喜欢我 / 谁看过我</MenuItem>
-          <MenuItem onClick={() => nav("/plaza")}>恋爱广场</MenuItem>
+          <MenuItem icon={Pencil} onClick={() => nav("/onboarding")}>编辑资料与伴侣偏好</MenuItem>
+          <MenuItem icon={Heart} onClick={() => nav("/likes")}>谁喜欢我 / 谁看过我</MenuItem>
+          <MenuItem icon={Store} onClick={() => nav("/plaza")}>恋爱广场</MenuItem>
         </div>
 
         <button
@@ -148,23 +150,36 @@ export default function Profile() {
 }
 
 function Row({ k, v, muted }: { k: string; v: string; muted?: boolean }) {
+  const Icon = fieldIcon(k);
   return (
     <div>
-      <dt className="text-[12px] text-muted-2">{k}</dt>
+      <dt className="flex items-center gap-1.5 text-[12px] text-muted-2">
+        {Icon && <Icon size={13} strokeWidth={2} aria-hidden="true" />}
+        {k}
+      </dt>
       <dd className={muted ? "mt-0.5 text-muted-2" : "mt-0.5 text-ink"}>{v}</dd>
     </div>
   );
 }
 
-function MenuItem({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+function MenuItem({
+  onClick,
+  children,
+  icon: Icon,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  icon?: LucideIcon;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between border-b border-line-soft px-4 py-3.5 text-left text-[15px] text-ink last:border-b-0 hover:bg-paper"
+      className="flex w-full items-center gap-3 border-b border-line-soft px-4 py-3.5 text-left text-[15px] text-ink last:border-b-0 hover:bg-paper"
     >
-      {children}
-      <span className="text-muted-2">›</span>
+      {Icon && <Icon size={18} strokeWidth={1.9} className="shrink-0 text-brand" aria-hidden="true" />}
+      <span className="flex-1">{children}</span>
+      <ChevronRight size={18} className="shrink-0 text-muted-2" aria-hidden="true" />
     </button>
   );
 }

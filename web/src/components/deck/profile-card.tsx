@@ -1,4 +1,5 @@
 import type { Card } from "@/lib/api";
+import { Briefcase, MapPin } from "lucide-react";
 import { EDUCATION_LABEL } from "@/data/options";
 
 /** 距离按区间展示，不给精确值——既诚实，也保护隐私（PRD 第 15 章） */
@@ -31,7 +32,8 @@ export function ProfileCard({ card, compact }: { card: Card; compact?: boolean }
         )}
 
         {card.hasDistance && (
-          <span className="absolute right-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] text-white backdrop-blur-sm">
+          <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[10px] text-white backdrop-blur-sm">
+            <MapPin size={11} strokeWidth={2.2} aria-hidden="true" />
             {distanceText(card.distanceKm)}
           </span>
         )}
@@ -48,9 +50,12 @@ export function ProfileCard({ card, compact }: { card: Card; compact?: boolean }
 
       {/* 信息区 */}
       <div className="flex flex-1 flex-col px-4 pb-3 pt-3">
-        <p className="mb-2.5 text-[11.5px] text-muted">
-          {card.occupation}
-          {card.education ? ` · ${EDUCATION_LABEL(card.education)}` : ""}
+        <p className="mb-2.5 flex items-center gap-1.5 text-[11.5px] text-muted">
+          <Briefcase size={13} strokeWidth={2} className="shrink-0 text-muted-2" aria-hidden="true" />
+          <span className="truncate">
+            {card.occupation}
+            {card.education ? ` · ${EDUCATION_LABEL(card.education)}` : ""}
+          </span>
         </p>
 
         <div className="flex flex-wrap gap-1.5">
