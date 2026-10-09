@@ -6,7 +6,12 @@
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    "types": [
+      "jest",
+      "node",
+      "react"
+    ]
   },
   "include": [
     "**/*.ts",

@@ -1,3 +1,11 @@
+/**
+ * 本机全局设了 NODE_ENV=production，会让 React 解析到**生产构建**——
+ * 那份构建里根本没有 `act`，于是 @testing-library/react-native 的 act 变成
+ * undefined，九个页面的渲染测试会整片挂掉（报 "actImplementation is not a function"）。
+ * jest 只在 NODE_ENV **未设置**时才填 test，所以这里要显式顶掉。
+ */
+process.env.NODE_ENV = "test";
+
 // 渲染冒烟测试用不到的原生模块在这里挡掉
 jest.mock("expo-haptics", () => ({
   impactAsync: jest.fn(),
