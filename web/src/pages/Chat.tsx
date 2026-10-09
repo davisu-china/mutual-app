@@ -391,7 +391,7 @@ export function MessageRow({
         className={cn(
           "max-w-[76%] break-words rounded-2xl px-3.5 py-2.5 text-[14px] leading-relaxed",
           mine
-            ? "rounded-br-[5px] bg-gradient-to-br from-brand to-brand-dark text-white shadow-[0_2px_8px_rgba(192,69,90,.20)]"
+            ? "rounded-br-[5px] bg-gradient-to-br from-brand to-brand-dark text-white shadow-[0_2px_8px_rgba(163,46,78,.20)]"
             : "rounded-bl-[5px] border border-line/70 bg-surface text-ink shadow-[0_1px_2px_rgba(27,22,20,.04)]",
           message.status === "failed" && "opacity-60"
         )}

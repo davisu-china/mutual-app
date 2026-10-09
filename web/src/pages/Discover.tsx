@@ -233,7 +233,7 @@ export default function Discover() {
             className={cn(
               "flex h-16 w-16 items-center justify-center rounded-full text-white",
               "bg-gradient-to-br from-brand to-brand-dark",
-              "shadow-[0_6px_18px_rgba(192,69,90,.34)] transition-all duration-150",
+              "shadow-[0_6px_18px_rgba(163,46,78,.34)] transition-all duration-150",
               "active:scale-95 disabled:opacity-40 disabled:shadow-none",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
             )}

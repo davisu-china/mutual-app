@@ -43,7 +43,7 @@ export default function Login() {
     <div className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-paper px-6 pb-16">
       {/* 顶部一层柔和的玫瑰光：登录页是全站第一印象，纯色底显得像内部工具 */}
       <div
-        className="pointer-events-none absolute inset-x-0 -top-40 h-96 bg-[radial-gradient(60%_60%_at_50%_50%,rgba(192,69,90,.14),transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 -top-40 h-96 bg-[radial-gradient(60%_60%_at_50%_50%,rgba(163,46,78,.14),transparent_70%)]"
         aria-hidden="true"
       />
       <div className="relative mx-auto w-full max-w-[400px]">

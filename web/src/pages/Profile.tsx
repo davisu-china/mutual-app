@@ -99,19 +99,19 @@ export default function Profile() {
       </header>
 
       <main className="mx-auto max-w-[520px] space-y-6 px-5">
-        <div className="rounded-card border border-line bg-surface p-4">
+        <div className="rounded-card bg-surface p-4 shadow-card">
           <PhotoGrid photos={photos} onChange={setPhotos} />
         </div>
 
         {p.aboutMe && (
-          <div className="rounded-card border border-line bg-surface p-4">
+          <div className="rounded-card bg-surface p-4 shadow-card">
             <p className="mb-2 text-[13px] text-muted-2">关于我</p>
             <p className="whitespace-pre-wrap text-[14px] leading-[1.8] text-ink-2">{p.aboutMe}</p>
           </div>
         )}
 
-        <div className="rounded-card border border-line bg-surface p-4">
-          <p className="mb-3 text-[13px] text-muted-2">基本资料</p>
+        <div className="rounded-card bg-surface p-4 shadow-card">
+          <p className="mb-3 text-[13px] tracking-wide text-muted-2">基本资料</p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[14px]">
             <Row k="家乡" v={`${p.hometownProvince}${p.hometownCity}`} />
             <Row k="现居" v={`${p.cityProvince}${p.city}`} />
@@ -128,7 +128,7 @@ export default function Profile() {
           </dl>
         </div>
 
-        <div className="rounded-card border border-line bg-surface">
+        <div className="rounded-card bg-surface shadow-card">
           <MenuItem icon={Pencil} onClick={() => nav("/onboarding")}>编辑资料与伴侣偏好</MenuItem>
           <MenuItem icon={Heart} onClick={() => nav("/likes")}>谁喜欢我 / 谁看过我</MenuItem>
           <MenuItem icon={Store} onClick={() => nav("/plaza")}>恋爱广场</MenuItem>
@@ -140,7 +140,7 @@ export default function Profile() {
             logout();
             toast("已退出登录");
           }}
-          className="w-full rounded-card border border-line bg-surface py-3.5 text-[15px] text-brand transition-colors hover:bg-brand-soft"
+          className="w-full rounded-card bg-surface shadow-card py-3.5 text-[15px] text-brand transition-colors hover:bg-brand-soft"
         >
           退出登录
         </button>

@@ -604,7 +604,7 @@ function Step2({
       </div>
 
       {d.hobbies.map((h, i) => (
-        <div key={i} className="rounded-card border border-line bg-surface p-4">
+        <div key={i} className="rounded-card bg-surface p-4 shadow-card">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-soft text-[12px] font-bold text-brand-dark">
               {i + 1}

@@ -22,19 +22,19 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#C0455A", // 干玫瑰：比原来的糖果粉低一档饱和度、深一档
-          dark: "#9A2F45", // 按下态 / 深色文字
-          deep: "#7A2236", // 渐变的深端，别用亮色收尾
-          soft: "#FAF0F0", // 暖调极浅底（选中态背景）
-          line: "#EFD9DC", // 浅描边
-          glow: "rgba(192,69,90,.26)", // 主按钮的柔光，替代原来偏亮的粉影
+          DEFAULT: "#A32E4E", // 深酒红：脱离"糖果粉"，成年人的玫瑰色
+          dark: "#86243F", // 按下态 / 深色文字
+          deep: "#61182C", // 渐变的深端
+          soft: "#F9EEF1", // 极浅底（选中态背景）
+          line: "#EED8DE", // 浅描边
+          glow: "rgba(163,46,78,.26)",
         },
         // 香槟金：只给仪式感的地方用（配对、心动标记、少量点缀）
-        gold: { DEFAULT: "#A8763E", soft: "#F6EFE4", line: "#E6D6BE" },
-        ink: { DEFAULT: "#1B1614", 2: "#453C39" }, // 带红棕的墨色，不再是冷黑
-        muted: { DEFAULT: "#6E625E", 2: "#8F827D" }, // 2 是 12–13px 的提示文字，压深一档保证可读
-        line: { DEFAULT: "#E7DFDB", soft: "#F1EBE8" },
-        paper: "#FAF7F5", // 米白，比原来的灰白暖
+        gold: { DEFAULT: "#A8763E", soft: "#F6EFE4", line: "#E6D6BE" }, // 香槟金（只用于仪式感）
+        ink: { DEFAULT: "#1A1512", 2: "#46403A" }, // 暖墨（带红棕，不是冷黑）
+        muted: { DEFAULT: "#6B615A", 2: "#8C8178" }, // 2 是 12–13px 的提示文字，压深保证可读
+        line: { DEFAULT: "#E7DDD2", soft: "#F1EAE1" }, // 暖沙色描边
+        paper: "#F7F3EE", // **象牙白**：明显比近白纸暖，卡片才在底上"浮"得起来
         surface: "#FFFFFF",
       },
       fontFamily: {
@@ -47,9 +47,9 @@ export default {
       borderRadius: { card: "20px", field: "12px" },
       boxShadow: {
         // 卡片用暖调中性阴影（原来是纯黑，压在暖白底上发灰）
-        card: "0 1px 2px rgba(27,22,20,.04), 0 10px 28px rgba(27,22,20,.07)",
-        // 主按钮的柔光；亮粉色影会显得廉价，改成克制的玫瑰光
-        brand: "0 6px 18px rgba(192,69,90,.26)",
+        card: "0 1px 2px rgba(26,21,18,.05), 0 12px 30px rgba(26,21,18,.08)",
+        // 主按钮的柔光；亮粉色影会显得廉价，改成克制的酒红光
+        brand: "0 6px 18px rgba(163,46,78,.26)",
         gold: "0 6px 18px rgba(168,118,62,.22)",
         sheet: "0 -8px 40px rgba(27,22,20,.14)",
       },

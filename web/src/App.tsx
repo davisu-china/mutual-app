@@ -9,6 +9,7 @@ import Plaza from "@/pages/Plaza";
 import Likes from "@/pages/Likes";
 import Profile from "@/pages/Profile";
 import UserDetail from "@/pages/UserDetail";
+import StyleGuide from "@/pages/StyleGuide";
 import { ChatEntry, ChatList, ChatRoom } from "@/pages/Chat";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -42,6 +43,8 @@ function Shell() {
   if (!userId) {
     return (
       <Routes>
+        {/* 设计预览页不需要登录：调色/观感要在真实样式下看，被登录墙挡住就白做了 */}
+        <Route path="/styleguide" element={<StyleGuide />} />
         <Route path="/login" element={<Login />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
@@ -74,6 +77,7 @@ function Shell() {
         <Route path="/chat/new" element={<ChatEntry />} />
         <Route path="/chat/:id" element={<ChatRoom />} />
         <Route path="/me" element={<Profile />} />
+        <Route path="/styleguide" element={<StyleGuide />} />
         <Route path="/u/:id" element={<UserDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

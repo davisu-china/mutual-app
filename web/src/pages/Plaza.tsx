@@ -99,7 +99,7 @@ export default function Plaza() {
     <div className="min-h-screen bg-paper">
       <header className="sticky top-0 z-10 border-b border-line/70 bg-paper/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[520px] items-center justify-between px-5 py-3">
-          <span className="flex items-center gap-2 text-[17px] font-bold text-ink">
+          <span className="flex items-center gap-2 text-[18px] font-bold tracking-tight text-ink">
             <Store size={19} strokeWidth={2} className="text-brand" aria-hidden="true" />
             恋爱广场
           </span>

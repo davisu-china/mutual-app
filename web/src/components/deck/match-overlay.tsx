@@ -45,7 +45,7 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
         className="pointer-events-none absolute h-[420px] w-[420px] rounded-full"
         style={{
           background:
-            "radial-gradient(circle, rgba(192,69,90,.40) 0%, rgba(168,118,62,.30) 42%, rgba(168,118,62,0) 72%)",
+            "radial-gradient(circle, rgba(163,46,78,.42) 0%, rgba(168,118,62,.30) 42%, rgba(168,118,62,0) 72%)",
         }}
       />
 
@@ -56,7 +56,7 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
           animate={{ x: 0, opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 20 }}
           className="h-[76px] w-[76px] overflow-hidden rounded-full border-[2.5px] border-ink"
-          style={{ boxShadow: "0 0 0 3px rgba(192,69,90,.30)" }}
+          style={{ boxShadow: "0 0 0 3px rgba(163,46,78,.30)" }}
         >
           {myAvatar ? (
             <img src={myAvatar} alt="" className="h-full w-full object-cover" />

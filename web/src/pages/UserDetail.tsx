@@ -240,7 +240,7 @@ export function RelationActions({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mt-7">
-      <h2 className="mb-3 text-[14px] font-semibold text-ink">{title}</h2>
+      <h2 className="mb-3 text-[16px] font-semibold tracking-tight text-ink">{title}</h2>
       {children}
     </div>
   );
