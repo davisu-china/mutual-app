@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -165,7 +164,9 @@ export default function ChatRoom() {
   const myImg = mediaImage(myAvatar);
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={0}>
+    <KeyboardAvoidingView style={styles.root} behavior="padding" keyboardVerticalOffset={0}>
+      {/* behavior 两端都用 padding，原因同 login.tsx：Android 的 edge-to-edge 让
+          adjustResize 失效，传 undefined 时输入条会被键盘盖住。 */}
       {/* 标题：对方头像 + 昵称，点进 TA 的主页 */}
       <View style={[styles.header, { paddingTop: insets.top + space(2) }]}>
         <Pressable onPress={() => nav.back()} hitSlop={10} accessibilityLabel="返回" style={styles.back}>

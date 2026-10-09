@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -108,10 +107,11 @@ export default function Login() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingView style={styles.root} behavior="padding">
+      {/* Android 也必须显式给 behavior：Android 15 起系统强制 edge-to-edge，窗口不再
+          随键盘缩放（原来的 adjustResize 失效），传 undefined 时 KAV 只渲染一个普通
+          View、完全不避让，密码框就被键盘整个盖住。用 padding 两端都安全——它按自身
+          frame 算重叠高度，窗口若真被系统缩了，这个值会算成 0，不会重复避让。 */}
       {/* 顶部氛围光：径向光在 RN 里没有原生等价物，用一个大圆 + 低透明度近似 */}
       <View pointerEvents="none" style={styles.glow} />
       <View pointerEvents="none" style={styles.glowCore} />
