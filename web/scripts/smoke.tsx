@@ -312,7 +312,12 @@ defaultsChecks();
 function iconChecks() {
   console.log("\n[图标]");
 
-  check("常见字段都能查到图标", ["身高", "体重", "出生年月日", "家乡", "职业", "学历", "学校", "公司", "年收入", "MBTI", "抽烟", "喝酒"].every((l) => fieldIcon(l) !== null));
+  check(
+    "常见字段都能查到图标（含广场筛选用的年龄/省份）",
+    ["身高", "体重", "出生年月日", "年龄", "家乡", "省份", "职业", "学历", "学校", "公司", "年收入", "MBTI", "抽烟", "喝酒"].every(
+      (l) => fieldIcon(l) !== null
+    )
+  );
   check("没登记的字段返回 null 而不是报错", fieldIcon("不存在的字段") === null);
 
   const svgCount = (h: string) => (h.match(/<svg/g) ?? []).length;

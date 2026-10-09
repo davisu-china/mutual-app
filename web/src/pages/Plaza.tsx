@@ -7,6 +7,7 @@ import { ProfileCard } from "@/components/deck/profile-card";
 import { ProvinceMultiField } from "@/components/picker/province-field";
 import { IncomeRangeField } from "@/components/picker/income-range-field";
 import { RangeSheetField } from "@/components/ui/range-sheet-field";
+import { fieldIcon } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, type Card } from "@/lib/api";
 import { EDUCATION } from "@/data/options";
@@ -248,9 +249,13 @@ export default function Plaza() {
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  const Icon = fieldIcon(label);
   return (
     <div>
-      <p className="mb-2 text-[13px] text-muted-2">{label}</p>
+      <p className="mb-2 flex items-center gap-1.5 text-[13px] text-muted-2">
+        {Icon && <Icon size={13} strokeWidth={2} aria-hidden="true" />}
+        {label}
+      </p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
