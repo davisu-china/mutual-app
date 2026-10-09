@@ -29,6 +29,8 @@ import { MbtiSlider, MbtiField, splitMbti, dimsToMbti } from "../src/components/
 import { OptionSheet } from "../src/components/ui/option-sheet";
 import { INCOME } from "../src/data/options";
 import { INCOME_LABEL_RANGE } from "../src/pages/Onboarding";
+import { RangeField } from "../src/components/ui/range-slider";
+import { ProvinceMultiField } from "../src/components/picker/province-field";
 import { calcAge } from "../src/components/picker/birthday-field";
 import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
 import { AuthProvider } from "../src/store/auth";
@@ -172,6 +174,43 @@ async function regionChecks() {
   check("fullName 普通省市", fullName("浙江省", "杭州市", "西湖区") === "浙江 杭州 西湖区");
 }
 
+/** 区间选择（身高/收入）与省份多选（弹层） */
+function rangeAndProvinceChecks() {
+  console.log("\n[区间与省份]");
+
+  const h = renderToString(
+    <RangeField
+      label="期望身高" min={140} max={210} valueMin={165} valueMax={180} gap={5}
+      format={(v) => `${v} cm`} endLabels={["140", "210"]}
+      onChange={() => {}}
+    />
+  );
+  check("区间显示两端数值", h.includes("165 cm") && h.includes("180 cm"));
+  check("区间是两根原生滑杆（叠在一根轨道上）", (h.match(/type="range"/g) ?? []).length === 2);
+  check("滑杆有无障碍标签", h.includes("期望身高下限") && h.includes("期望身高上限"));
+  check("轨道两端有刻度说明", h.includes("140") && h.includes("210"));
+
+  const inc = renderToString(
+    <RangeField
+      label="期望年收入" min={0} max={7} valueMin={0} valueMax={7}
+      format={(v) => (v <= 0 || v === 7 ? "不限" : INCOME[v - 1]?.label ?? "?")}
+      formatRange={INCOME_LABEL_RANGE}
+      onChange={() => {}}
+    />
+  );
+  check("两端都开时显示「不限」而不是「不限 – 不限」", inc.includes("不限") && !inc.includes("不限 – 不限"));
+
+  const empty = renderToString(<ProvinceMultiField label="期待家乡" value={[]} onChange={() => {}} />);
+  check("未选时只占一行（占位「不限」）", empty.includes("不限") && !empty.includes("清空已选"));
+  check("收起时不渲染 34 个省份", !empty.includes(">浙江<") && !empty.includes(">广东<"));
+
+  const picked = renderToString(
+    <ProvinceMultiField label="期待家乡" value={["浙江省", "广东省"]} onChange={() => {}} />
+  );
+  check("已选时行内显示简称", picked.includes("浙江") && picked.includes("广东"));
+  check("已选时同样不铺开省份", !picked.includes(">四川<"));
+}
+
 /** MBTI 从「16 个格子」改成「四个维度各自滑动」后的检查 */
 function mbtiChecks() {
   console.log("\n[MBTI 四维滑动]");
@@ -230,6 +269,7 @@ function optionSheetChecks() {
 
 mbtiChecks();
 optionSheetChecks();
+rangeAndProvinceChecks();
 
 // 行政区划那一段需要 await（数据是懒加载的），而构建目标不支持顶层 await，
 // 所以放到 async 函数里跑，跑完再决定退出码。

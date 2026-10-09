@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Choice } from "@/components/ui/choice";
 import { OptionSheet } from "@/components/ui/option-sheet";
+import { RangeField } from "@/components/ui/range-slider";
+import { ProvinceMultiField } from "@/components/picker/province-field";
 import { useToast } from "@/components/ui/toast";
 import { HeightField } from "@/components/picker/height-field";
 import { BirthdayField, type Birthday } from "@/components/picker/birthday-field";
@@ -17,7 +19,6 @@ import {
   ELDERCARE, HOUSE, DINK, YES_NO, ACCEPT_3, CAR_PREFER, HOUSE_PREFER,
   DINK_ACCEPT, PARTNER_TAGS, HOBBIES, EDUCATION_MIN,
 } from "@/data/options";
-import { PROVINCE_NAMES, provinceShort } from "@/data/regions";
 
 const STEPS = ["本人画像", "兴趣爱好", "关于我", "伴侣画像", "期待的他"] as const;
 
@@ -716,7 +717,6 @@ function Step4({
 }) {
   const p = d.pref;
   // 省份名单来自国家统计局口径（构建期生成），不再手写维护
-  const PROVINCES = PROVINCE_NAMES;
 
   return (
     <div className="space-y-6">
@@ -727,88 +727,45 @@ function Step4({
         </p>
       </div>
 
-      {/* 身高范围 */}
-      <div>
-        <p className="mb-2 text-[15px] text-muted">期望身高</p>
-        <div className="rounded-card border border-line bg-surface p-4">
-          <p className="mb-3 text-center text-[15px] font-medium tabular-nums text-ink">
-            {p.heightMin} – {p.heightMax} cm
-          </p>
-          <div className="flex gap-4">
-            <input
-              type="range" min={140} max={210} value={p.heightMin}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setPref("heightMin", Math.min(v, p.heightMax - 5));
-              }}
-              className="h-1.5 w-full accent-[#E4596B]"
-            />
-            <input
-              type="range" min={140} max={210} value={p.heightMax}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setPref("heightMax", Math.max(v, p.heightMin + 5));
-              }}
-              className="h-1.5 w-full accent-[#E4596B]"
-            />
-          </div>
-          <div className="mt-1 flex justify-between text-[11px] text-muted-2">
-            <span>最低</span><span>最高</span>
-          </div>
-        </div>
-      </div>
+      <RangeField
+        label="期望身高"
+        min={140}
+        max={210}
+        valueMin={p.heightMin}
+        valueMax={p.heightMax}
+        gap={5}
+        format={(v) => `${v} cm`}
+        endLabels={["140", "210"]}
+        onChange={(lo, hi) => {
+          setPref("heightMin", lo);
+          setPref("heightMax", hi);
+        }}
+      />
 
-      {/* 家乡多选 */}
-      <div>
-        <p className="mb-2 text-[15px] text-muted">
-          期待家乡 <span className="text-[12px] text-muted-2">（可多选，不选即不限）</span>
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {PROVINCES.map((prov) => {
-            const on = p.hometownProvinces.includes(prov);
-            return (
-              <button
-                key={prov}
-                type="button"
-                onClick={() =>
-                  setPref(
-                    "hometownProvinces",
-                    on ? p.hometownProvinces.filter((x) => x !== prov) : [...p.hometownProvinces, prov]
-                  )
-                }
-                className={cn(
-                  "rounded-full border px-3 py-1.5 text-[13px] transition-all",
-                  on ? "border-brand bg-brand-soft font-medium text-brand-dark" : "border-line text-ink"
-                )}
-              >
-                {provinceShort(prov)}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <ProvinceMultiField
+        label="期待家乡"
+        hint="可多选，不选即不限。"
+        value={p.hometownProvinces}
+        onChange={(v) => setPref("hometownProvinces", v)}
+      />
 
       <Choice label="抽烟" options={ACCEPT_3} value={p.smokingAccept} onChange={(v) => setPref("smokingAccept", v)} />
       <Choice label="喝酒" options={ACCEPT_3} value={p.drinkingAccept} onChange={(v) => setPref("drinkingAccept", v)} />
 
-      {/* 收入区间 */}
-      <div>
-        <p className="mb-2 text-[15px] text-muted">期望年收入</p>
-        <div className="rounded-card border border-line bg-surface p-4">
-          <p className="mb-3 text-center text-[15px] font-medium text-ink">
-            {INCOME_LABEL_RANGE(p.incomeMin, p.incomeMax)}
-          </p>
-          <div className="flex gap-4">
-            <input type="range" min={0} max={7} value={p.incomeMin}
-              onChange={(e) => { const v = Number(e.target.value); setPref("incomeMin", Math.min(v, p.incomeMax)); }}
-              className="h-1.5 w-full accent-[#E4596B]" />
-            <input type="range" min={0} max={7} value={p.incomeMax}
-              onChange={(e) => { const v = Number(e.target.value); setPref("incomeMax", Math.max(v, p.incomeMin)); }}
-              className="h-1.5 w-full accent-[#E4596B]" />
-          </div>
-          <p className="mt-1 text-center text-[11px] text-muted-2">两端拉到底都是「不限」</p>
-        </div>
-      </div>
+      <RangeField
+        label="期望年收入"
+        min={0}
+        max={7}
+        valueMin={p.incomeMin}
+        valueMax={p.incomeMax}
+        format={(v) => (v <= 0 || v === 7 ? "不限" : INCOME[v - 1]?.label ?? "?")}
+        formatRange={INCOME_LABEL_RANGE}
+        endLabels={["不限", "不限"]}
+        onChange={(lo, hi) => {
+          setPref("incomeMin", lo);
+          setPref("incomeMax", hi);
+        }}
+      />
 
       <Choice label="最低学历" options={EDUCATION_MIN} value={p.educationMin} onChange={(v) => setPref("educationMin", v)} />
       <Choice label="独生情况" options={ACCEPT_3} value={p.onlyChildAccept} onChange={(v) => setPref("onlyChildAccept", v)} />
