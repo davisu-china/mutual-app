@@ -149,13 +149,21 @@ export default function Recommend() {
         ) : !top && !exiting ? (
           <Empty
             icon={exhausted ? "time-outline" : "sparkles-outline"}
-            title={exhausted ? "今日额度已用完" : "暂时没有新的推荐"}
+            title={exhausted ? "今日额度已用完" : "这一批看完了"}
             desc={
               exhausted
                 ? "明天 00:00 恢复。也可以去恋爱广场主动找人——浏览不消耗额度。"
-                : "过一会儿再来，或者去广场看看。"
+                : "还有别人在等你，再取一批。"
             }
-            action={<Button label="去广场" variant="outline" onPress={() => nav.push("/(tabs)/plaza")} />}
+            action={
+              <View style={styles.emptyActions}>
+                {/* 一次只取 10 张（服务端也是这个上限），所以划完必须能主动再取。
+                    没有这个按钮就只能退出重进 App——而且这一页不像其它三个 tab
+                    那样 useFocusEffect 重拉，切走再切回来并不会刷新。 */}
+                {!exhausted ? <Button label="再看一批" onPress={() => void load()} /> : null}
+                <Button label="去广场" variant="outline" onPress={() => nav.push("/(tabs)/plaza")} />
+              </View>
+            }
           />
         ) : (
           <View style={styles.deck}>
@@ -386,6 +394,7 @@ const styles = StyleSheet.create({
   stampLikeText: { color: colors.brand, fontSize: 16, fontWeight: "800", letterSpacing: 2 },
   stampPassText: { color: colors.muted, fontSize: 16, fontWeight: "800", letterSpacing: 2 },
   hint: { minHeight: space(6), alignItems: "center", justifyContent: "center" },
+  emptyActions: { flexDirection: "row", alignItems: "center", gap: space(3) },
   hintText: { fontSize: 12, color: colors.muted2 },
   actions: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space(7), paddingTop: space(4) },
   pass: {

@@ -163,6 +163,16 @@ describe("页面与组件渲染", () => {
     }
   });
 
+  it("推荐页这一批划完了：能给一个「再看一批」", async () => {
+    // 一次只取 10 张（服务端 cardBatchSize 也是 10），划完必须能续上。
+    // 这一页不像 chat/likes/me 那样用 useFocusEffect，切走再切回来不刷新，
+    // 所以没有这个按钮就只能退出重进 App。
+    const r = render(wrap(<Discover />));
+    await r.findByText("这一批看完了");
+    expect(r.getByText("再看一批")).toBeTruthy();
+    expect(r.getByText("去广场")).toBeTruthy();
+  });
+
   it("关键组件渲染出该有的东西", () => {
     const c = render(wrap(<ProfileCard card={card} />));
     check("卡片显示昵称", !!c.getByText("小晴"));
