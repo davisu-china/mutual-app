@@ -37,7 +37,9 @@ CREATE TABLE users (
     phone           VARCHAR(11)   NOT NULL,
     password_hash   VARCHAR(255)  NOT NULL,          -- bcrypt/argon2，绝不明文
     nickname        VARCHAR(32)   NOT NULL,
-    gender          SMALLINT      NOT NULL,          -- 1=男 2=女，注册后锁定
+    -- 1=男 2=女。可为 NULL：注册时还没填性别，到 Onboarding 才收集。
+    -- 用 NULL 而不是 0 当哨兵值——0 会被 CHECK 拒绝，且语义不清。
+    gender          SMALLINT,
     birthday        DATE          NOT NULL,          -- 对外只展示年龄
     status          VARCHAR(16)   NOT NULL DEFAULT 'registered',
     device_id       VARCHAR(128),
@@ -48,7 +50,7 @@ CREATE TABLE users (
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
 
     CONSTRAINT uq_users_phone   UNIQUE (phone),
-    CONSTRAINT ck_users_gender  CHECK (gender IN (1, 2)),
+    CONSTRAINT ck_users_gender  CHECK (gender IS NULL OR gender IN (1, 2)),
     CONSTRAINT ck_users_status  CHECK (
         status IN ('registered', 'active', 'frozen', 'banned', 'deleted')
     )

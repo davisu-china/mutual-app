@@ -24,3 +24,7 @@ ssr-out/
 .vite/
 *.tsbuildinfo
 dist-preview/
+
+# Go
+server/bin/
+*.test
