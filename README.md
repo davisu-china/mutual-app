@@ -12,6 +12,7 @@
 | 文件 | 内容 |
 |---|---|
 | [index.html](index.html) | **产品需求文档 PRD v1.5** —— 21 章，含字段级规格、安全合规、可见性矩阵、数据模型、26 条边界场景、9 项决策记录 |
+| [tech-design.html](tech-design.html) | **技术方案与 UI 设计 v1.0** —— 技术选型、架构、设计系统、**五种核心界面的真实 CSS 原型**、动效规范、关键流程设计 |
 | [schema.sql](schema.sql) | **数据模型 DDL** —— PostgreSQL，16 张表 / 25 个索引 / 40 个 CHECK 约束 |
 
 > PRD 可直接用浏览器打开，无外部依赖。若要挂成网址，见下方「GitHub Pages」。
@@ -43,9 +44,23 @@
 
 ## 技术选型
 
-- **数据库** PostgreSQL 12+
-- DDL 已用 `sqlglot` 的 PostgreSQL 方言实测解析通过（51 条语句）
-- 广场的复杂多条件检索建议走 Elasticsearch，数据库组合索引扛不住十几个筛选维度
+| 层 | 选型 |
+|---|---|
+| 前端 | React 18 + TypeScript + Vite |
+| UI | shadcn/ui（Radix UI + Tailwind CSS） |
+| 动效 | Motion（原 Framer Motion）—— 「丝滑」的主要来源 |
+| 数据请求 | TanStack Query（乐观更新 + 缓存 + 无限滚动） |
+| 后端 | Go 1.22+ / Gin |
+| 数据访问 | **sqlc + pgx**（直接吃 `schema.sql` 生成类型安全代码，SQL 完全可见） |
+| 存储 | PostgreSQL 12+ / Redis 7 / MinIO |
+| 检索 | Elasticsearch（P1，广场多条件检索） |
+
+详细方案见 [tech-design.html](tech-design.html)。
+
+### 两个约定
+
+- **划卡用按钮点击，不做左右滑动。** 这是有明确理由的产品决策（桌面端可用、误触率低、可访问、易测试），完整论证见技术方案第 7 章。实现时**不要再把滑动手势作为隐藏功能加回来**。
+- **DDL 已用 `sqlglot` 的 PostgreSQL 方言实测解析通过**（51 条语句），不是只做了括号配平。
 
 ## GitHub Pages
 
@@ -56,5 +71,6 @@
 
 - [x] 产品需求文档（PRD v1.5）
 - [x] 数据模型 DDL
+- [x] 技术方案与 UI 设计（v1.0）
 - [ ] 后端实现
 - [ ] 前端实现

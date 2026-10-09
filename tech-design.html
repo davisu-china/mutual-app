@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>相悦 Mutual · 技术方案与 UI 设计 v1.0</title>
+<style>
+  :root{
+    --paper:#F7F5F6; --surface:#FFFFFF; --surface-2:#F0EDEF;
+    --ink:#1A1719; --ink-2:#3D3739; --muted:#6B6366;
+    --line:#E2DDE0; --line-soft:#EDE9EB;
+    --accent:#B03A5B; --accent-2:#8C2C47; --accent-soft:#FBEBEF;
+    --brand:#E4596B; --brand-2:#C9435A;
+    --seal:#9C3A28; --seal-soft:#F7E7E3;
+    --amber:#8A6412; --amber-soft:#F7EFDD;
+    --teal:#0F6157; --teal-soft:#E0EFEC;
+    --violet:#5B3A78; --violet-soft:#EFE7F4;
+    --mono:"JetBrains Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+    --serif:"Songti SC","Source Han Serif SC","Noto Serif SC",Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.78;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 32px 96px}
+
+  .masthead{padding:72px 0 36px;border-bottom:2px solid var(--ink);margin-bottom:40px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 18px}
+  h1{font-family:var(--serif);font-weight:700;font-size:44px;line-height:1.14;letter-spacing:.01em;margin:0 0 14px}
+  .subtitle{font-size:17px;color:var(--ink-2);margin:0 0 28px;max-width:68ch}
+  .metagrid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+  .metagrid div{background:var(--surface);padding:12px 14px}
+  .metagrid .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
+  .metagrid .v{font-size:13.5px;font-weight:600;color:var(--ink)}
+
+  .toc{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);padding:22px 26px;margin-bottom:56px}
+  .toc h2{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px;font-weight:500}
+  .toc ol{margin:0;padding:0;list-style:none;columns:2;column-gap:36px}
+  .toc li{font-size:13.5px;padding:3px 0;break-inside:avoid;color:var(--ink-2)}
+  .toc li b{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:8px;font-size:12px}
+
+  section{margin-bottom:56px;scroll-margin-top:24px}
+  h2.sec{font-family:var(--serif);font-size:27px;font-weight:700;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px}
+  h2.sec .num{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500;letter-spacing:.06em}
+  h3{font-size:17.5px;font-weight:700;margin:34px 0 12px;color:var(--ink)}
+  h4{font-size:14.5px;font-weight:700;margin:22px 0 8px;color:var(--accent-2);font-family:var(--mono);letter-spacing:.02em}
+  p{margin:0 0 13px}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:5px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);padding:1.5px 5px;border-radius:3px;color:var(--accent-2);border:1px solid var(--line-soft)}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0 20px;font-size:13.5px;background:var(--surface);border:1px solid var(--line)}
+  th{background:var(--surface-2);text-align:left;font-weight:700;font-size:12px;letter-spacing:.04em;color:var(--ink-2);padding:9px 12px;border-bottom:1px solid var(--line)}
+  td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td code{font-size:12px;white-space:nowrap}
+
+  .badge{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;padding:1.5px 7px;border-radius:3px;vertical-align:1.5px;white-space:nowrap}
+  .b-mvp{background:var(--accent);color:#fff}
+  .b-p1{background:var(--teal-soft);color:var(--teal);border:1px solid #C3DED9}
+  .b-p2{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+  .b-tbd{background:var(--amber-soft);color:var(--amber);border:1px solid #E7D6B4}
+  .b-key{background:var(--violet);color:#fff}
+
+  .callout{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--surface);padding:16px 20px;margin:18px 0}
+  .callout.warn{border-left-color:var(--seal);background:var(--seal-soft)}
+  .callout.ok{border-left-color:var(--teal);background:var(--teal-soft)}
+  .callout.tbd{border-left-color:var(--amber);background:var(--amber-soft)}
+  .callout.key{border-left-color:var(--violet);background:var(--violet-soft)}
+  .callout .ct{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:8px;color:var(--accent)}
+  .callout.warn .ct{color:var(--seal)}
+  .callout.ok .ct{color:var(--teal)}
+  .callout.tbd .ct{color:var(--amber)}
+  .callout.key .ct{color:var(--violet)}
+  .callout p:last-child{margin-bottom:0}
+
+  pre{background:#1C1618;color:#EBDFE3;font-family:var(--mono);font-size:12.5px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:14px 0;border-radius:4px;border:1px solid #120D0E}
+  pre .cm{color:#8B767D}
+  pre .kw{color:#E8A2B4}
+  pre .st{color:#E0B87F}
+  pre .fx{color:#8FD8C8}
+
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:16px 0 20px;padding:20px;background:var(--surface);border:1px solid var(--line);font-size:12.5px}
+  .fn{background:var(--accent-soft);border:1.5px solid var(--accent);color:var(--accent-2);padding:7px 11px;border-radius:4px;text-align:center;font-weight:600;line-height:1.35}
+  .fn small{display:block;font-weight:400;color:var(--muted);font-size:10.5px;font-family:var(--mono)}
+  .fn.plain{background:var(--surface-2);border-color:var(--line);color:var(--ink-2)}
+  .fn.ok{background:var(--teal-soft);border-color:var(--teal);color:var(--teal)}
+  .fa{color:var(--muted);font-family:var(--mono);font-size:13px}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+  .card{background:var(--surface);border:1px solid var(--line);padding:16px 18px}
+  .card h5{margin:0 0 8px;font-size:13.5px;font-weight:700;color:var(--accent-2)}
+  .card p{font-size:13px;color:var(--ink-2);margin:0}
+  .card ul{padding-left:18px;margin:6px 0 0;font-size:13px;color:var(--ink-2)}
+
+  .swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:16px 0}
+  .sw{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+  .sw .chip{height:56px}
+  .sw .lbl{padding:7px 9px;font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--muted)}
+  .sw .lbl b{display:block;color:var(--ink);font-size:11.5px}
+
+  /* ===== UI 原型（真实 CSS 渲染）===== */
+  .proto-row{display:flex;gap:22px;flex-wrap:wrap;margin:20px 0;align-items:flex-start}
+  .phone{
+    width:300px;background:#FAF8F9;border:1px solid #E2DDE0;border-radius:26px;
+    padding:0;overflow:hidden;box-shadow:0 10px 34px rgba(28,22,24,.13);
+    font-size:13px;line-height:1.6;flex-shrink:0;
+  }
+  .phone .statusbar{height:26px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px;font-size:9.5px;color:#9A9296;font-family:var(--mono);background:#FAF8F9}
+  .phone .screen{padding:0 12px 12px}
+  .phone .tabbar{display:flex;border-top:1px solid #EDE7E9;background:#fff;padding:7px 0 9px}
+  .phone .tabbar div{flex:1;text-align:center;font-size:9.5px;color:#9A9296}
+  .phone .tabbar div.on{color:#E4596B;font-weight:700}
+  .phone .tabbar .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#E4596B;vertical-align:2px;margin-left:2px}
+
+  .deck{position:relative;height:322px;margin:10px 0 0}
+  .dcard{position:absolute;inset:0;border-radius:18px;overflow:hidden;background:#fff;
+    box-shadow:0 2px 8px rgba(28,22,24,.06),0 12px 30px rgba(28,22,24,.10);
+    border:1px solid rgba(0,0,0,.04)}
+  .dcard .photo{height:216px;position:relative;
+    background:linear-gradient(160deg,#F6D9DF 0%,#E8B9C6 40%,#C9A7B8 100%)}
+  .dcard .photo .who{position:absolute;left:14px;bottom:12px;color:#fff;
+    text-shadow:0 1px 6px rgba(0,0,0,.35)}
+  .dcard .photo .who b{font-size:17px;font-weight:700;letter-spacing:.01em}
+  .dcard .photo .who span{font-size:11.5px;opacity:.92;display:block;margin-top:1px}
+  .dcard .photo .dist{position:absolute;right:12px;top:12px;background:rgba(0,0,0,.42);
+    color:#fff;font-size:10px;padding:3px 9px;border-radius:999px;backdrop-filter:blur(6px)}
+  .dcard .meta{padding:11px 14px 13px}
+  .dcard .meta .line{font-size:11.5px;color:#6B6366;margin-bottom:7px}
+  .tags{display:flex;gap:5px;flex-wrap:wrap}
+  .tag{font-size:10px;padding:2.5px 9px;border-radius:999px;background:#FDEEF1;color:#C9435A;
+    border:1px solid #F7DDE2;font-weight:500}
+  .tag.n{background:#F0EDEF;color:#6B6366;border-color:#E7E2E4}
+
+  .deck .d2{transform:scale(.955) translateY(13px);opacity:.62;z-index:1}
+  .deck .d3{transform:scale(.912) translateY(26px);opacity:.32;z-index:0}
+  .deck .d1{z-index:3}
+
+  .actions{display:flex;align-items:center;justify-content:center;gap:26px;padding:16px 0 6px}
+  .btn-round{width:56px;height:56px;border-radius:50%;border:1.5px solid #E2DDE0;background:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:20px;color:#8B8489;
+    box-shadow:0 3px 10px rgba(28,22,24,.07);font-weight:300}
+  .btn-round.like{width:64px;height:64px;border:none;color:#fff;font-size:24px;
+    background:linear-gradient(145deg,#EF7183,#D8445C);
+    box-shadow:0 6px 18px rgba(228,89,107,.38)}
+  .btn-round.small{width:46px;height:46px;font-size:16px}
+
+  .matchbox{background:#1C1618;border-radius:26px}
+  .matchbox .statusbar{background:#1C1618;color:#5E5559}
+  .match-glow{height:322px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 42%,rgba(228,89,107,.30) 0%,rgba(28,22,24,0) 62%)}
+  .avatars{display:flex;align-items:center;margin-bottom:18px}
+  .av{width:76px;height:76px;border-radius:50%;border:2.5px solid #1C1618;
+    background:linear-gradient(150deg,#F0C6D0,#C9A7B8);box-shadow:0 0 0 3px rgba(228,89,107,.35)}
+  .av.r{background:linear-gradient(150deg,#C7D2E8,#9FAECB);margin-left:-16px}
+  .heart{font-size:26px;color:#E4596B;margin:0 -8px;z-index:2;
+    text-shadow:0 0 18px rgba(228,89,107,.9)}
+  .matchbox h3{color:#fff;font-size:18px;margin:0 0 4px;font-family:var(--sans)}
+  .matchbox .sub{color:#9A9296;font-size:11.5px;margin-bottom:20px}
+  .mbtns{display:flex;flex-direction:column;gap:8px;width:190px}
+  .mbtn{border-radius:999px;padding:10px;text-align:center;font-size:12.5px;font-weight:600;
+    background:linear-gradient(145deg,#EF7183,#D8445C);color:#fff}
+  .mbtn.ghost{background:transparent;border:1px solid #3A3235;color:#B8AFB2;font-weight:400}
+
+  .listitem{display:flex;align-items:center;gap:11px;padding:10px 12px;background:#fff;
+    border-bottom:1px solid #F2EEF0}
+  .listitem:last-child{border-bottom:none}
+  .listitem .av2{width:46px;height:46px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(150deg,#F0C6D0,#C9A7B8);display:flex;align-items:center;
+    justify-content:center;color:#fff;font-weight:700;font-size:14px}
+  .listitem .av2.b{background:linear-gradient(150deg,#C7D2E8,#9FAECB)}
+  .listitem .body{flex:1;min-width:0}
+  .listitem .nm{font-size:13px;font-weight:600;color:#1A1719}
+  .listitem .desc{font-size:11px;color:#9A9296;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .listitem .act{font-size:11px;color:#E4596B;font-weight:600;flex-shrink:0}
+
+  .bubble{max-width:76%;padding:9px 13px;border-radius:16px;font-size:12.5px;line-height:1.55;margin-bottom:8px}
+  .bubble.them{background:#fff;border:1px solid #EDE7E9;border-bottom-left-radius:5px;color:#1A1719}
+  .bubble.me{background:linear-gradient(145deg,#EF7183,#D8445C);color:#fff;
+    border-bottom-right-radius:5px;margin-left:auto}
+
+  .spec-note{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:8px 0 22px;line-height:1.7}
+
+  hr.soft{border:none;border-top:1px solid var(--line-soft);margin:32px 0}
+  .foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="masthead">
+  <p class="eyebrow">Technical Design &amp; UI Specification · v1.0</p>
+  <h1>相悦 Mutual</h1>
+  <p class="subtitle">技术方案与 UI 设计。前端 React + shadcn/ui，后端 Golang，存储 PostgreSQL / Redis / MinIO。<b>划卡采用按钮点击而非左右滑动</b>——这一章会说明为什么这是更好的选择，并给出完整的设计系统与动效规范。</p>
+  <div class="metagrid">
+    <div><span class="k">文档状态</span><span class="v">草案</span></div>
+    <div><span class="k">日期</span><span class="v">2026-10-09</span></div>
+    <div><span class="k">前端</span><span class="v">React + shadcn/ui</span></div>
+    <div><span class="k">后端</span><span class="v">Golang + PG/Redis/MinIO</span></div>
+  </div>
+</div>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><b>01</b>技术选型总览</li>
+    <li><b>02</b>系统架构</li>
+    <li><b>03</b>前端架构</li>
+    <li><b>04</b>设计系统（Design Tokens）</li>
+    <li><b>05</b>核心界面设计</li>
+    <li><b>06</b>交互与动效规范</li>
+    <li><b>07</b>为什么用按钮而不是滑动</li>
+    <li><b>08</b>后端架构（Golang）</li>
+    <li><b>09</b>数据存储设计</li>
+    <li><b>10</b>关键流程设计</li>
+    <li><b>11</b>API 与实时通信</li>
+    <li><b>12</b>性能、安全与部署</li>
+    <li><b>13</b>里程碑</li>
+  </ol>
+</nav>
+
+<!-- ============ 01 ============ -->
+<section>
+  <h2 class="sec"><span class="num">01</span>技术选型总览</h2>
+
+  <table>
+    <tr><th style="width:130px">层</th><th style="width:200px">选型</th><th>理由</th></tr>
+    <tr>
+      <td><b>前端框架</b></td>
+      <td>React 18 + TypeScript + Vite</td>
+      <td>生态最成熟；Vite 冷启动快；TS 保障接口契约</td>
+    </tr>
+    <tr>
+      <td><b>UI 组件</b></td>
+      <td>shadcn/ui（Radix + Tailwind）</td>
+      <td>源码直接进项目、可任意改样式（不是黑盒依赖）；Radix 的无障碍与键盘交互是现成的</td>
+    </tr>
+    <tr>
+      <td><b>动效</b></td>
+      <td>Motion（原 Framer Motion）</td>
+      <td><b>「丝滑」的主要来源</b>；布局动画、弹簧缓动、手势、手势中断都是开箱即用</td>
+    </tr>
+    <tr>
+      <td><b>数据请求</b></td>
+      <td>TanStack Query</td>
+      <td>缓存、去重、乐观更新、无限滚动；划卡场景全靠乐观更新保证「点下去立刻有反应」</td>
+    </tr>
+    <tr>
+      <td><b>轻状态</b></td>
+      <td>Zustand</td>
+      <td>体量小、无 Provider 嵌套；只放 UI 状态（当前卡片、弹层）</td>
+    </tr>
+    <tr>
+      <td><b>表单</b></td>
+      <td>react-hook-form + zod</td>
+      <td>Onboarding 五步字段多，非受控表单性能好；zod 与后端校验规则共用一份 schema 定义</td>
+    </tr>
+    <tr>
+      <td><b>后端语言</b></td>
+      <td>Go 1.22+</td>
+      <td>并发模型适合 WebSocket 长连接；部署为单二进制；团队可维护性好</td>
+    </tr>
+    <tr>
+      <td><b>Web 框架</b></td>
+      <td>Gin</td>
+      <td>生态最成熟、中间件多、文档全。<b>备选 chi</b>（更贴近标准库，无框架侵入）</td>
+    </tr>
+    <tr>
+      <td><b>数据访问</b></td>
+      <td><b>sqlc + pgx</b></td>
+      <td>从我们已有的 <code>schema.sql</code> 直接生成类型安全的 Go 代码；SQL 完全可见可控，复杂查询（卡池过滤、广场检索）不会被 ORM 藏起来</td>
+    </tr>
+    <tr>
+      <td><b>缓存 / 计数</b></td>
+      <td>Redis 7</td>
+      <td>额度缓存、限流、在线状态、WebSocket 多实例广播</td>
+    </tr>
+    <tr>
+      <td><b>对象存储</b></td>
+      <td>MinIO</td>
+      <td>照片与头像；预签名直传，不经过后端</td>
+    </tr>
+    <tr>
+      <td><b>检索</b></td>
+      <td>Elasticsearch <span class="badge b-tbd">P1</span></td>
+      <td>广场十几个筛选维度，PG 组合索引扛不住。MVP 可先用 PG，维度变多后再引入</td>
+    </tr>
+  </table>
+
+  <div class="callout key">
+    <div class="ct">两个关键选型判断</div>
+    <p><b>1. 用 sqlc 而不是 GORM。</b>我们已经有 <code>schema.sql</code>，sqlc 能直接吃这份 DDL 生成类型安全的查询代码。更重要的是：本项目的核心查询（卡池候选过滤、广场多条件检索）逻辑复杂，<b>SQL 必须可见、可调、可 explain</b>——ORM 把这些藏起来，性能出问题时很难查。</p>
+    <p><b>2. 动效不是「加个 transition」。</b>「丝滑」是个工程问题：需要乐观更新（点击瞬间就反馈，不等服务端）、布局动画（卡片自动补位）、图片预加载（下一张已经就绪）三件事一起做。只做 CSS transition 是出不来「丝滑」的，见第 6 章。</p>
+  </div>
+</section>
+
+<!-- ============ 02 ============ -->
+<section>
+  <h2 class="sec"><span class="num">02</span>系统架构</h2>
+
+  <h3>2.1 全局拓扑</h3>
+  <div class="flow">
+    <div class="fn plain">浏览器 / H5<small>React SPA</small></div><span class="fa">⇄ HTTPS</span>
+    <div class="fn plain">Nginx<small>静态资源 + 反向代理</small></div><span class="fa">→</span>
+    <div class="fn">Go API<small>Gin · 无状态 · 可水平扩展</small></div>
+  </div>
+  <div class="flow">
+    <div class="fn plain">Go API</div><span class="fa">→</span>
+    <div class="fn ok">PostgreSQL<small>主数据</small></div>
+    <div class="fn gw">Redis<small>缓存/限流/在线/广播</small></div>
+    <div class="fn plain">MinIO<small>照片对象</small></div>
+    <div class="fn plain">ES<small>广场检索(P1)</small></div>
+  </div>
+
+  <h3>2.2 后端分层</h3>
+  <table>
+    <tr><th style="width:140px">层</th><th style="width:200px">包</th><th>职责</th></tr>
+    <tr><td>接入层</td><td><code>internal/handler</code></td><td>HTTP 路由、参数绑定与校验、错误码映射、鉴权中间件</td></tr>
+    <tr><td>业务层</td><td><code>internal/service</code></td><td>划卡、配对、额度、聊天等业务规则。<b>所有事务边界在这一层</b></td></tr>
+    <tr><td>数据层</td><td><code>internal/repo</code></td><td>sqlc 生成的查询封装；不含业务判断</td></tr>
+    <tr><td>基础设施</td><td><code>internal/infra</code></td><td>PG / Redis / MinIO / WebSocket Hub / 日志 / 配置</td></tr>
+    <tr><td>领域模型</td><td><code>internal/model</code></td><td>实体与 DTO；跨层共享</td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="ct">一条硬规矩：事务边界只在 service 层</div>
+    <p>「扣额度 + 写 Like + 判配对 + 建会话」必须是一个原子操作，这类组合逻辑全部收敛在 service 层，handler 不允许直接调 repo 拼事务。<b>违反这条，配对就会在并发下出现重复会话或额度透支。</b></p>
+  </div>
+
+  <h3>2.3 目录结构</h3>
+  <pre>mutual-app/
+├── cmd/
+│   └── api/main.go              <span class="cm"># 入口</span>
+├── internal/
+│   ├── handler/                 <span class="cm"># HTTP 层</span>
+│   ├── service/                 <span class="cm"># 业务规则 + 事务</span>
+│   ├── repo/                    <span class="cm"># sqlc 查询封装</span>
+│   ├── model/                   <span class="cm"># 实体与 DTO</span>
+│   ├── middleware/              <span class="cm"># 鉴权 / 限流 / 日志 / 恢复</span>
+│   ├── ws/                      <span class="cm"># WebSocket Hub</span>
+│   └── infra/                   <span class="cm"># pg / redis / minio / config</span>
+├── db/
+│   ├── schema.sql               <span class="cm"># ← 已有</span>
+│   ├── query/                   <span class="cm"># sqlc 输入：.sql 查询文件</span>
+│   └── migrations/              <span class="cm"># golang-migrate</span>
+├── web/                         <span class="cm"># 前端（独立构建）</span>
+└── deploy/                      <span class="cm"># Dockerfile / compose / nginx</span></pre>
+</section>
+
+<!-- ============ 03 ============ -->
+<section>
+  <h2 class="sec"><span class="num">03</span>前端架构</h2>
+
+  <h3>3.1 目录结构</h3>
+  <pre>web/src/
+├── app/                  <span class="cm"># 路由与页面壳</span>
+│   ├── routes/           <span class="cm"># 发现 / 广场 / 心动 / 消息 / 我的</span>
+│   └── providers.tsx     <span class="cm"># QueryClient / Theme / Toast</span>
+├── components/
+│   ├── ui/               <span class="cm"># shadcn/ui 生成的基础组件</span>
+│   ├── deck/             <span class="cm"># 卡片栈（本项目最核心的组件）</span>
+│   ├── profile/          <span class="cm"># 画像展示与编辑</span>
+│   ├── chat/             <span class="cm"># 会话与消息</span>
+│   └── common/           <span class="cm"># 空态 / 骨架屏 / 错误重试</span>
+├── features/             <span class="cm"># 按业务域聚合的 api + hooks</span>
+├── lib/
+│   ├── api.ts            <span class="cm"># fetch 封装 + 拦截器</span>
+│   ├── design.ts         <span class="cm"># 设计令牌（与 tailwind.config 同源）</span>
+│   └── motion.ts         <span class="cm"># 统一的动效变体定义</span>
+└── tailwind.config.ts</pre>
+
+  <h3>3.2 数据层策略</h3>
+  <table>
+    <tr><th style="width:170px">场景</th><th>策略</th></tr>
+    <tr><td>划卡拉取</td><td><code>useInfiniteQuery</code> 一次拉 10 张缓存在本地，<b>不等用户滑完再请求</b>；剩 3 张时后台预取下一批</td></tr>
+    <tr><td>提交 Like</td><td><b>乐观更新</b>：点击立刻出动画、卡片立刻移除，请求失败再回滚并提示。这是「丝滑」的关键</td></tr>
+    <tr><td>图片</td><td>列表用缩略图（服务端生成）；卡片大图预加载下一张；加载中显示 blurhash 占位</td></tr>
+    <tr><td>聊天</td><td>WebSocket 增量；历史消息用游标分页；发送同样走乐观更新（本地先上屏，带「发送中」态）</td></tr>
+    <tr><td>广场</td><td>筛选条件作为 query key，切换条件复用缓存；滚动用虚拟列表</td></tr>
+  </table>
+
+  <h3>3.3 路由与页面</h3>
+  <table>
+    <tr><th style="width:150px">路径</th><th style="width:190px">页面</th><th>说明</th></tr>
+    <tr><td><code>/</code></td><td>发现（划卡）</td><td>默认落地页；卡片栈 + 按钮组</td></tr>
+    <tr><td><code>/plaza</code></td><td>恋爱广场</td><td>筛选 + 列表</td></tr>
+    <tr><td><code>/likes</code></td><td>心动</td><td>谁喜欢我 / 谁看过我（Tab 切换）</td></tr>
+    <tr><td><code>/chat</code> · <code>/chat/:id</code></td><td>消息</td><td>会话列表与聊天</td></tr>
+    <tr><td><code>/me</code></td><td>我的</td><td>资料、相册、设置</td></tr>
+    <tr><td><code>/u/:id</code></td><td>他人主页</td><td>从卡片/广场/列表进入，<b>进入即记一次 Visit</b></td></tr>
+    <tr><td><code>/onboarding/:step</code></td><td>资料填写</td><td>五步向导，未完成时全局路由守卫强制跳这里</td></tr>
+  </table>
+</section>
+
+<!-- ============ 04 ============ -->
+<section>
+  <h2 class="sec"><span class="num">04</span>设计系统（Design Tokens）</h2>
+  <p>先定令牌，再谈界面。所有颜色、间距、圆角、动效时长都从这一层取，不在组件里写魔法数字。</p>
+
+  <h3>4.1 色彩</h3>
+  <p>整体走<b>暖调</b>——这是有意的：交友产品要传递温度，冷灰蓝会显得像工具。但暖不能俗，所以底色用偏暖的白、文字用带一丝红调的墨色，主色选<b>胭脂红</b>（比正红柔、比粉色稳），避免 Tinder 那种高饱和火焰橙。</p>
+
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#E4596B"></div><div class="lbl"><b>Brand</b>#E4596B</div></div>
+    <div class="sw"><div class="chip" style="background:#C9435A"></div><div class="lbl"><b>Brand Dark</b>#C9435A</div></div>
+    <div class="sw"><div class="chip" style="background:#FDEEF1"></div><div class="lbl"><b>Brand Soft</b>#FDEEF1</div></div>
+    <div class="sw"><div class="chip" style="background:#1C1618"></div><div class="lbl"><b>Ink</b>#1C1618</div></div>
+    <div class="sw"><div class="chip" style="background:#6B6366"></div><div class="lbl"><b>Muted</b>#6B6366</div></div>
+    <div class="sw"><div class="chip" style="background:#FAF8F9;border-bottom:1px solid #E2DDE0"></div><div class="lbl"><b>Paper</b>#FAF8F9</div></div>
+  </div>
+
+  <table>
+    <tr><th style="width:150px">语义</th><th style="width:130px">值</th><th>用途</th></tr>
+    <tr><td><code>brand</code></td><td>#E4596B</td><td>主按钮、Like、选中态、强调数字</td></tr>
+    <tr><td><code>brand-dark</code></td><td>#C9435A</td><td>按下态、渐变深端</td></tr>
+    <tr><td><code>brand-soft</code></td><td>#FDEEF1</td><td>标签底色、选中背景</td></tr>
+    <tr><td><code>brand-gradient</code></td><td>145° #EF7183 → #D8445C</td><td>Like 按钮与配对按钮（<b>只用于「喜欢」这一个语义</b>，不滥用）</td></tr>
+    <tr><td><code>ink</code></td><td>#1C1618</td><td>标题与正文主色（带暖调的近黑，不用纯黑）</td></tr>
+    <tr><td><code>muted</code></td><td>#6B6366</td><td>次要信息</td></tr>
+    <tr><td><code>faint</code></td><td>#9A9296</td><td>辅助说明、时间戳</td></tr>
+    <tr><td><code>line</code></td><td>#E2DDE0</td><td>描边（暖灰，不用冷灰）</td></tr>
+    <tr><td><code>paper</code></td><td>#FAF8F9</td><td>页面底色（暖白，不用纯白铺底）</td></tr>
+    <tr><td><code>surface</code></td><td>#FFFFFF</td><td>卡片面</td></tr>
+    <tr><td><code>neutral-act</code></td><td>#8B8489</td><td>「跳过」按钮（中性灰，不抢主色的注意力）</td></tr>
+    <tr><td><code>danger</code></td><td>#9C3A28</td><td>举报、拉黑、解除配对</td></tr>
+  </table>
+
+  <h4>深色模式</h4>
+  <table>
+    <tr><th style="width:150px">语义</th><th style="width:130px">值</th></tr>
+    <tr><td><code>paper</code></td><td>#141011</td></tr>
+    <tr><td><code>surface</code></td><td>#1D1819</td></tr>
+    <tr><td><code>ink</code></td><td>#F2EDEE</td></tr>
+    <tr><td><code>brand</code></td><td>#F2707F（深底上提亮，否则品牌色会闷）</td></tr>
+  </table>
+
+  <h3>4.2 字体</h3>
+  <pre>--font-sans: -apple-system, "PingFang SC", "HarmonyOS Sans SC",
+             "MiSans", "Microsoft YaHei", sans-serif;
+--font-num:  ui-rounded, "SF Pro Rounded", system-ui;   <span class="cm">/* 数字与年龄、身高等，圆润不刺眼 */</span>
+--font-mono: "JetBrains Mono", ui-monospace;</pre>
+  <table>
+    <tr><th style="width:110px">层级</th><th style="width:130px">字号 / 字重</th><th>用途</th></tr>
+    <tr><td>display</td><td>28 / 700</td><td>配对成功等强调文案</td></tr>
+    <tr><td>h1</td><td>22 / 700</td><td>页面主标题</td></tr>
+    <tr><td>h2</td><td>17 / 600</td><td>区块标题、对方昵称</td></tr>
+    <tr><td>body</td><td>15 / 400</td><td>正文与表单</td></tr>
+    <tr><td>caption</td><td>13 / 400</td><td>次要信息</td></tr>
+    <tr><td>micro</td><td>11 / 500</td><td>标签、时间戳</td></tr>
+  </table>
+
+  <h3>4.3 间距 / 圆角 / 阴影</h3>
+  <div class="grid3">
+    <div class="card"><h5>间距（4 的倍数）</h5><p>4 · 8 · 12 · 16 · 20 · 24 · 32 · 48。页面左右安全边距统一 <code>16px</code>。</p></div>
+    <div class="card"><h5>圆角</h5><p>卡片 <code>18px</code> · 按钮 <code>12px</code> · 输入框 <code>10px</code> · 标签与胶囊 <code>999px</code> · 圆形按钮 <code>50%</code>。</p></div>
+    <div class="card"><h5>阴影</h5><p>卡片：<code>0 2px 8px rgba(28,22,24,.06)</code> + <code>0 12px 30px rgba(28,22,24,.10)</code>。双层柔影，不要又黑又硬。</p></div>
+  </div>
+</section>
+
+<!-- ============ 05 ============ -->
+<section>
+  <h2 class="sec"><span class="num">05</span>核心界面设计</h2>
+  <p>下面全部是<b>真实 CSS 渲染</b>，不是示意图——你在文档里看到的就是它该有的样子。</p>
+
+  <h3>5.1 发现页（划卡）· 核心界面</h3>
+  <div class="proto-row">
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span>相悦</span><span>100%</span></div>
+      <div class="screen">
+        <div class="deck">
+          <div class="dcard d3"></div>
+          <div class="dcard d2"></div>
+          <div class="dcard d1">
+            <div class="photo">
+              <div class="dist">3–5 km</div>
+              <div class="who"><b>林小满</b><span>26 岁 · 上海 · 165cm</span></div>
+            </div>
+            <div class="meta">
+              <div class="line">互联网 · 硕士 · 产品经理</div>
+              <div class="tags">
+                <span class="tag">摄影</span><span class="tag">徒步</span><span class="tag">咖啡</span>
+                <span class="tag n">不抽烟</span><span class="tag n">独生</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="btn-round">✕</div>
+          <div class="btn-round like">♥</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="on">发现</div><div>广场</div><div>心动<span class="dot"></span></div><div>消息</div><div>我的</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:300px">
+      <h4>设计要点</h4>
+      <ul>
+        <li><b>卡片栈三层</b>：当前卡 + 后面两张（缩小 4.5% / 9%、下移 13 / 26px、透明度降至 62% / 32%）。有纵深，用户知道「后面还有人」。</li>
+        <li><b>信息优先级</b>：大图 → 昵称/年龄/城市 → 职业学历 → 兴趣标签。<b>距离放在图片右上角</b>，因为它是决策的硬条件之一，但不需要占正文位置。</li>
+        <li><b>标签分两类</b>：兴趣用品牌色（正向、可点进详情），客观条件（不抽烟、独生）用中性灰——避免整张卡都是红的。</li>
+        <li><b>只有两个按钮</b>：✕ 与 ♥。点卡片本身进详情（同时记一次 Visit），所以不需要第三个「详情」按钮。</li>
+        <li><b>♥ 比 ✕ 大 8px 且带品牌渐变与光晕</b>——视觉权重明确偏向「喜欢」，但 ✕ 依然够大够好点（56px 满足拇指热区）。</li>
+      </ul>
+      <div class="spec-note">
+        按钮命中区：✕ 56×56px · ♥ 64×64px<br>
+        两按钮间距：26px（防误触，且拇指自然跨距）<br>
+        卡片高度：占屏幕可视区约 58%，保证按钮始终在图下方且不被遮挡
+      </div>
+    </div>
+  </div>
+
+  <h3>5.2 配对成功 · 最高光时刻</h3>
+  <div class="proto-row">
+    <div class="phone matchbox">
+      <div class="statusbar"><span>9:41</span><span></span><span>100%</span></div>
+      <div class="match-glow">
+        <div class="avatars">
+          <div class="av"></div>
+          <div class="heart">♥</div>
+          <div class="av r"></div>
+        </div>
+        <h3>你们互相喜欢</h3>
+        <div class="sub">你和她都对彼此表达了心意</div>
+        <div class="mbtns">
+          <div class="mbtn">去打个招呼</div>
+          <div class="mbtn ghost">继续看看</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:300px">
+      <h4>这一屏值得单独设计</h4>
+      <p><b>配对是整个产品情感浓度最高的瞬间</b>——用户等了很久、付出了 10 次额度中的一次，终于双向确认。这一屏如果只是一句冷冰冰的 toast，产品的「爽感」就丢了。</p>
+      <ul>
+        <li><b>全屏遮罩 + 深色底</b>：把用户从浏览状态里抽离出来，形成仪式感。</li>
+        <li><b>两个头像从左右飞入、在中间相撞</b>，撞出心形与径向光晕（450ms 弹簧缓动）。</li>
+        <li><b>轻微的设备震动反馈</b>（H5 用 <code>navigator.vibrate</code>，App 用原生 haptic）。</li>
+        <li><b>主按钮直达聊天</b>，次要按钮留在原地——给「先打完这批卡再聊」的用户留出口。</li>
+        <li>文案不用「匹配成功」这种机器词，用<b>「你们互相喜欢」</b>——说人话。</li>
+      </ul>
+      <div class="callout warn" style="margin-top:14px">
+        <div class="ct">克制提醒</div>
+        <p>这一屏<b>不要撒花瓣、不要放烟花、不要循环动画</b>。一次清脆的相遇比一场嘈杂的庆典更符合「认真交往」的定位。动效跑完就停，别一直转。</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>5.3 心动页（谁喜欢我 / 谁看过我）</h3>
+  <div class="proto-row">
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span>心动</span><span>100%</span></div>
+      <div class="screen" style="padding-top:8px">
+        <div style="display:flex;gap:16px;padding:6px 4px 12px;border-bottom:1px solid #EDE7E9">
+          <div style="font-size:13px;font-weight:700;color:#E4596B;border-bottom:2px solid #E4596B;padding-bottom:4px">喜欢我 · 12</div>
+          <div style="font-size:13px;color:#9A9296;padding-bottom:4px">看过我 · 38</div>
+        </div>
+        <div style="border-radius:12px;overflow:hidden;border:1px solid #EDE7E9;margin-top:10px">
+          <div class="listitem">
+            <div class="av2">苏</div>
+            <div class="body"><div class="nm">苏晚 24</div><div class="desc">杭州 · 168cm · 设计师</div></div>
+            <div class="act">回喜欢</div>
+          </div>
+          <div class="listitem">
+            <div class="av2 b">陈</div>
+            <div class="body"><div class="nm">陈屿 28</div><div class="desc">上海 · 180cm · 后端工程师</div></div>
+            <div class="act">回喜欢</div>
+          </div>
+          <div class="listitem">
+            <div class="av2">周</div>
+            <div class="body"><div class="nm">周予安 26</div><div class="desc">北京 · 172cm · 律师</div></div>
+            <div class="act">回喜欢</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:9px 11px;background:#FDEEF1;border-radius:9px;
+                    font-size:10.5px;color:#C9435A;line-height:1.6">
+          回喜欢会消耗 1 次每日额度，今天还剩 <b>7</b> 次
+        </div>
+      </div>
+      <div class="tabbar">
+        <div>发现</div><div>广场</div><div class="on">心动</div><div>消息</div><div>我的</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:300px">
+      <h4>设计要点</h4>
+      <ul>
+        <li><b>「回喜欢」是列表内的一级动作</b>，不要求点进主页再操作——这个页面的转化率最高，路径必须最短。</li>
+        <li><b>顶部直接给出「还剩余额」提示</b>。因为回 Like 会消耗额度（PRD 已定），如果不提前说明，用户点到第 8 个人发现点不动了会很恼火。<b>这是把一条产品规则翻译成界面语言。</b></li>
+        <li>头像用<b>首字字母块</b>兜底（照片未加载或未过审时不出现空白）。</li>
+        <li>Tab 上有角标数字，「谁喜欢我」有新条目时底部 Tab 显示红点——这是召回用户回访的主要钩子。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>5.4 聊天</h3>
+  <div class="proto-row">
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span>林小满</span><span>100%</span></div>
+      <div class="screen" style="padding-top:10px">
+        <div style="text-align:center;font-size:10px;color:#9A9296;margin-bottom:12px">
+          你们在 10 月 9 日互相喜欢
+        </div>
+        <div class="bubble them">你相册里那张冰岛的照片是在哪里拍的呀？</div>
+        <div class="bubble me">黑沙滩，就是那个有玄武岩柱的地方</div>
+        <div class="bubble me">风大到我差点站不稳，但值得</div>
+        <div class="bubble them">哈哈哈我懂，我看你那个冲锋衣就知道</div>
+        <div style="display:flex;gap:7px;align-items:center;margin-top:12px">
+          <div style="flex:1;background:#fff;border:1px solid #E2DDE0;border-radius:999px;
+                      padding:9px 14px;font-size:11.5px;color:#9A9296">说点什么…</div>
+          <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;
+                      background:linear-gradient(145deg,#EF7183,#D8445C);
+                      display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px">↑</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:300px">
+      <h4>设计要点</h4>
+      <ul>
+        <li><b>顶部一行系统消息</b>交代关系来源（「你们在 X 月 X 日互相喜欢」）——让对话有来处，而不是凭空冒出来。</li>
+        <li><b>破冰提示</b>：会话建立时，输入框占位符不是「发送消息」，而是<b>基于对方兴趣生成的一句建议提问</b>。配对后不说话是流失主因，这一句能明显提高首条消息发送率。</li>
+        <li>自己的气泡用品牌渐变、对方用白底描边——<b>只用颜色区分，不加小尾巴</b>，更干净。</li>
+        <li>消息状态用极轻的视觉（发送中转圈、已读用对方头像旁的小点），不出现「已读」两个字压人。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>5.5 个人中心 · 九宫格相册（拖拽排序）</h3>
+  <div class="proto-row">
+    <div class="phone">
+      <div class="statusbar"><span>9:41</span><span>我的</span><span>100%</span></div>
+      <div class="screen" style="padding-top:8px">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 4px 14px">
+          <div style="width:60px;height:60px;border-radius:50%;flex-shrink:0;
+                      background:linear-gradient(150deg,#F0C6D0,#C9A7B8)"></div>
+          <div>
+            <div style="font-size:15px;font-weight:700">林小满 <span style="font-size:10px;color:#E4596B;font-weight:600">资料完整度 92%</span></div>
+            <div style="font-size:10.5px;color:#9A9296;margin-top:2px">26 岁 · 上海 · 165cm</div>
+          </div>
+        </div>
+        <div style="font-size:11.5px;color:#6B6366;margin:2px 0 7px">我的相册 · 长按拖拽排序</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <div style="aspect-ratio:1;border-radius:9px;background:linear-gradient(150deg,#F0C6D0,#C9A7B8);position:relative">
+            <div style="position:absolute;left:4px;top:4px;background:rgba(0,0,0,.5);color:#fff;
+                        font-size:8px;padding:1px 5px;border-radius:4px">主图</div>
+          </div>
+          <div style="aspect-ratio:1;border-radius:9px;background:linear-gradient(150deg,#DCE3EE,#AEBBD0)"></div>
+          <div style="aspect-ratio:1;border-radius:9px;background:linear-gradient(150deg,#E6E2D6,#C4BCA6)"></div>
+          <div style="aspect-ratio:1;border-radius:9px;background:linear-gradient(150deg,#DDE9E2,#A9C3B6)"></div>
+          <div style="aspect-ratio:1;border-radius:9px;background:linear-gradient(150deg,#EFDCD8,#D3B0A8)"></div>
+          <div style="aspect-ratio:1;border-radius:9px;border:1.5px dashed #E2DDE0;
+                      display:flex;align-items:center;justify-content:center;color:#E4596B;font-size:17px">＋</div>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:#9A9296;line-height:1.6">
+          第 1 张为封面图，出现在划卡与广场列表
+        </div>
+      </div>
+      <div class="tabbar">
+        <div>发现</div><div>广场</div><div>心动</div><div>消息</div><div class="on">我的</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:300px">
+      <h4>设计要点</h4>
+      <ul>
+        <li><b>主图有明显角标</b>——用户必须一眼知道哪张是封面，否则拖拽排序就是盲操作。</li>
+        <li><b>拖拽用 <code>dnd-kit</code></b>：长按 200ms 进入拖拽（避免与页面滚动冲突），拖动时原位置留半透明占位、目标位置高亮边框，<b>松手前就能预判落点</b>。</li>
+        <li>拖拽中整个网格轻微放大 1.02、阴影加深，营造「拿起来了」的感觉。</li>
+        <li><b>资料完整度用百分比 + 颜色</b>呈现，点击直达缺失字段——这是引导用户补资料最有效的入口。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 ============ -->
+<section>
+  <h2 class="sec"><span class="num">06</span>交互与动效规范</h2>
+
+  <div class="callout key">
+    <div class="ct">「丝滑」= 三件事一起做，缺一不可</div>
+    <p><b>① 乐观更新</b>：点击 Like 的瞬间就播动画、卡片就飞走，<b>不等服务端返回</b>。失败再回滚并提示。用户感知到的延迟是 0。</p>
+    <p><b>② 布局动画</b>：卡片飞走后，后面的卡片要自动「补位」到前台（缩放与位移同步补间），而不是瞬间跳变。</p>
+    <p><b>③ 预加载</b>：下一张卡的图片在用户看当前卡时就已经下载好了。图片没到位，动画再顺也会在换图时卡一下。</p>
+    <p>只做 CSS <code>transition</code> 是出不来丝滑的——上面三条里只有第 ② 条沾边。</p>
+  </div>
+
+  <h3>6.1 动效时长与缓动</h3>
+  <table>
+    <tr><th style="width:150px">场景</th><th style="width:110px">时长</th><th style="width:230px">缓动</th><th>说明</th></tr>
+    <tr><td>按钮按下</td><td>120ms</td><td><code>ease-out</code></td><td><code>scale(0.96)</code>，松手回弹</td></tr>
+    <tr><td>卡片飞出</td><td>280ms</td><td><code>cubic-bezier(.22,1,.36,1)</code></td><td>向对应方向位移 + 淡出 + 轻微旋转</td></tr>
+    <tr><td>卡片补位</td><td>320ms</td><td>spring(stiffness 260, damping 26)</td><td>由布局动画自动补间，不手写</td></tr>
+    <tr><td>页面切换</td><td>220ms</td><td><code>ease-out</code></td><td>横向滑入 + 淡入；Tab 之间不转场</td></tr>
+    <tr><td>配对成功</td><td>450ms</td><td>spring(stiffness 200, damping 20)</td><td>头像飞入相撞 + 光晕扩散</td></tr>
+    <tr><td>弹层出现</td><td>200ms</td><td><code>ease-out</code></td><td>背景淡入 + 内容上移 12px</td></tr>
+  </table>
+  <p><b>总原则：动效服务于反馈，不是装饰。</b>超过 400ms 的动画会让人觉得卡。除配对成功外，所有动效控制在 350ms 以内。</p>
+
+  <h3>6.2 必须做好的几个微交互</h3>
+  <table>
+    <tr><th style="width:170px">交互</th><th>行为</th></tr>
+    <tr><td>Like 按钮按下</td><td>按钮缩放回弹 + 一圈光晕扩散 + 字符 ♥ 轻微放大 → 卡片随即飞出。<b>按下就有反馈，不等松开</b></td></tr>
+    <tr><td>卡片进场</td><td>新卡片从栈底位置自然顶到前台（布局动画），不重新挂载、不闪白</td></tr>
+    <tr><td>额度耗尽</td><td>♥ 按钮变为禁用态并轻微抖动一次，同时底部滑出提示条说明「明日 00:00 恢复」，<b>不做弹窗打断</b></td></tr>
+    <tr><td>图片加载</td><td>blurhash 模糊占位 → 原图淡入（200ms），绝不出现空白或跳动</td></tr>
+    <tr><td>长列表滚动</td><td>虚拟列表 + 惯性滚动；图片懒加载；<b>滚动时暂停不必要的动画</b></td></tr>
+    <tr><td>下拉刷新</td><td>仅在广场与消息列表启用；位移阻尼</td></tr>
+    <tr><td>错误恢复</td><td>内联错误条 + 「重试」按钮，不用 alert 弹窗</td></tr>
+  </table>
+
+  <h3>6.3 骨架屏（不是 Loading 转圈）</h3>
+  <p>卡片区、列表区、聊天区<b>一律用骨架屏</b>，形状与真实内容一致。加载超过 300ms 才显示骨架（避免闪烁），超过 5s 显示重试。</p>
+
+  <h3>6.4 无障碍（Radix 顺手就能做到，别浪费）</h3>
+  <ul>
+    <li>所有按钮有明确的 <code>aria-label</code>（✕ 读作「跳过」，♥ 读作「喜欢」）。</li>
+    <li><b>键盘可用</b>：<code>←</code> 跳过、<code>→</code> 喜欢、<code>Enter</code> 进详情——这正好是按钮方案的天然优势。</li>
+    <li>焦点环保留（不要 <code>outline:none</code>），颜色用品牌色。</li>
+    <li>尊重 <code>prefers-reduced-motion</code>：关闭动画时降级为淡入淡出。</li>
+  </ul>
+</section>
+
+<!-- ============ 07 ============ -->
+<section>
+  <h2 class="sec"><span class="num">07</span>为什么用按钮而不是滑动</h2>
+  <p>这不是一个审美偏好，而是一个有明确理由的产品决策。我把理由记在这里，避免以后有人「顺手加回滑动」。</p>
+
+  <table>
+    <tr><th style="width:170px">维度</th><th style="width:250px">左右滑动</th><th>按钮点击</th></tr>
+    <tr>
+      <td><b>桌面端</b></td>
+      <td>鼠标拖拽体验极差，用户根本不会用；且与文本选择、图片拖拽冲突</td>
+      <td><b>天然跨端</b>，鼠标点击、触屏点按、键盘方向键都成立</td>
+    </tr>
+    <tr>
+      <td><b>误触率</b></td>
+      <td>滑动阈值难调：太灵敏会误划，太迟钝会觉得「划不动」；且滑动中途松手的状态需要额外处理</td>
+      <td><b>意图明确</b>，按下才算数，几乎没有歧义</td>
+    </tr>
+    <tr>
+      <td><b>可访问性</b></td>
+      <td>屏幕阅读器与运动障碍用户基本无法使用</td>
+      <td>键盘、读屏都能覆盖</td>
+    </tr>
+    <tr>
+      <td><b>可测试性</b></td>
+      <td>手势难以自动化测试</td>
+      <td>点击是最容易写端到端测试的交互</td>
+    </tr>
+    <tr>
+      <td><b>可发现性</b></td>
+      <td>新用户需要被教育「要左右滑」</td>
+      <td>按钮就在那里，无需教育</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="ct">实现时的一个硬约束</div>
+    <p>既然定了按钮方案，<b>就不要再保留滑动手势作为「隐藏功能」</b>。两套交互并存会导致：用户以为卡片能拖（拖了没反应或动了但没生效）、手势与页面滚动冲突、动画状态机复杂化。<b>要做就只做按钮。</b></p>
+  </div>
+</section>
+
+<!-- ============ 08 ============ -->
+<section>
+  <h2 class="sec"><span class="num">08</span>后端架构（Golang）</h2>
+
+  <h3>8.1 中间件链</h3>
+  <div class="flow">
+    <div class="fn plain">Recovery<small>panic 兜底</small></div><span class="fa">→</span>
+    <div class="fn plain">RequestID<small>全链路追踪</small></div><span class="fa">→</span>
+    <div class="fn plain">Logger<small>结构化日志</small></div><span class="fa">→</span>
+    <div class="fn plain">CORS</div><span class="fa">→</span>
+    <div class="fn gw">RateLimit<small>Redis 滑动窗口</small></div><span class="fa">→</span>
+    <div class="fn gw">Auth<small>JWT 校验</small></div><span class="fa">→</span>
+    <div class="fn">OnboardGuard<small>未完成五步则拦截</small></div>
+  </div>
+  <div class="callout key">
+    <div class="ct">OnboardGuard 是中间件，不是页面逻辑</div>
+    <p>PRD 3.3 规定五步全部不可跳过。这个约束<b>必须在后端中间件实现</b>——前端拦截只是体验，后端拦截才是规则。<code>OnboardGuard</code> 挂载在划卡、广场、聊天等路由组上，<code>users.onboarded_at IS NULL</code> 则返回 <code>403 ONBOARDING_REQUIRED</code>，前端据此跳转向导。<b>只做前端拦截，用户改个请求就能绕过。</b></p>
+  </div>
+
+  <h3>8.2 并发与幂等（本项目最容易出错的地方）</h3>
+  <table>
+    <tr><th style="width:200px">场景</th><th>处理方式</th></tr>
+    <tr>
+      <td><b>扣额度（防超额）</b></td>
+      <td>条件更新，靠 affected rows 判断：<br>
+      <code>UPDATE daily_quotas SET used_like_count = used_like_count + 1<br>
+      &nbsp;&nbsp;WHERE user_id=$1 AND quota_date=$2 AND used_like_count &lt; limit_count</code><br>
+      返回 0 行 = 额度已满，回滚并返回业务错误码。<b>不要先 SELECT 再 UPDATE</b>——那样并发下一定超额</td>
+    </tr>
+    <tr>
+      <td><b>重复 Like</b></td>
+      <td><code>user_actions</code> 有 <code>(from_user,to_user,action)</code> 唯一约束，<code>ON CONFLICT DO NOTHING</code></td>
+    </tr>
+    <tr>
+      <td><b>双方同时 Like</b></td>
+      <td><code>INSERT ... ON CONFLICT (user_a,user_b) DO NOTHING</code>，<b>以 affected rows 判断「本次是否真的配对成功」</b>，只有真正插入成功的那一次才创建会话、发配对通知。否则两边都会弹配对动画、建出两个会话</td>
+    </tr>
+    <tr>
+      <td><b>额度重置的日期</b></td>
+      <td><b>应用层按北京时间计算</b>（<code>time.Now().In(shanghai).Format("2006-01-02")</code>），<b>严禁用 <code>CURRENT_DATE</code></b>——服务器跑 UTC 时，会在北京时间早上 8 点前后算错一天</td>
+    </tr>
+    <tr>
+      <td><b>消息重发</b></td>
+      <td><code>messages</code> 的 <code>(conversation_id, client_msg_id)</code> 唯一约束兜底</td>
+    </tr>
+  </table>
+
+  <h3>8.3 事务边界示例（Like 全流程）</h3>
+  <pre><span class="cm">// service/action.go —— 一个事务里做完四件事</span>
+<span class="kw">func</span> (s *ActionService) <span class="fx">Like</span>(ctx, fromID, toID <span class="kw">int64</span>, source <span class="kw">string</span>) (*Result, <span class="kw">error</span>) {
+    <span class="kw">return</span> s.tx.WithTx(ctx, <span class="kw">func</span>(q *repo.Queries) (*Result, <span class="kw">error</span>) {
+        day := time.Now().In(shanghaiTZ).Format(<span class="st">"2006-01-02"</span>)   <span class="cm">// ← 北京时间</span>
+
+        <span class="cm">// 1. 扣额度（条件更新，0 行即失败）</span>
+        n, err := q.<span class="fx">ConsumeQuota</span>(ctx, fromID, day)
+        <span class="kw">if</span> err != <span class="kw">nil</span> { <span class="kw">return</span> <span class="kw">nil</span>, err }
+        <span class="kw">if</span> n == 0 { <span class="kw">return</span> <span class="kw">nil</span>, ErrQuotaExhausted }
+
+        <span class="cm">// 2. 写 Like（重复则忽略）</span>
+        q.<span class="fx">UpsertAction</span>(ctx, fromID, toID, <span class="st">"like"</span>, source)
+
+        <span class="cm">// 3. 判配对：只有真正插入成功才算配对</span>
+        a, b := order(fromID, toID)          <span class="cm">// 规范化 user_a &lt; user_b</span>
+        matched := q.<span class="fx">TryCreateMatch</span>(ctx, a, b) > 0
+
+        <span class="cm">// 4. 配对成功才建会话</span>
+        <span class="kw">if</span> matched { q.<span class="fx">CreateConversation</span>(ctx, a, b) }
+        <span class="kw">return</span> &amp;Result{Matched: matched}, <span class="kw">nil</span>
+    })
+}</pre>
+  <p>配对成功后的事务外动作（发通知、推 WebSocket 消息）用 <b>Outbox 模式</b>：事件先落库，再由投递器异步推送，保证「不全丢、可重放」。</p>
+</section>
+
+<!-- ============ 09 ============ -->
+<section>
+  <h2 class="sec"><span class="num">09</span>数据存储设计</h2>
+
+  <h3>9.1 PostgreSQL</h3>
+  <p>表结构见仓库根目录的 <code>schema.sql</code>（16 张表）。这里只补充工程实现要点：</p>
+  <ul>
+    <li><b>迁移用 <code>golang-migrate</code></b>，禁止手改线上表结构。</li>
+    <li>连接池用 <code>pgxpool</code>，<code>max_conns</code> 按 <code>CPU 核数 × 2 + 磁盘数</code> 设，并设置 <code>MaxConnLifetime</code> 避免僵死连接。</li>
+    <li><b>所有对 <code>user_profiles</code> 的读写走同一套可见性规则</b>（PRD 第 15 章）：收入、公司、体重、养老压力这几个字段有 <code>*_public</code> 开关，<b>序列化时必须按「看的人是谁」决定是否输出</b>，不能图省事全查出来。</li>
+    <li>曝光统计（<code>exposure_stats</code>）用<b>异步累加</b>：请求时只写 Redis 计数器，定时任务批量落库，避免每次划卡都写一次统计表。</li>
+  </ul>
+
+  <h3>9.2 Redis 用途</h3>
+  <table>
+    <tr><th style="width:170px">用途</th><th style="width:190px">键设计</th><th>说明</th></tr>
+    <tr><td>额度缓存</td><td><code>quota:{uid}:{date}</code></td><td><b>只做读缓存，不作为权威</b>。权威在 PG（见 8.2），Redis 用于快速渲染「今日剩余」</td></tr>
+    <tr><td>限流</td><td><code>rl:{uid}:{action}</code></td><td>滑动窗口；登录、注册、Like、发消息分别限</td></tr>
+    <tr><td>在线状态</td><td><code>online:{uid}</code> TTL 90s</td><td>WebSocket 心跳续期；用于「最近活跃」与聊天在线标识</td></tr>
+    <tr><td>WS 广播</td><td>Pub/Sub <code>ws:node:{n}</code></td><td>多实例部署时，消息需要广播到持有目标连接的节点</td></tr>
+    <tr><td>热点卡片</td><td><code>card:{uid}</code> TTL 5m</td><td>卡片组装的完整 JSON（画像 + 首图 URL + 标签），减少 join</td></tr>
+    <tr><td>图片审核结果</td><td><code>audit:photo:{id}</code></td><td>短 TTL，避免同一个未过审图片反复查询</td></tr>
+    <tr><td>设备注册计数</td><td><code>dev:{device_id}</code></td><td>PRD 4.4 的「同设备每月 3 个账号」风控</td></tr>
+  </table>
+
+  <h3>9.3 MinIO 对象存储</h3>
+  <table>
+    <tr><th style="width:170px">Bucket</th><th style="width:150px">可见性</th><th>说明</th></tr>
+    <tr><td><code>mutual-photos</code></td><td><b>私有</b></td><td>相册原图与缩略图。只通过预签名 URL 访问，<b>绝不公开读</b>——否则照片可被直接爬走</td></tr>
+    <tr><td><code>mutual-avatars</code></td><td><b>私有</b></td><td>头像（方图裁切）</td></tr>
+    <tr><td><code>mutual-audit</code></td><td><b>私有</b></td><td>审核存证，仅内部可读</td></tr>
+  </table>
+
+  <h4>图片上传流程（直传，不过后端）</h4>
+  <div class="flow">
+    <div class="fn plain">客户端<small>请求上传凭证</small></div><span class="fa">→</span>
+    <div class="fn">后端<small>校验类型/大小，签发预签名 URL</small></div><span class="fa">→</span>
+    <div class="fn plain">客户端<small><b>直传 MinIO</b></small></div><span class="fa">→</span>
+    <div class="fn">后端<small>回调确认 + 落库 + 触发审核</small></div><span class="fa">→</span>
+    <div class="fn ok">异步生成缩略图<small>三种尺寸</small></div>
+  </div>
+  <ul>
+    <li><b>预签名有效期 10 分钟</b>，且 URL 绑定 Content-Type 与最大体积，防止被当图床滥用。</li>
+    <li>客户端上传前先<b>本地压缩到 1080px 宽</b>再传，省流量也省存储。</li>
+    <li>服务端生成三档：<code>thumb 200px</code>（列表）、<code>card 800px</code>（卡片）、<code>full 原图</code>（详情）。</li>
+    <li><b>上传成功 ≠ 可见</b>：<code>audit_status='approved'</code> 之后才出现在卡池与广场里。</li>
+  </ul>
+</section>
+
+<!-- ============ 10 ============ -->
+<section>
+  <h2 class="sec"><span class="num">10</span>关键流程设计</h2>
+
+  <h3>10.1 划卡拉取</h3>
+  <div class="flow">
+    <div class="fn plain">前端<small>GET /cards</small></div><span class="fa">→</span>
+    <div class="fn gw">硬过滤<small>异性/距离/状态/已操作/拉黑</small></div><span class="fa">→</span>
+    <div class="fn">软加权打分<small>双向偏好匹配</small></div><span class="fa">→</span>
+    <div class="fn ok">曝光均衡调整<small>新人加权、头部限流</small></div><span class="fa">→</span>
+    <div class="fn plain">返回 10 张<small>含预签名图片 URL</small></div>
+  </div>
+  <ul>
+    <li>一次返回 10 张，前端缓存；剩 3 张时后台预取下一批。</li>
+    <li><b>硬过滤只做四件事</b>：性别、距离半径、账号状态、已操作/已拉黑。其余（身高、收入、学历、车房、丁克）全部软加权——这是 PRD 7.2 的硬要求，全当过滤条件会让早期用户池归零。</li>
+    <li>查不到足够的人时<b>逐级放宽软条件</b>并在卡片上标注「部分条件不符」，<b>绝不返回「今日无推荐」</b>。</li>
+  </ul>
+
+  <h3>10.2 Like 提交与配对</h3>
+  <div class="flow">
+    <div class="fn plain">前端点击 ♥<small>乐观更新，卡片立刻飞出</small></div><span class="fa">→</span>
+    <div class="fn">POST /actions</div><span class="fa">→</span>
+    <div class="fn gw">事务<small>扣额度→写Like→判配对→建会话</small></div><span class="fa">→</span>
+    <div class="fn ok">若配对<small>推送 WS + 落 Outbox</small></div>
+  </div>
+  <p>前端拿到 <code>matched: true</code> 后播放配对动画；<code>matched: false</code> 则静默继续。<b>配额不足返回 429</b>，前端把已飞出的卡片「飞回来」并提示。</p>
+
+  <h3>10.3 聊天（WebSocket）</h3>
+  <table>
+    <tr><th style="width:160px">环节</th><th>设计</th></tr>
+    <tr><td>连接</td><td><code>GET /ws?token=</code> 升级；token 在 query 里传（WebSocket 无法自定义 header），<b>因此必须用短时效一次性 ticket</b>，不能直接传长期 JWT</td></tr>
+    <tr><td>心跳</td><td>客户端 25s ping，服务端 60s 无心跳则断开并清理</td></tr>
+    <tr><td>发送</td><td>客户端带 <code>client_msg_id</code>；服务端分配 <code>seq</code> 后先落库再推送</td></tr>
+    <tr><td>投递</td><td>目标在线则直推；不在线则落库，上线后拉增量</td></tr>
+    <tr><td>多实例</td><td>通过 Redis Pub/Sub 广播到持有目标连接的那个节点</td></tr>
+    <tr><td>重连</td><td>指数退避；重连后按 <code>last_seq</code> 拉缺失消息</td></tr>
+  </table>
+
+  <h3>10.4 曝光均衡（决定生态健康）</h3>
+  <p>推荐排序里加一项曝光修正分：<code>− k × 该用户近 7 天曝光量</code>，并对新注册用户给 72 小时加权。<b>没有这一项，头部的少数人会吃掉绝大部分 Like，其余用户长期零配对后流失，卡池随之萎缩。</b></p>
+</section>
+
+<!-- ============ 11 ============ -->
+<section>
+  <h2 class="sec"><span class="num">11</span>API 与实时通信</h2>
+
+  <h3>11.1 约定</h3>
+  <ul>
+    <li>前缀 <code>/api/v1</code>；统一响应体 <code>{code, message, data}</code>；<code>code=0</code> 为成功。</li>
+    <li>鉴权 <code>Authorization: Bearer &lt;jwt&gt;</code>；access token 2h、refresh token 30d。</li>
+    <li><b>写接口支持 <code>Idempotency-Key</code> 头</b>，重复提交返回首次结果。</li>
+    <li>错误码语义化：<code>QUOTA_EXHAUSTED</code>、<code>ONBOARDING_REQUIRED</code>、<code>ALREADY_MATCHED</code>、<code>BLOCKED</code>……</li>
+  </ul>
+
+  <h3>11.2 核心接口</h3>
+  <table>
+    <tr><th style="width:70px">方法</th><th style="width:250px">路径</th><th>说明</th></tr>
+    <tr><td>POST</td><td><code>/auth/register</code> · <code>/auth/login</code></td><td>手机号 + 密码（无验证码，靠设备指纹与 IP 限流兜底，见 PRD 4.4）</td></tr>
+    <tr><td>GET</td><td><code>/cards</code></td><td>拉取划卡候选（含剩余额度）</td></tr>
+    <tr><td>POST</td><td><code>/actions</code></td><td>提交 like / pass / visit，返回是否配对</td></tr>
+    <tr><td>GET</td><td><code>/plaza/search</code></td><td>广场检索（多条件 + 分页）</td></tr>
+    <tr><td>GET</td><td><code>/likes-me</code> · <code>/visits-me</code></td><td>谁喜欢我 / 谁看过我</td></tr>
+    <tr><td>DELETE</td><td><code>/matches/{id}</code></td><td>解除配对</td></tr>
+    <tr><td>POST</td><td><code>/uploads/presign</code></td><td>获取 MinIO 预签名上传地址</td></tr>
+    <tr><td>PUT</td><td><code>/users/me/photos/order</code></td><td>提交相册拖拽排序</td></tr>
+    <tr><td>GET</td><td><code>/conversations/{id}/messages</code></td><td>历史消息（游标分页）</td></tr>
+    <tr><td>WS</td><td><code>/ws</code></td><td>实时消息通道</td></tr>
+  </table>
+</section>
+
+<!-- ============ 12 ============ -->
+<section>
+  <h2 class="sec"><span class="num">12</span>性能、安全与部署</h2>
+
+  <h3>12.1 性能目标</h3>
+  <table>
+    <tr><th style="width:230px">指标</th><th style="width:130px">目标</th></tr>
+    <tr><td>划卡首屏（含图片）</td><td>P95 &lt; 800ms</td></tr>
+    <tr><td>Like 提交响应</td><td>P99 &lt; 300ms</td></tr>
+    <tr><td>广场检索</td><td>P95 &lt; 1s</td></tr>
+    <tr><td>消息端到端投递</td><td>P99 &lt; 500ms</td></tr>
+    <tr><td>前端首屏 JS（gzip）</td><td>&lt; 200KB</td></tr>
+  </table>
+
+  <h3>12.2 安全清单</h3>
+  <ul>
+    <li>密码 <b>bcrypt(cost 12)</b> 或 argon2id；登录失败统一话术，不泄露手机号是否存在。</li>
+    <li>MinIO bucket 全私有，只走预签名 URL。</li>
+    <li><b>序列化层做字段级权限</b>——收入、公司、养老压力等按 <code>*_public</code> 与访问者身份决定是否输出，防止接口越权泄露。</li>
+    <li>WebSocket 用一次性 ticket，不传长期 token。</li>
+    <li>图片上传校验真实文件类型（不能只看后缀），并接入内容安全审核。</li>
+    <li>敏感操作（解除配对、注销、拉黑）二次确认 + 留痕。</li>
+  </ul>
+
+  <h3>12.3 部署</h3>
+  <div class="flow">
+    <div class="fn plain">前端构建产物<small>静态文件</small></div><span class="fa">→</span>
+    <div class="fn plain">Nginx<small>静态 + 反代 + gzip/brotli</small></div>
+    <div class="fn">Go 服务<small>Docker · 多实例</small></div><span class="fa">→</span>
+    <div class="fn ok">PG / Redis / MinIO</div>
+  </div>
+  <ul>
+    <li>Go 服务编译为单二进制，镜像用 <code>scratch</code> 或 <code>alpine</code>，体积可控制在 30MB 内。</li>
+    <li>前端产物走 CDN 或 Nginx 强缓存（<code>index.html</code> 不缓存，带 hash 的资源长缓存）。</li>
+    <li>WebSocket 需要 Nginx 配置 <code>Upgrade</code> 头与较长 <code>read_timeout</code>（这一条我们之前在部署 AIWriteX 时踩过）。</li>
+  </ul>
+</section>
+
+<!-- ============ 13 ============ -->
+<section>
+  <h2 class="sec"><span class="num">13</span>里程碑</h2>
+  <table>
+    <tr><th style="width:110px">阶段</th><th style="width:80px">周期</th><th>交付</th><th style="width:170px">验收</th></tr>
+    <tr>
+      <td><b>M1 地基</b></td><td>1.5 周</td>
+      <td>项目骨架、设计令牌与 shadcn 主题、鉴权、PG 迁移与 sqlc 接入、MinIO 预签名上传</td>
+      <td>能注册登录、能传图</td>
+    </tr>
+    <tr>
+      <td><b>M2 画像</b></td><td>2 周</td>
+      <td>Onboarding 五步向导、字段级校验（前端 zod + 后端共用）、个人中心、九宫格相册与拖拽排序</td>
+      <td>新用户可走完五步并改资料</td>
+    </tr>
+    <tr>
+      <td><b>M3 发现与配对</b></td><td>2.5 周</td>
+      <td>卡片栈与按钮交互、动效体系、额度系统、Like/配对事务、配对成功动画、广场检索、心动页</td>
+      <td>双账号可跑通「划卡 → 双向 Like → 配对」</td>
+    </tr>
+    <tr>
+      <td><b>M4 聊天</b></td><td>2 周</td>
+      <td>WebSocket 通道、会话与消息、乐观发送、离线拉取、破冰提示</td>
+      <td>配对双方可实时聊天</td>
+    </tr>
+    <tr>
+      <td><b>M5 打磨与安全</b></td><td>1.5 周</td>
+      <td>骨架屏与空态、错误恢复、内容审核接入、举报拉黑、风控限流、压测</td>
+      <td>异常路径全覆盖，核心接口达标</td>
+    </tr>
+  </table>
+  <p><b>合计约 9.5 周。</b>建议 M3 结束时做一次<b>双人真机走查</b>：两个真实账号从注册走到聊天，把每个空态、每个错误提示都过一遍——交友产品的体验问题几乎都藏在「不合预期」的路径里。</p>
+</section>
+
+<div class="foot">
+  相悦 Mutual · 技术方案与 UI 设计 · v1.0 · 2026-10-09 · 草案<br>
+  配套文档：产品需求文档（index.html）· 数据模型 DDL（schema.sql）
+</div>
+
+</div>
+</body>
+</html>
