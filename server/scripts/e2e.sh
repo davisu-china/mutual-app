@@ -399,10 +399,16 @@ echo ""
 echo "=== 12. 额度耗尽 ==="
 # A 还剩 9 次，用 Pass 造不出消耗，只能 Like 其他人。
 # 先注册并完成 9 个用户太慢，这里直接把额度改满来验证边界。
-export PGBIN=/home/metabot/.local/pg/usr/pgsql-14/bin
-export LD_LIBRARY_PATH=/home/metabot/.local/pg/usr/pgsql-14/lib:/home/metabot/.local/pg/usr/lib64
-$PGBIN/psql -h 127.0.0.1 -p 5433 -U mutual -d mutual -q -c \
-  "UPDATE daily_quotas SET used_like_count = limit_count WHERE user_id = $UA" 2>/dev/null
+# 这一项要直接改库把额度拉满，所以得知道数据库在哪。
+# 端口可配：默认对本土开发的 5433，部署实例可能是别的端口。
+PG_PORT="${PG_PORT:-5433}"
+PGBIN="${PGBIN:-/home/metabot/.local/pg/usr/pgsql-14/bin}"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/home/metabot/.local/pg/usr/pgsql-14/lib:/home/metabot/.local/pg/usr/lib64}"
+$PGBIN/psql -h 127.0.0.1 -p "$PG_PORT" -U mutual -d mutual -q -c \
+  "INSERT INTO daily_quotas (user_id, quota_date, used_like_count, limit_count, updated_at)
+   VALUES ($UA, (now() AT TIME ZONE 'Asia/Shanghai')::date, 10, 10, now())
+   ON CONFLICT (user_id, quota_date) DO UPDATE SET used_like_count = 10" 2>/dev/null \
+  || echo "  [warn] 改库失败（PG_PORT=$PG_PORT），额度耗尽这条会失败"
 # 目标必须是完成过 Onboarding 的用户，否则会先报「对方账号不可用」。
 # 用前面造好的第三人 C。
 QY=$(post /api/v1/actions "{\"toUser\":$UC,\"action\":\"like\",\"source\":\"plaza\"}" "$TA")

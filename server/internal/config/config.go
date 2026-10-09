@@ -38,6 +38,14 @@ type Config struct {
 	BucketAvatars  string
 
 	// 业务
+	// 照片自动过审。
+	//
+	// 这里刻意用一个**显式开关**而不是「判断 env==dev」：
+	// 没有审核服务时，照片会全部停在 pending，而卡池要求「有已过审照片」，
+	// 结果是**站能打开但没有任何人能刷到人**——一个很容易误判成「功能坏了」的坑。
+	// 用独立开关，部署时能明确地打开它并知道自己在做什么。
+	AuditAutoApprove bool
+
 	DailyLikeLimit int
 	MaxPhotos      int
 	AllowOrigins   []string
@@ -56,8 +64,7 @@ func Load() (*Config, error) {
 		Env:  getEnv("APP_ENV", "dev"),
 		Port: getEnv("PORT", "8080"),
 
-		DSN: getEnv("DATABASE_DSN",
-			"host=127.0.0.1 port=5432 user=mutual password=mutual dbname=mutual sslmode=disable TimeZone=UTC"),
+		DSN: getEnv("DATABASE_DSN", ""),
 
 		RedisAddr:     getEnv("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
@@ -75,11 +82,27 @@ func Load() (*Config, error) {
 		BucketPhotos:   getEnv("MINIO_BUCKET_PHOTOS", "mutual-photos"),
 		BucketAvatars:  getEnv("MINIO_BUCKET_AVATARS", "mutual-avatars"),
 
+		// 默认：开发环境自动过审，生产环境必须接审核服务
+		AuditAutoApprove: getEnvBool("AUDIT_AUTO_APPROVE", getEnv("APP_ENV", "dev") == "dev"),
+
 		DailyLikeLimit: getEnvInt("DAILY_LIKE_LIMIT", 10),
 		MaxPhotos:      getEnvInt("MAX_PHOTOS", 9),
 		AllowOrigins:   strings.Split(getEnv("ALLOW_ORIGINS", "http://localhost:5173"), ","),
 
 		TZ: tz,
+	}
+
+	// 数据库连接串在生产环境必须显式配置。
+	//
+	// 之前这里有个指向 127.0.0.1:5432 的默认值，很危险：万一环境变量没加载成功
+	// （比如 systemd 的 EnvironmentFile 写错），服务会**静默连上一台不相干的数据库**
+	// 然后报一个看起来像密码错的错误，排查方向全错。宁可启动就失败。
+	if c.DSN == "" {
+		if c.Env == "dev" {
+			c.DSN = "host=127.0.0.1 port=5432 user=mutual dbname=mutual sslmode=disable TimeZone=UTC"
+		} else {
+			return nil, fmt.Errorf("生产环境必须设置 DATABASE_DSN")
+		}
 	}
 
 	// 生产环境必须显式配置密钥，不允许用默认值兜底——

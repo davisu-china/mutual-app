@@ -34,6 +34,8 @@ NGINX_HTML="${NGINX_HTML:-/opt/jianjian/deploy/nginx/html}"
 NGINX_CONTAINER="${NGINX_CONTAINER:-jianjian-nginx}"
 CERTBOT_DIR="${CERTBOT_DIR:-/opt/jianjian/deploy/certbot}"
 LE_EMAIL="${LE_EMAIL:-898168605@qq.com}"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 # 运行用户（构建、跑服务、拥有数据库文件的身份）。
 #
 # 不能简单用 SUDO_USER：**已经是 root 时再执行 sudo，SUDO_USER 会是 root**，
@@ -46,7 +48,6 @@ if [ -z "${RUN_USER:-}" ]; then
   fi
   [ "$RUN_USER" = "root" ] && RUN_USER=metabot
 fi
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # 网页在 nginx 容器里的固定落点。容器的 /usr/share/nginx/html 是
 # 宿主 $NGINX_HTML 的只读挂载，所以网站文件必须放在这里容器才看得见。
@@ -142,12 +143,13 @@ log "准备数据库"
 postgres_unit=""
 if [ "$DB_MODE" = "local" ]; then
   if [ ! -x "$PG_DIR/bin/postgres" ]; then
-    SRC_PG="$RUN_USER/.local/pg/usr/pgsql-14"
+    # $RUN_USER 是用户名（metabot），不是家目录路径，要拼上 /home/
+    SRC_PG="/home/$RUN_USER/.local/pg/usr/pgsql-14"
     [ -x "$SRC_PG/bin/postgres" ] || die "找不到 PostgreSQL 二进制（$SRC_PG）"
     mkdir -p "$PG_DIR"
     cp -r "$SRC_PG/bin" "$SRC_PG/lib" "$SRC_PG/share" "$PG_DIR/"
     mkdir -p "$PG_DIR/syslib"
-    cp -a "$RUN_USER/.local/pg/usr/lib64/"*.so* "$PG_DIR/syslib/" 2>/dev/null || true
+    cp -a "/home/$RUN_USER/.local/pg/usr/lib64/"*.so* "$PG_DIR/syslib/" 2>/dev/null || true
     echo "  ✓ PostgreSQL 二进制已就位"
   fi
 
@@ -162,14 +164,22 @@ if [ "$DB_MODE" = "local" ]; then
   fi
 
   if [ ! -s "$PG_DATA/PG_VERSION" ]; then
-    mkdir -p "$PG_DATA/sock"
-    chown -R "$RUN_USER" "$PG_DATA"
-    # socket 目录必须显式指定：这份 PG 编译时把 /run/postgresql 写死了，
-    # 普通用户建不了那个目录，照默认走会启动失败
+    # 注意顺序：initdb 要求目标目录**必须是空的**，
+    # 所以 socket 子目录必须在 initdb 之后再建，不能先 mkdir。
+    mkdir -p "$(dirname "$PG_DATA")"
+    chown "$RUN_USER" "$(dirname "$PG_DATA")"
     sudo -u "$RUN_USER" -H env LD_LIBRARY_PATH="$PG_DIR/lib:$PG_DIR/syslib" \
       "$PG_DIR/bin/initdb" -D "$PG_DATA" -U mutual --encoding=UTF8 --locale=C >/dev/null
+    # socket 目录必须显式指定：这份 PG 编译时把 /run/postgresql 写死了，
+    # 普通用户建不了那个目录，照默认走启动会失败
+    mkdir -p "$PG_DATA/sock"
+    chown -R "$RUN_USER" "$PG_DATA"
     echo "  ✓ 数据库已初始化"
   fi
+
+  # 已存在的实例也要保证 socket 目录在（老版本脚本可能没建）
+  mkdir -p "$PG_DATA/sock"
+  chown -R "$RUN_USER" "$PG_DATA"
 
   cat > /etc/systemd/system/mutual-postgres.service <<UNIT
 [Unit]
@@ -222,7 +232,12 @@ UNIT
   postgres_unit="mutual-postgres.service"
 else
   DSN="${EXTERNAL_DSN:-}"
-  [ -n "$DSN" ] || die "DB_MODE=external 时必须提供 EXTERNAL_DSN"
+  [ -n "$DSN" ] || die "DB_MODE=external 时必须提供 EXTERNAL_DSN
+  建议用 URL 形式（无空格）：
+      postgres://user:pass@host:5432/dbname?sslmode=disable"
+  case "$DSN" in
+    *'"'*) die "EXTERNAL_DSN 不能包含双引号（会破坏 env 文件的引号包裹）" ;;
+  esac
   echo "  ✓ 使用外部数据库"
 fi
 
@@ -235,7 +250,14 @@ APP_ENV=prod
 PORT=$API_PORT
 TZ_NAME=Asia/Shanghai
 
-DATABASE_DSN=$DSN
+# 这个值必须用双引号包起来。
+#
+# DSN 含空格，而 systemd 的 EnvironmentFile 与 shell 的 source 解析规则不同：
+#   systemd：整行取值，但**默认会剥掉首尾空白**，不加引号会丢字符；
+#            man systemd.exec 明确写了「unless you use double quotes」
+#   shell：  不加引号会按空格拆分，DATABASE_DSN 只拿到第一段
+# 加双引号后两边行为一致。排查问题时 source 这个文件是常规操作，不能让它坏。
+DATABASE_DSN="$DSN"
 
 JWT_SECRET=$(head -c 64 /dev/urandom | base64 | tr -d '\n/+=' | head -c 48)
 
@@ -255,6 +277,16 @@ ALLOW_ORIGINS=https://$SITE,https://$DOMAIN
 
 DAILY_LIKE_LIMIT=10
 MAX_PHOTOS=9
+
+# ⚠️ 照片自动过审。
+#
+# 打开它：照片上传后立即可见，**这是目前唯一能让卡池有内容的办法**。
+# 关掉它：照片全部停在 pending，而卡池要求「有已过审照片」，
+#          结果是站能打开但没有任何人能刷到人。
+#
+# 真正该做的是接入内容安全服务，由它来改 audit_status。
+# 在那之前先开着，但你必须知道线上存在未审核的图片。
+AUDIT_AUTO_APPROVE=true
 ENV
   chmod 600 "$ENV_FILE"
   echo "  ✓ 已生成 $ENV_FILE"
@@ -430,6 +462,11 @@ echo " 环境变量： $ENV_FILE"
 echo " 日志：     journalctl -u mutual-api -f   或   $API_DIR/api.log"
 echo "════════════════════════════════════════════"
 echo
-echo "上线前还需处理："
-echo "  · 内容审核尚未接入 —— 照片目前自动过审。正式开放注册前要接内容安全服务。"
-echo "  · 若 MinIO 凭据不是 minioadmin，改 $ENV_FILE 后 systemctl restart mutual-api"
+echo "⚠️  上线前必须处理（否则站是空的）："
+echo "  1. AUDIT_AUTO_APPROVE=true —— 照片上传后立刻可见，没有经过任何审核。"
+echo "     关掉它（改成 false）照片会全部停在 pending，而卡池要求已过审照片，"
+echo "     结果是**没人能刷到任何人**。所以接入内容安全服务之前只能先开着。"
+echo "  2. 若 MinIO 凭据不是 minioadmin，改 $ENV_FILE 后 systemctl restart mutual-api"
+echo ""
+echo "  接入审核服务后：把 AUDIT_AUTO_APPROVE 改成 false，并在 upload.go 的"
+echo "  ConfirmPhoto / ConfirmAvatar 里调用审核服务，用回调改 audit_status。"

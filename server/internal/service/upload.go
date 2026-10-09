@@ -94,10 +94,10 @@ func (s *UploadService) ConfirmPhoto(ctx context.Context, uid int64, objectKey s
 		Where("user_id = ?", uid).
 		Select("COALESCE(MAX(sort_order), 0)").Scan(&maxOrder)
 
+	// 由显式开关决定，而不是看 env。
+	// 没有审核服务时照片全停在 pending，卡池会永远是空的（见 config.AuditAutoApprove）。
 	status := model.AuditPending
-	// 开发环境自动过审，否则没有审核后台时整个流程走不通。
-	// **生产环境必须接入真实的内容安全服务**（PRD 14.1）。
-	if s.cfg.Env == "dev" {
+	if s.cfg.AuditAutoApprove {
 		status = model.AuditApproved
 	}
 
@@ -120,7 +120,7 @@ func (s *UploadService) ConfirmPhoto(ctx context.Context, uid int64, objectKey s
 
 func (s *UploadService) ConfirmAvatar(ctx context.Context, uid int64, objectKey string) (*model.UserAvatar, error) {
 	status := model.AuditPending
-	if s.cfg.Env == "dev" {
+	if s.cfg.AuditAutoApprove {
 		status = model.AuditApproved
 	}
 
