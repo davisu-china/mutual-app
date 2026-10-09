@@ -375,32 +375,112 @@ fi
 # ================================================================ 8. nginx
 log "配置 nginx"
 
-PROXY_LOC="location ${API_URL_PATH} {
-        proxy_pass http://172.17.0.1:${API_PORT}/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Host              \$host;
-        proxy_set_header X-Real-IP         \$remote_addr;
-        proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        # WebSocket 必须带升级头，否则任务照跑但前端收不到消息
-        proxy_set_header Upgrade    \$http_upgrade;
-        proxy_set_header Connection \"upgrade\";
-        proxy_buffering off;
-        proxy_read_timeout 600s;
-    }"
+# 子路径模式下 location 是插进**主站那个 server 块**里的，而里面有一条按静态
+# 资源后缀匹配的正则 location。nginx 里正则优先于普通前缀，/mutual/assets/x.png
+# 会被它抢走转发给主站前端。`^~` 让前缀匹配直接终止正则评估，把 /mutual/ 下的
+# 请求锁在自己这里。（独立域名模式是全新的 server 块，没有这个问题，保持原样。）
+LOC_MOD=""
+[ "$MODE" = "subpath" ] && LOC_MOD="^~ "
 
-WEB_LOC="location ${WEB_URL_PATH} {
-        alias ${WEB_IN_CONTAINER}/;
-        try_files \$uri \$uri/ ${WEB_URL_PATH}index.html;
-    }"
+PROXY_LOC="location ${LOC_MOD}${API_URL_PATH} {
+    proxy_pass http://172.17.0.1:${API_PORT}/api/;
+    proxy_http_version 1.1;
+    # 图片是预签名直传 MinIO 的，走 API 的只有小 JSON；但主站 server 的 10m
+    # 会在子路径模式下被继承，这里显式对齐 domain 模式的 12m，免得以后
+    # 往 API 加任何带 body 的接口时莫名 413。
+    client_max_body_size 12m;
+    proxy_set_header Host              \$host;
+    proxy_set_header X-Real-IP         \$remote_addr;
+    proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    # WebSocket 必须带升级头，否则任务照跑但前端收不到消息
+    proxy_set_header Upgrade    \$http_upgrade;
+    proxy_set_header Connection \"upgrade\";
+    proxy_buffering off;
+    proxy_read_timeout 600s;
+}"
+
+WEB_LOC="location ${LOC_MOD}${WEB_URL_PATH} {
+    alias ${WEB_IN_CONTAINER}/;
+    try_files \$uri \$uri/ ${WEB_URL_PATH}index.html;
+}"
 
 MARK="# ===== 相悦 Mutual ====="
 
 if grep -q "$MARK" "$NGINX_CONF"; then
-  echo "  ✓ 配置已存在（改端口请手动更新后 reoad）"
+  echo "  ✓ 配置已存在（改端口请手动更新后 reload）"
 else
+  # 先备份：下面 nginx -t 失败要靠它回滚
   cp "$NGINX_CONF" "$NGINX_CONF.bak.mutual.$(date +%Y%m%d-%H%M%S)"
 
+  # ---------------- 插入位置必须算出来，不能取「文件里最后一个 }」----------------
+  #
+  # 最后那个 } 是 http{} 的收尾大括号。domain 模式往它前面插的是**完整 server 块**，
+  # 放在 http 里合法；subpath 模式插的是**裸的 location**，放在 http 里直接非法，
+  # nginx -t 报 `"location" directive is not allowed here`。这个错**只在子路径模式
+  # 暴露**，所以沙箱验证没照到；而本机 nginx.conf 的最后一个 server 是 aiwritex 的、
+  # 主站 server 夹在文件中间 —— 位置只能算，不能猜。
+  #
+  #   domain ：http{} 的收尾大括号
+  #   subpath：主站 server 块（listen 443 且 server_name 含 $SITE）的收尾大括号
+  INSERT_AT="$(awk -v site="$SITE" -v mode="$MODE" '
+    function delta(s,   i, c, n) {
+      n = 0
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (c == "{") n++
+        else if (c == "}") n--
+      }
+      return n
+    }
+    function iscomment(s) { return s ~ /^[[:space:]]*#/ }
+    { line[NR] = $0 }
+    END {
+      if (mode == "domain") {
+        started = 0; d = 0
+        for (i = 1; i <= NR; i++) {
+          if (!started) {
+            if (!iscomment(line[i]) && line[i] ~ /^[[:space:]]*http[[:space:]]*\{/) {
+              started = 1; d = delta(line[i])
+            }
+            continue
+          }
+          d += delta(line[i])
+          if (d <= 0) { print i; exit 0 }
+        }
+        print "ERR"; exit 1
+      }
+      for (i = 1; i <= NR; i++) {
+        if (iscomment(line[i])) continue
+        if (line[i] !~ /^[[:space:]]*server[[:space:]]*\{/) continue
+        d = 0; has443 = 0; named = 0; end = 0
+        for (j = i; j <= NR; j++) {
+          d += delta(line[j])
+          if (line[j] ~ /^[[:space:]]*listen[[:space:]]+443([[:space:]]|;)/) has443 = 1
+          if (line[j] ~ /^[[:space:]]*server_name[[:space:]]/) {
+            s = line[j]
+            sub(/^[[:space:]]*server_name[[:space:]]+/, "", s)
+            sub(/;.*$/, "", s)
+            cnt = split(s, tok, /[[:space:]]+/)
+            for (k = 1; k <= cnt; k++) if (tok[k] == site || tok[k] == "www." site) named = 1
+          }
+          if (d <= 0) { end = j; break }
+        }
+        if (end && has443 && named) { print end; exit 0 }
+      }
+      print "ERR"; exit 1
+    }' "$NGINX_CONF")" || INSERT_AT="ERR"
+
+  case "$INSERT_AT" in
+    ""|ERR) die "找不到可插入的位置：
+    domain  模式需要 http{} 的收尾大括号
+    subpath 模式需要一条 listen 443 且 server_name 含 $SITE 的 server 块
+  请确认 SITE=$SITE 与 $NGINX_CONF 里的 server_name 一致，或手工把 location 加进主站 server。" ;;
+    *[!0-9]*) die "插入位置解析失败：[$INSERT_AT]" ;;
+  esac
+  echo "  ✓ 插入点：第 $INSERT_AT 行前（$MODE 模式）"
+
+  # ---------------- 生成片段（location 统一 8 空格缩进：都落在 server 块内）----------------
   if [ "$MODE" = "domain" ]; then
     cat > /tmp/mutual.loc <<LOC
 
@@ -422,8 +502,8 @@ else
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         add_header Strict-Transport-Security "max-age=31536000" always;
         add_header X-Robots-Tag "noindex, nofollow" always;
-$(echo "$PROXY_LOC" | sed 's/^/        /')
-$(echo "$WEB_LOC" | sed 's/^/        /')
+$(printf '%s\n' "$PROXY_LOC" | sed 's/^/        /')
+$(printf '%s\n' "$WEB_LOC" | sed 's/^/        /')
     }
     server {
         listen 80;
@@ -434,21 +514,17 @@ LOC
   else
     cat > /tmp/mutual.loc <<LOC
 
-    $MARK
-$(echo "$PROXY_LOC" | sed 's/^/    /')
-$(echo "$WEB_LOC" | sed 's/^/    /')
+        $MARK
+$(printf '%s\n' "$PROXY_LOC" | sed 's/^/        /')
+$(printf '%s\n' "$WEB_LOC" | sed 's/^/        /')
 LOC
   fi
 
-  # 必须插在 http{} 的收尾大括号之前——直接追加会落到 http 块外，
-  # nginx -t 报 "server directive is not allowed here"
-  awk -v ins=/tmp/mutual.loc '
+  awk -v ins=/tmp/mutual.loc -v at="$INSERT_AT" '
     { line[NR] = $0 }
     END {
-      last = 0
-      for (i = NR; i >= 1; i--) if (line[i] == "}") { last = i; break }
       for (i = 1; i <= NR; i++) {
-        if (i == last) { while ((getline l < ins) > 0) print l; close(ins) }
+        if (i == at + 0) { while ((getline l < ins) > 0) print l; close(ins) }
         print line[i]
       }
     }' "$NGINX_CONF" > /tmp/mutual.nginx.new
