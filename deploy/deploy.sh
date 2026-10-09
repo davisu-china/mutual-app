@@ -407,8 +407,19 @@ WEB_LOC="location ${LOC_MOD}${WEB_URL_PATH} {
 
 MARK="# ===== 相悦 Mutual ====="
 
-if grep -q "$MARK" "$NGINX_CONF"; then
-  echo "  ✓ 配置已存在（改端口请手动更新后 reload）"
+# 「是否已经配过」必须分模式判断。
+# domain 模式插的是独立 server 块，subpath 插的是主站 server 里的 location。
+# 如果两种模式共用一个 MARK 判断，那么「先按子路径部署、之后想切独立域名」时
+# 这里会误判成「已存在」而整段跳过 ⇒ 独立域名的 server 块永远加不上，
+# 线上表现为 Cloudflare 526（源站拿不出该域名的证书）。
+if [ "$MODE" = "domain" ]; then
+  ALREADY=$(grep -qF "server_name $DOMAIN;" "$NGINX_CONF" && echo 1 || echo 0)
+else
+  ALREADY=$(grep -qF "$MARK" "$NGINX_CONF" && echo 1 || echo 0)
+fi
+
+if [ "$ALREADY" = "1" ]; then
+  echo "  ✓ 配置已存在（$MODE 模式；改端口请手动更新后 reload）"
 else
   # 先备份：下面 nginx -t 失败要靠它回滚
   cp "$NGINX_CONF" "$NGINX_CONF.bak.mutual.$(date +%Y%m%d-%H%M%S)"
