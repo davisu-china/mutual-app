@@ -1,0 +1,19 @@
+# 依赖与构建产物
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+
+# 本地配置与密钥（绝不上传）
+.env
+.env.local
+config.local.*
+*.pem
+*.key
+
+# 运行时产物
+*.log
+.DS_Store

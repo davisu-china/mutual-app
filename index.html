@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>相悦 Mutual · 产品需求文档 v1.5</title>
+<style>
+  :root{
+    --paper:#F7F5F6; --surface:#FFFFFF; --surface-2:#F0EDEF;
+    --ink:#1A1719; --ink-2:#3D3739; --muted:#6B6366;
+    --line:#E2DDE0; --line-soft:#EDE9EB;
+    --accent:#B03A5B; --accent-2:#8C2C47; --accent-soft:#FBEBEF;
+    --seal:#9C3A28; --seal-soft:#F7E7E3;
+    --amber:#8A6412; --amber-soft:#F7EFDD;
+    --teal:#0F6157; --teal-soft:#E0EFEC;
+    --violet:#5B3A78; --violet-soft:#EFE7F4;
+    --mono:"JetBrains Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+    --serif:"Songti SC","Source Han Serif SC","Noto Serif SC",Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.78;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 32px 96px}
+
+  .masthead{padding:72px 0 36px;border-bottom:2px solid var(--ink);margin-bottom:40px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 18px}
+  h1{font-family:var(--serif);font-weight:700;font-size:44px;line-height:1.14;letter-spacing:.01em;margin:0 0 14px}
+  .subtitle{font-size:17px;color:var(--ink-2);margin:0 0 28px;max-width:68ch}
+  .metagrid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+  .metagrid div{background:var(--surface);padding:12px 14px}
+  .metagrid .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
+  .metagrid .v{font-size:13.5px;font-weight:600;color:var(--ink)}
+
+  .toc{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);padding:22px 26px;margin-bottom:56px}
+  .toc h2{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px;font-weight:500}
+  .toc ol{margin:0;padding:0;list-style:none;columns:2;column-gap:36px}
+  .toc li{font-size:13.5px;padding:3px 0;break-inside:avoid;color:var(--ink-2)}
+  .toc li b{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:8px;font-size:12px}
+
+  section{margin-bottom:56px;scroll-margin-top:24px}
+  h2.sec{font-family:var(--serif);font-size:27px;font-weight:700;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px}
+  h2.sec .num{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500;letter-spacing:.06em}
+  h3{font-size:17.5px;font-weight:700;margin:34px 0 12px;color:var(--ink)}
+  h4{font-size:14.5px;font-weight:700;margin:22px 0 8px;color:var(--accent-2);font-family:var(--mono);letter-spacing:.02em}
+  p{margin:0 0 13px}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:5px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);padding:1.5px 5px;border-radius:3px;color:var(--accent-2);border:1px solid var(--line-soft)}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0 20px;font-size:13.5px;background:var(--surface);border:1px solid var(--line)}
+  th{background:var(--surface-2);text-align:left;font-weight:700;font-size:12px;letter-spacing:.04em;color:var(--ink-2);padding:9px 12px;border-bottom:1px solid var(--line)}
+  td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td code{font-size:12px;white-space:nowrap}
+
+  .badge{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;padding:1.5px 7px;border-radius:3px;vertical-align:1.5px;white-space:nowrap}
+  .b-mvp{background:var(--accent);color:#fff}
+  .b-p1{background:var(--teal-soft);color:var(--teal);border:1px solid #C3DED9}
+  .b-p2{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+  .b-tbd{background:var(--amber-soft);color:var(--amber);border:1px solid #E7D6B4}
+  .b-req{background:var(--seal);color:#fff}
+  .b-new{background:var(--violet);color:#fff}
+
+  .callout{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--surface);padding:16px 20px;margin:18px 0}
+  .callout.warn{border-left-color:var(--seal);background:var(--seal-soft)}
+  .callout.ok{border-left-color:var(--teal);background:var(--teal-soft)}
+  .callout.tbd{border-left-color:var(--amber);background:var(--amber-soft)}
+  .callout.gap{border-left-color:var(--violet);background:var(--violet-soft)}
+  .callout .ct{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:8px;color:var(--accent)}
+  .callout.warn .ct{color:var(--seal)}
+  .callout.ok .ct{color:var(--teal)}
+  .callout.tbd .ct{color:var(--amber)}
+  .callout.gap .ct{color:var(--violet)}
+  .callout p:last-child{margin-bottom:0}
+
+  pre{background:#1C1618;color:#EBDFE3;font-family:var(--mono);font-size:12.5px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:14px 0;border-radius:4px;border:1px solid #120D0E}
+  pre .cm{color:#8B767D}
+  pre .kw{color:#E8A2B4}
+  pre .st{color:#E0B87F}
+  .caption{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:-6px 0 18px}
+
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:16px 0 20px;padding:20px;background:var(--surface);border:1px solid var(--line);font-size:12.5px}
+  .fn{background:var(--accent-soft);border:1.5px solid var(--accent);color:var(--accent-2);padding:7px 11px;border-radius:4px;text-align:center;font-weight:600;line-height:1.35}
+  .fn small{display:block;font-weight:400;color:var(--muted);font-size:10.5px;font-family:var(--mono)}
+  .fn.plain{background:var(--surface-2);border-color:var(--line);color:var(--ink-2)}
+  .fn.gw{background:var(--amber-soft);border-color:#D9BE86;color:var(--amber)}
+  .fn.ok{background:var(--teal-soft);border-color:var(--teal);color:var(--teal)}
+  .fa{color:var(--muted);font-family:var(--mono);font-size:13px}
+
+  .chain{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 18px;font-size:12px}
+  .st-box{font-family:var(--mono);font-size:11.5px;padding:6px 11px;border:1px solid var(--line);background:var(--surface);border-radius:4px;font-weight:600;color:var(--ink-2)}
+  .st-box.on{border-color:var(--accent);color:var(--accent-2);background:var(--accent-soft)}
+  .st-box.bad{border-color:var(--seal);color:var(--seal);background:var(--seal-soft)}
+  .st-box.dim{border-style:dashed;color:var(--muted)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .card{background:var(--surface);border:1px solid var(--line);padding:16px 18px}
+  .card h5{margin:0 0 8px;font-size:13.5px;font-weight:700;color:var(--accent-2)}
+  .card p{font-size:13px;color:var(--ink-2);margin:0}
+  .card ul{padding-left:18px;margin:6px 0 0;font-size:13px;color:var(--ink-2)}
+
+  .kv{font-size:13.5px}
+  .kv dt{font-weight:700;color:var(--accent-2);margin-top:12px;font-family:var(--mono);font-size:12.5px}
+  .kv dd{margin:2px 0 0 0;color:var(--ink-2)}
+
+  .grid9{display:grid;grid-template-columns:repeat(9,1fr);gap:6px;margin:14px 0;max-width:520px}
+  .grid9 div{aspect-ratio:1;background:var(--surface-2);border:1px dashed var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .grid9 div.first{border:1.5px solid var(--accent);background:var(--accent-soft);color:var(--accent-2);font-weight:700}
+  .grid9 div.add{border-style:solid;color:var(--accent)}
+  .caption9{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:-6px}
+
+  .mock{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+  .phone-mock{width:200px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,.06)}
+  .phone-mock .ttl{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-bottom:8px;letter-spacing:.06em}
+  .mock-card{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;line-height:1.6;color:var(--ink-2);background:var(--paper)}
+  .mock-btn{display:block;text-align:center;border:1px solid var(--line);border-radius:6px;padding:4px;margin-top:8px;font-size:11.5px;color:var(--accent)}
+
+  hr.soft{border:none;border-top:1px solid var(--line-soft);margin:32px 0}
+  .foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="masthead">
+  <p class="eyebrow">Product Requirements Document · v1.5</p>
+  <h1>相悦 <span style="font-size:.62em;font-weight:400;color:var(--muted);letter-spacing:.04em;">Mutual</span></h1>
+  <p class="subtitle">手机号 + 密码注册登录 → 填写双向画像（我是谁 / 我要谁）→ 每日 10 次喜欢（划卡不限量）→ 双向 Like 配对 → 聊天。辅以恋爱广场的全量检索、Like &amp; Visit 的社交线索、以及支持九宫格拖拽排序的个人相册。</p>
+  <div class="metagrid">
+    <div><span class="k">文档状态</span><span class="v">草案 / 待评审</span></div>
+    <div><span class="k">日期</span><span class="v">2026-10-09</span></div>
+    <div><span class="k">核心机制</span><span class="v">双向 Like 才可聊</span></div>
+    <div><span class="k">形态</span><span class="v">移动端优先 / H5+App</span></div>
+  </div>
+</div>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><b>01</b>产品定位与目标</li>
+    <li><b>02</b>名词与概念模型</li>
+    <li><b>03</b>用户角色与主流程</li>
+    <li><b>04</b>账号体系（注册/登录）</li>
+    <li><b>05</b>Onboarding · 本人画像</li>
+    <li><b>06</b>Onboarding · 兴趣与自述</li>
+    <li><b>07</b>Onboarding · 伴侣画像</li>
+    <li><b>08</b>划卡（每日 10 次喜欢）</li>
+    <li><b>09</b>Like 规则与配对</li>
+    <li><b>10</b>恋爱广场</li>
+    <li><b>11</b>Like &amp; Visit</li>
+    <li><b>12</b>聊天</li>
+    <li><b>13</b>个人中心与相册</li>
+    <li><b>14</b>安全、风控与合规</li>
+    <li><b>15</b>可见性与隐私矩阵</li>
+    <li><b>16</b>数据模型</li>
+    <li><b>17</b>接口设计</li>
+    <li><b>18</b>非功能需求</li>
+    <li><b>19</b>边界与异常清单</li>
+    <li><b>20</b>需求缺口与决策记录</li>
+    <li><b>21</b>里程碑与排期</li>
+  </ol>
+</nav>
+
+<!-- ============ 01 ============ -->
+<section id="s1">
+  <h2 class="sec"><span class="num">01</span>产品定位与目标</h2>
+
+  <h3>1.1 一句话定位</h3>
+  <p>以<b>「双向意愿」</b>为核心机制的交友产品：用户先把自己的画像和择偶偏好讲清楚，系统按偏好推卡，只有<b>双方都 Like</b> 才建立会话——把「被拒绝的成本」降到零，让主动表达变得没有负担。</p>
+
+  <div class="callout ok">
+    <div class="ct">产品名</div>
+    <p><b>相悦 / Mutual</b>。中文出自「<b>两情相悦</b>」——中文里形容「双方互相喜欢」最准确的一个词，正好对应产品「双向 Like 才配对」的核心机制；英文 <b>Mutual</b> 语义完全对应。两字好记好听，气质上比传统婚恋站年轻、比泛社交产品认真，与「重资料 + 轻交互」的定位一致。</p>
+  </div>
+
+  <h3>1.2 与竞品的差异点</h3>
+  <table>
+    <tr><th style="width:150px">机制</th><th>常见做法</th><th>本产品做法</th></tr>
+    <tr><td>匹配门槛</td><td>单向 Like 即可发消息（骚扰成本低）</td><td><b>双向 Like 才开聊天</b>，从机制上杜绝单向骚扰</td></tr>
+    <tr><td>信息结构</td><td>只有「我是谁」</td><td><b>本人画像 + 伴侣画像</b>两套，明确「我要什么」，降低无效匹配</td></tr>
+    <tr><td>发现方式</td><td>只有推荐流</td><td>推荐流（划卡）+ <b>恋爱广场</b>（条件检索）双通道，两者共用每日 Like 额度</td></tr>
+    <tr><td>社交线索</td><td>不告诉谁看过你</td><td><b>Like &amp; Visit</b> 呈现谁对你表达了兴趣</td></tr>
+  </table>
+
+  <h3>1.3 产品目标</h3>
+  <ul>
+    <li><b>G1 Onboarding 走完率</b>：五步全部强制（不可跳过），目标下调为 <b>≥ 55%</b>，并单独跟踪每一步的流失率（详见 3.3）。</li>
+    <li><b>G2 双向匹配有效</b>：配对后的<b>首条消息发送率</b> ≥ 60%（配了不说话等于没配）。</li>
+    <li><b>G3 划卡有效率</b>：每日额度内（10 次 Like）的 Like 率落在合理区间——用户浏览的卡片数可以很多，但主动表达的应该少而准。若用户每天把 10 次额度全用光，说明推荐宽度合适；若用不完，说明推荐太窄或资料不足。</li>
+    <li><b>G4 生态健康</b>：男女双方的「被 Like 分布」不过分倾斜，头部用户不虹吸全部曝光。</li>
+  </ul>
+
+  <h3>1.4 非目标（本期不做）</h3>
+  <ul>
+    <li>不做语音/视频通话（聊天先做图文）。</li>
+    <li>不做付费会员体系（本期所有功能免费，但字段设计为将来可挂付费墙，见 20 章）。</li>
+    <li>不做实名认证的强校验（本期只做手机号注册，实名与活体检测列为 P1，见 14 章）。</li>
+    <li>不做动态/朋友圈内容流（只有恋爱广场这种「人」的检索，不做「内容」流）。</li>
+  </ul>
+</section>
+
+<!-- ============ 02 ============ -->
+<section id="s2">
+  <h2 class="sec"><span class="num">02</span>名词与概念模型</h2>
+
+  <table>
+    <tr><th style="width:160px">术语</th><th style="width:130px">英文键</th><th>定义</th></tr>
+    <tr><td><b>用户</b></td><td><code>user</code></td><td>一个手机号对应一个账号主体，承载登录凭证与账号状态。</td></tr>
+    <tr><td><b>本人画像</b></td><td><code>profile</code></td><td>「我是谁」：出生年月、身高体重、地域、职业、MBTI、生活习惯、资产状况等结构化字段。</td></tr>
+    <tr><td><b>伴侣画像</b></td><td><code>preference</code></td><td>「我要谁」：对另一半的身高、地域、收入、学历、生活习惯的期望区间与标签。</td></tr>
+    <tr><td><b>兴趣</b></td><td><code>hobby</code></td><td>用户选择的三个兴趣爱好，每个附一段自我介绍文字。</td></tr>
+    <tr><td><b>相册</b></td><td><code>photo</code></td><td>最多 9 张照片，顺序可拖拽调整；<b>第 1 张为主图</b>，用于卡片与列表展示。</td></tr>
+    <tr><td><b>卡片</b></td><td><code>card</code></td><td>划卡流中呈现给用户的一张「候选人展示单元」，由对方的主图 + 核心画像字段组装而成。</td></tr>
+    <tr><td><b>Like 额度</b></td><td><code>quota</code></td><td>每日可发起 Like 的次数（默认 10），跨天按北京时间重置。<b>注意：划卡浏览不限量，只有 Like 消耗额度。</b></td></tr>
+    <tr><td><b>动作</b></td><td><code>action</code></td><td>用户对他人做出的行为：<code>like</code>（喜欢）/ <code>pass</code>（跳过）/ <code>visit</code>（访问主页）。</td></tr>
+    <tr><td><b>配对</b></td><td><code>match</code></td><td>双方互相 Like 后产生的双向关系，是<b>开启聊天的唯一前提</b>。</td></tr>
+    <tr><td><b>会话</b></td><td><code>conversation</code></td><td>配对产生的一对一会话，承载消息列表。</td></tr>
+    <tr><td><b>Onboarding</b></td><td><code>onboarding</code></td><td>注册后引导填写完整资料的过程，走完才能进入划卡。</td></tr>
+  </table>
+
+  <h3>2.1 概念关系</h3>
+  <div class="flow">
+    <div class="fn plain">用户<small>user</small></div><span class="fa">1:1</span>
+    <div class="fn">本人画像<small>profile</small></div>
+    <div class="fn">伴侣画像<small>preference</small></div>
+    <div class="fn plain">兴趣 ×3<small>hobby</small></div>
+    <div class="fn plain">相册 ≤9<small>photo</small></div>
+  </div>
+  <div class="flow">
+    <div class="fn plain">用户 A</div><span class="fa">— Like →</span>
+    <div class="fn gw">动作 action</div><span class="fa">← Like —</span>
+    <div class="fn plain">用户 B</div>
+    <span class="fa">⇒ 双方均 Like</span>
+    <div class="fn ok">配对 match</div><span class="fa">⇒</span>
+    <div class="fn ok">会话 conversation</div>
+  </div>
+
+  <div class="callout">
+    <div class="ct">核心不变式（实现时必须保证）</div>
+    <p><b>没有配对，就没有会话。</b>聊天入口只对 <code>match</code> 记录存在且状态为有效的双方开放。任何绕过配对的私信通道都不允许存在——这是本产品的立身之本。</p>
+  </div>
+</section>
+
+<!-- ============ 03 ============ -->
+<section id="s3">
+  <h2 class="sec"><span class="num">03</span>用户角色与主流程</h2>
+
+  <h3>3.1 角色</h3>
+  <table>
+    <tr><th style="width:130px">角色</th><th style="width:200px">关注什么</th><th>主要动作</th></tr>
+    <tr><td><b>新用户</b></td><td>这个 App 值不值得我填这么多资料</td><td>注册 → 填写画像 → 划卡 → 首次配对</td></tr>
+    <tr><td><b>活跃用户</b></td><td>今天有没有合适的人、有没有人喜欢我</td><td>划卡、逛广场、看 Like/Visit、聊天</td></tr>
+    <tr><td><b>沉默用户</b></td><td>——</td><td>被召回（推送/短信），回来完善资料或回消息</td></tr>
+    <tr><td><b>运营/审核</b></td><td>违规内容、举报处理</td><td>审核头像与相册、处理举报、封禁账号</td></tr>
+  </table>
+
+  <h3>3.2 主流程（用户视角）</h3>
+  <div class="flow">
+    <div class="fn plain">手机号+密码<small>注册</small></div><span class="fa">→</span>
+    <div class="fn gw">Onboarding<small>5 步全必填</small></div><span class="fa">→</span>
+    <div class="fn">划卡<small>每日 10 张</small></div><span class="fa">→</span>
+    <div class="fn ok">双向 Like<small>配对</small></div><span class="fa">→</span>
+    <div class="fn ok">聊天</div>
+  </div>
+  <p>旁路：<b>恋爱广场</b>（不划卡时按条件主动找人）、<b>Like &amp; Visit</b>（查看谁对我有意）、<b>个人中心</b>（随时改资料、换相册）。</p>
+
+  <h3>3.3 Onboarding 五步（全部必填，均不可跳过）</h3>
+  <table>
+    <tr><th style="width:50px">步骤</th><th style="width:150px">内容</th><th style="width:230px">完成标准（达到才可进入下一步）</th><th>为什么放在这个位置</th></tr>
+    <tr><td>1</td><td>本人画像</td><td>所有必填字段填写完成 + 头像已上传</td><td>最基础的「我是谁」，决定后续推荐</td></tr>
+    <tr><td>2</td><td>兴趣爱好 ×3（含文字）</td><td><b>恰好 3 个</b>，且每个都填写文字介绍（10–200 字）</td><td>画像之后，趁用户还在投入状态</td></tr>
+    <tr><td>3</td><td>关于我</td><td>填写 20–500 字</td><td>承接兴趣，自然过渡到文字自述</td></tr>
+    <tr><td>4</td><td>伴侣画像</td><td>所有必填字段填写完成</td><td>先讲清自己，再讲要求（心理顺序）</td></tr>
+    <tr><td>5</td><td>期待的那个他/她</td><td>填写 20–500 字；完成后立即进入划卡</td><td>收尾，文字表达</td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="ct">「不可跳过」的确切含义</div>
+    <p><b>不可跳过 = 不完成本步就无法进入下一步，也无法进入划卡 / 广场 / 聊天。</b>但<b>允许中途退出、下次登录从断点续填</b>——这两件事不矛盾：前者保证资料的完整性，后者防止用户填到一半被迫放弃而丢失数据。断网、切后台、主动退出都必须能恢复现场。</p>
+    <p>需要区分：<b>「步骤不可跳过」不等于「该步骤内所有字段都必填」</b>。步骤 1 中的「学校」「公司名字」在原需求里就明确标注为选填，本次保持不变；步骤 4 中的「车 / 房」偏好同理。不可跳过约束的是「这一步必须走」，不是「每一格都必须填」。</p>
+  </div>
+
+  <div class="callout warn">
+    <div class="ct">代价：走完率会下降，必须配套缓解手段</div>
+    <p>五步全部强制，且包含三段文字（3 个兴趣介绍 + 关于我 + 期待的他/她），这是相当重的填写负担。<b>原定的「走完率 ≥ 70%」目标需要下调，建议改为 ≥ 55%，并单独跟踪每一步的流失率</b>——这样才能看出究竟是哪一步在劝退用户。</p>
+    <p><b>缓解手段（建议全部做）</b>：①显示进度「3 / 5」与预估剩余时间；②每步完成给即时正向反馈；③文字字段给<b>对照示例</b>而非空白输入框；④支持保存草稿、随时退出续填；⑤对中途放弃的用户做召回（推送 / 短信），从断点继续。</p>
+  </div>
+</section>
+
+<!-- ============ 04 ============ -->
+<section id="s4">
+  <h2 class="sec"><span class="num">04</span>账号体系（注册 / 登录）</h2>
+  <p>按需求：<b>手机号 + 密码即可注册并登录，本期不做验证码。</b>这一章落到具体规则，并在 4.4 指出它带来的三个必须正面处理的后果。</p>
+
+  <h3>4.1 注册</h3>
+  <table>
+    <tr><th style="width:140px">项目</th><th>规则</th></tr>
+    <tr><td>手机号</td><td>11 位中国大陆手机号，正则 <code>^1[3-9]\d{9}$</code>；<b>全局唯一</b>，已被注册则提示「该手机号已注册，请直接登录」并跳到登录页</td></tr>
+    <tr><td>密码</td><td>长度 8–20；至少包含<b>字母与数字</b>；不允许纯数字、纯字母、连续或重复字符（<code>12345678</code> / <code>aaaaaaaa</code>）；前后端双重校验</td></tr>
+    <tr><td>确认密码</td><td>二次输入需一致</td></tr>
+    <tr><td>注册后状态</td><td><code>registered</code>，强制进入 Onboarding，未完成不得进入划卡/广场</td></tr>
+    <tr><td>服务协议</td><td>必须勾选《用户协议》《隐私政策》（未勾选时按钮置灰）</td></tr>
+  </table>
+  <p><b>密码存储</b>：服务端使用 <code>bcrypt</code>（cost ≥ 12）或 <code>argon2id</code> 加盐哈希，<b>严禁明文或可逆加密</b>；哈希值与盐独立存储，日志中不得打印任何密码字段。</p>
+
+  <h3>4.2 登录</h3>
+  <table>
+    <tr><th style="width:140px">项目</th><th>规则</th></tr>
+    <tr><td>凭证</td><td>手机号 + 密码</td></tr>
+    <tr><td>会话</td><td>登录成功签发 JWT（access token 2 小时）+ refresh token（30 天，可撤销）；移动端持久化，Web 端用 httpOnly cookie</td></tr>
+    <tr><td>失败提示</td><td>统一提示「手机号或密码不正确」，<b>不区分「手机号不存在」与「密码错误」</b>（防账号枚举）</td></tr>
+    <tr><td>限流</td><td>同一手机号连续失败 5 次锁 15 分钟；同一 IP 每分钟 &gt; 20 次登录请求则拒绝</td></tr>
+  </table>
+
+  <h3>4.3 账号状态机</h3>
+  <div class="chain">
+    <span class="st-box dim">已注册 REGISTERED</span><span class="fa">→ 完成Onboarding →</span>
+    <span class="st-box on">正常 ACTIVE</span><span class="fa">⇄</span>
+    <span class="st-box">冻结 FROZEN</span>
+    <span class="st-box bad" style="margin-left:10px">封禁 BANNED</span>
+    <span class="st-box dim" style="margin-left:10px">注销 DELETED</span>
+  </div>
+  <ul>
+    <li><b>REGISTERED</b>：可登录，但只能做 Onboarding，划卡/广场/聊天全部拦截并引导补全。</li>
+    <li><b>ACTIVE</b>：完整功能。</li>
+    <li><b>FROZEN</b>：被举报待审核期间，可登录但不可划卡、不可发消息（防止继续作恶）。</li>
+    <li><b>BANNED</b>：封禁，登录即提示违规原因与申诉入口。</li>
+    <li><b>DELETED</b>：注销。资料即时隐藏，30 天冷静期后可彻底匿名化。</li>
+  </ul>
+
+  <div class="callout warn">
+    <div class="ct">不做验证码：三个必须正面处理的后果</div>
+    <p><b>1. 无法找回密码。</b>没有验证码，用户忘记密码就等于账号作废。本期至少要给一条出路：<b>「忘记密码」引导联系客服人工核验</b>，并在数据库保留账号可迁移的痕迹。<b>或者把「注册/找回时的短信验证码」列为 P1 首个补齐项。</b></p>
+    <p><b>2. 无法防止手机号被他人抢注。</b>任何人拿到你的手机号（甚至只是猜到一个号段）就能注册。这会直接导致：用户想注册时发现「已被注册」，体验极差且无解。<b>建议至少加一道「注册后不可用于找回」的兜底，或对连续注册的同一设备/IP 做风控。</b></p>
+    <p><b>3. 机器注册刷号零成本。</b>没有验证码，脚本可以批量注册。必须在应用层补：<b>设备指纹 + 单设备注册上限 + IP 频率限制 + 新账号行为限制</b>（见 14 章）。</p>
+  </div>
+
+  <h3>4.4 本期风控替代方案（在无验证码前提下）</h3>
+  <table>
+    <tr><th style="width:170px">手段</th><th>规则</th></tr>
+    <tr><td>设备指纹</td><td>客户端上报设备 ID + 机型 + 系统版本，同一设备注册上限 3 个账号 / 月</td></tr>
+    <tr><td>IP 限流</td><td>同一 IP 每日注册上限 10 个；触发后要求人机校验（图形点选）</td></tr>
+    <tr><td>手机号归属校验</td><td>校验号段合法性 + 运营商前缀，拒绝虚拟号段与明显伪造的号码</td></tr>
+    <tr><td>新号行为限制</td><td>注册 24 小时内：不可发起聊天、不可上传相册（只能有头像），Like 上限降为每日 5 次</td></tr>
+    <tr><td>异常模式识别</td><td>同一设备多账号、资料高度雷同、短时间大量 Like 同一批人 → 打标待审</td></tr>
+  </table>
+</section>
+
+<!-- ============ 05 ============ -->
+<section id="s5">
+  <h2 class="sec"><span class="num">05</span>Onboarding · 本人画像</h2>
+  <p>字段清单与规则逐条落到下表。<b>「必填」是能否进入划卡的硬门槛</b>；选填字段会体现在资料完整度上，但不阻断流程。</p>
+
+  <div class="callout gap">
+    <div class="ct">需求缺口 · 必须补的两个字段</div>
+    <p><b>1. 性别（缺失）。</b>你的列表里没有「性别」，但伴侣画像和「期待的那个他/她」的表述都依赖它。没有性别，推荐引擎无法做同/异性匹配。必须补 <b>性别</b>（男 / 女）。<b>已确认本产品只做异性匹配</b>，因此<b>不需要「期望对方性别」字段</b>——系统固定为「男用户只看到女用户，反之亦然」。</p>
+    <p><b>2. 昵称（缺失）。</b>划卡卡片、聊天列表、广场列表都需要一个展示名。手机号不能当展示名（隐私），必须有<b>昵称</b>字段（2–12 字符，允许中英文数字，敏感词过滤）。</p>
+  </div>
+
+  <div class="callout ok">
+    <div class="ct">已确认：只做异性匹配</div>
+    <p><b>性别是硬过滤的第一道闸门</b>：推荐、广场检索、Like &amp; Visit 全部只呈现异性。这带来两个简化：①不需要「期望对方性别」字段，也不需要处理复杂的性取向建模；②性别在注册后<b>永久锁定</b>（不允许自助修改），因为一旦可改，用户可通过改性别进入异性卡池，造成骚扰与数据污染。</p>
+  </div>
+
+  <h3>5.1 字段规格表</h3>
+  <table>
+    <tr><th style="width:130px">字段</th><th style="width:90px">类型</th><th style="width:70px">必填</th><th style="width:200px">取值范围 / 选项</th><th>校验与说明</th></tr>
+
+    <tr><td><b>昵称</b> <span class="badge b-new">补充</span></td><td>文本</td><td><span class="badge b-req">必填</span></td><td>2–12 字符</td><td>敏感词过滤；不可与手机号相同；全局不要求唯一</td></tr>
+    <tr><td><b>性别</b> <span class="badge b-new">补充</span></td><td>单选</td><td><span class="badge b-req">必填</span></td><td>男 / 女</td><td><b>注册后不可修改</b>（需客服申诉），防止性别伪装</td></tr>
+    <tr><td>出生年月日</td><td>日期</td><td><span class="badge b-req">必填</span></td><td>年龄 18–70 岁</td><td>未满 18 岁直接拒绝注册；<b>对外只展示年龄，不展示具体生日</b>；生日当天不推送给他人</td></tr>
+    <tr><td>身高</td><td>数字</td><td><span class="badge b-req">必填</span></td><td>130–230 cm</td><td>整数；滑动/输入两种交互</td></tr>
+    <tr><td>体重</td><td>数字</td><td><span class="badge b-req">必填</span></td><td>30–200 kg</td><td>整数；<b>默认不对外展示，由用户勾选是否公开</b></td></tr>
+    <tr><td>家乡</td><td>级联</td><td><span class="badge b-req">必填</span></td><td>省 → 市</td><td>用于「期待家乡」的匹配比对</td></tr>
+    <tr><td>现居地</td><td>级联</td><td><span class="badge b-req">必填</span></td><td>省 → 市 → 区</td><td>用于计算距离。落地时<b>同时派生一个 5 位 geohash</b>供距离估算（见 14.5），<b>不存精确经纬度</b>；对外只显示城市名与距离区间</td></tr>
+    <tr><td>职业</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>互联网/金融/医疗/教育/公务员/法律/制造/传媒/自由职业/学生/其他</td><td>选「其他」可补充 10 字说明</td></tr>
+    <tr><td>MBTI</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>16 型 + 「不知道」</td><td>选「不知道」视为已填写，不影响通行门槛</td></tr>
+    <tr><td>抽烟</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>不抽 / 偶尔 / 经常</td><td>与伴侣画像的「抽烟态度」比对</td></tr>
+    <tr><td>喝酒</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>不喝 / 偶尔 / 经常</td><td>同上</td></tr>
+    <tr><td>年收入区间</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>10 万以下 / 10–20 / 20–30 / 30–50 / 50–100 / 100 万以上 / 不便透露</td><td><b>默认不对外展示</b>，用户可勾选公开；但<b>始终参与推荐匹配计算</b></td></tr>
+    <tr><td>学历</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>高中及以下 / 大专 / 本科 / 硕士 / 博士</td><td>与「期望最低学历」比对</td></tr>
+    <tr><td>学校</td><td>文本</td><td>选填</td><td>≤ 30 字</td><td>建议做学校库联想输入；<b>仅 985/211 等标签影响匹配权重，原文默认半公开</b>（见 15 章）</td></tr>
+    <tr><td>公司名字</td><td>文本</td><td>选填</td><td>≤ 30 字</td><td><b>默认不对外展示</b>（职场隐私），用户可勾选公开；可作为「大厂/国企」等标签参与匹配</td></tr>
+    <tr><td><b>头像</b></td><td>图片</td><td><span class="badge b-req">必填</span></td><td>1 张</td><td>先上传后审核；尺寸建议 800×800，≤ 5MB；<b>未过审不可进入划卡</b></td></tr>
+    <tr><td>是否独生</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>是 / 否</td><td>与伴侣画像比对</td></tr>
+    <tr><td>有无养老压力</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>有 / 无 / 暂无考虑</td><td>敏感字段，默认不对外展示原文，仅参与匹配</td></tr>
+    <tr><td>是否有车</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>有 / 无</td><td>与「希望有车」比对</td></tr>
+    <tr><td>是否有房</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>无 / 有 / 有贷款</td><td>与「希望有房」比对；「有贷款」单独选项，避免二值化误导</td></tr>
+    <tr><td>是否丁克</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>是 / 否 / 暂不考虑</td><td>与伴侣画像的「是否接受丁克」比对；<b>不一致时仅降权不硬过滤</b>（见 8.2）</td></tr>
+  </table>
+
+  <h3>5.2 通行门槛与资料完整度（两个不同的概念）</h3>
+  <p>因为五步已全部强制，这两个概念必须拆开——否则「完整度」会失去意义（人人都一样高）。</p>
+  <table>
+    <tr><th style="width:130px">概念</th><th style="width:120px">性质</th><th>作用</th></tr>
+    <tr>
+      <td><b>通行门槛</b></td><td>二值（过 / 不过）</td>
+      <td>Onboarding 五步的必填项与三段文字是否齐备。<b>不齐备则拦截划卡、广场、聊天</b>，只放行「继续填写」。</td>
+    </tr>
+    <tr>
+      <td><b>资料完整度</b></td><td>0–100 分</td>
+      <td>含选填项与相册在内的填充率。<b>只影响推荐曝光权重，不阻断任何功能。</b></td>
+    </tr>
+  </table>
+
+  <h4>完整度构成</h4>
+  <p>完成 Onboarding 时完整度<b>必然已达 85 分</b>；后续的提升全部来自选填项与相册：</p>
+  <table>
+    <tr><th style="width:250px">构成</th><th style="width:100px">分值</th><th>说明</th></tr>
+    <tr><td>Onboarding 五步必填项</td><td>85</td><td>走完五步即拿满，人人相同</td></tr>
+    <tr><td>选填项（学校 / 公司名字）</td><td>5</td><td>填写加分</td></tr>
+    <tr><td>相册</td><td>10</td><td>≥ 3 张拿满；照片越多，被划卡时的可信度越高</td></tr>
+  </table>
+  <p><b>用途</b>：完整度高的人在推荐排序中加权（同等条件下优先曝光）。因为 85 分是人人都有，<b>真正拉开差距的是相册与选填项</b>——这也是个人中心里引导用户「补充照片」的价值所在。</p>
+</section>
+
+<!-- ============ 06 ============ -->
+<section id="s6">
+  <h2 class="sec"><span class="num">06</span>Onboarding · 兴趣与自述</h2>
+
+  <h3>6.1 三个兴趣爱好</h3>
+  <table>
+    <tr><th style="width:150px">项目</th><th>规则</th></tr>
+    <tr><td>数量</td><td><b>恰好 3 个</b>，不可重复选同一兴趣</td></tr>
+    <tr><td>来源</td><td>预设兴趣库（运动/音乐/阅读/旅行/美食/影视/游戏/摄影/宠物/健身/手工/投资/科技/艺术/公益…），支持搜索 + 自定义（自定义需审核）</td></tr>
+    <tr><td>文字介绍</td><td>每个兴趣配一段文字，<b>10–200 字</b>；提示语引导写「具体情况」而非形容词，例如「每周三次健身房，主练力量，深蹲 100kg」比「我喜欢健身」有价值</td></tr>
+    <tr><td>展示</td><td>卡片与主页按顺序展示兴趣标签，点开看文字介绍</td></tr>
+    <tr><td>校验</td><td><b>每个兴趣的文字介绍均为必填</b>（10–200 字）；任一为空则本步未完成，高亮标出缺哪个</td></tr>
+  </table>
+
+  <h3>6.2 关于我</h3>
+  <table>
+    <tr><th style="width:150px">项目</th><th>规则</th></tr>
+    <tr><td>形式</td><td>多行文本</td></tr>
+    <tr><td>字数</td><td><b>20–500 字，必填</b>；低于 20 字无法进入下一步，高于 500 字截断</td></tr>
+    <tr><td>内容</td><td>补充结构化字段无法表达的方面：性格、生活方式、价值观、对关系的期待等</td></tr>
+    <tr><td>审核</td><td>敏感词 + 联系方式识别（微信号/QQ/手机号，命中则拦截并提示），防绕过平台导流</td></tr>
+  </table>
+
+  <h3>6.3 期待的那个他/她</h3>
+  <table>
+    <tr><th style="width:150px">项目</th><th>规则</th></tr>
+    <tr><td>形式</td><td>多行文本</td></tr>
+    <tr><td>字数</td><td><b>20–500 字，必填</b>（五步不可跳过）</td></tr>
+    <tr><td>定位</td><td>伴侣画像的「软」补充——结构化字段说不清的气质与相处方式</td></tr>
+    <tr><td>审核</td><td>同「关于我」</td></tr>
+  </table>
+
+  <div class="callout ok">
+    <div class="ct">文案引导比字段本身更重要</div>
+    <p>文字类字段的最大敌人是「模板化填空」（「喜欢旅游、看电影、美食」）。建议在输入框上方直接给<b>对比示例</b>：「✗ 我喜欢旅游 → ✓ 去年一个人去了川西，跑了 1200 公里，最喜欢在海拔 4000 米的垭口发呆」。<b>引导语做好，这两个字段的信息量能翻倍。</b></p>
+  </div>
+</section>
+
+<!-- ============ 07 ============ -->
+<section id="s7">
+  <h2 class="sec"><span class="num">07</span>Onboarding · 伴侣画像</h2>
+  <p>伴侣画像决定「谁会被推给你」。<b>它不是硬过滤条件，而是权重项</b>——这一点在产品上极其重要，见 7.2。</p>
+
+  <h3>7.1 字段规格表</h3>
+  <table>
+    <tr><th style="width:150px">字段</th><th style="width:90px">类型</th><th style="width:70px">必填</th><th style="width:230px">取值</th><th>说明</th></tr>
+    <tr><td>期望身高范围</td><td>区间</td><td><span class="badge b-req">必填</span></td><td>130–230 cm，min ≤ max</td><td>滑动双块选择器</td></tr>
+    <tr><td>期待家乡范围</td><td>多选</td><td>选填</td><td>34 个省级行政区多选</td><td>支持搜索；全不选 = 不限；选中 = 加分项而非硬门槛</td></tr>
+    <tr><td>抽烟情况</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>接受 / 不接受 / 无所谓</td><td>与对方「抽烟」字段比对</td></tr>
+    <tr><td>喝酒情况</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>接受 / 不接受 / 无所谓</td><td>与对方「喝酒」字段比对</td></tr>
+    <tr><td>期望年收入区间</td><td>区间</td><td><span class="badge b-req">必填</span></td><td>同本人收入档位，含「不限」</td><td>与对方「年收入区间」比对；因对方可能选「不便透露」，需定义兜底（见 19 章）</td></tr>
+    <tr><td>期望最低学历</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>无要求 / 大专 / 本科 / 硕士 / 博士</td><td>与对方学历比对</td></tr>
+    <tr><td>独生情况</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>接受 / 不接受 / 无所谓</td><td>与对方「是否独生」比对</td></tr>
+    <tr><td>是否有车</td><td>单选</td><td>选填</td><td>希望有 / 无所谓</td><td><b>注意：无「希望没有」选项</b>，符合需求原文</td></tr>
+    <tr><td>有房</td><td>单选</td><td>选填</td><td>希望有房 / 无所谓</td><td>同上</td></tr>
+    <tr><td>是否丁克</td><td>单选</td><td><span class="badge b-req">必填</span></td><td>接受 / 不接受</td><td><b>注意：本字段无「无所谓」</b>，是唯一强制表态项——丁克分歧对关系影响极大，强制表态是合理的</td></tr>
+    <tr><td>期望标签</td><td>多选</td><td>选填</td><td>颜控 / 智性恋 / 身材控 / 财迷 / 幽默灵魂</td><td>用于展示自我画像标签，并轻微影响推荐权重</td></tr>
+  </table>
+
+  <h3>7.2 偏好是「权重」不是「门槛」——这一条决定产品生死</h3>
+  <div class="callout warn">
+    <div class="ct">如果所有偏好都当硬过滤条件，用户会没有卡可划</div>
+    <p>假设一个用户选了：身高 175–185、只接受 3 个省的家乡、收入 30 万以上、硕士以上、不接受抽烟、希望有房有车、接受丁克。把这一串<b>全部</b>当 AND 条件去过滤，符合的人可能是百人量级甚至更少——在早期用户池里直接归零，用户打开就是「今日无推荐」。</p>
+    <p><b>正确做法</b>：把偏好分成两层。</p>
+  </div>
+  <table>
+    <tr><th style="width:150px">层级</th><th style="width:230px">字段</th><th>处理方式</th></tr>
+    <tr>
+      <td><b>硬过滤（不满足则完全不推）</b></td>
+      <td>性别、年龄、现居地距离（超出最大半径）、账号状态（封禁/已注销/已拉黑）</td>
+      <td>这些是「物理不可行」或「安全底线」，必须硬过滤</td>
+    </tr>
+    <tr>
+      <td><b>软加权（不满足则降权，仍可能出现）</b></td>
+      <td>身高范围、家乡、抽烟、喝酒、收入、学历、独生、车、房、丁克</td>
+      <td>每一项算一个匹配分，<b>总分决定排序</b>；允许少量「不完全符合」的卡出现在后面位置</td>
+    </tr>
+  </table>
+  <p><b>补充机制</b>：如果软加权后仍不够 10 张卡，逐步放宽软条件（先放宽收入与资产类，最后放宽地域类），并在卡片上标注「部分条件不符」让用户知情。<b>「今日无推荐」是不可接受的终态</b>。</p>
+
+  <h3>7.3 双向匹配的计算</h3>
+  <p>推荐时需同时看<b>两个方向</b>：</p>
+  <ul>
+    <li><b>正向</b>：A 的伴侣画像 vs B 的本人画像。</li>
+    <li><b>反向</b>：B 的伴侣画像 vs A 的本人画像。<b>反向也匹配的人，应该被排到更前面</b>——因为你们互相满足，配对成功率显著更高。</li>
+  </ul>
+  <p>最终分数示例：<code>score = 0.6 × 正向匹配分 + 0.4 × 反向匹配分 + 活跃度分 + 完整度分 − 重复曝光惩罚</code>。</p>
+</section>
+
+<!-- ============ 08 ============ -->
+<section id="s8">
+  <h2 class="sec"><span class="num">08</span>划卡（每日 10 次喜欢）</h2>
+
+  <h3>8.1 额度规则</h3>
+  <table>
+    <tr><th style="width:170px">项目</th><th>规则</th></tr>
+    <tr><td>每日额度</td><td><b>10 次 Like</b>。<b>注意：额度约束的是「喜欢」这个动作，不是「看卡」这件事</b>——用户可以无限浏览、无限 Pass，只有 Like 才消耗额度。因此 UI 上不能写成「今日还剩 10 张卡」，而应写成「今日还可喜欢 10 人」</td></tr>
+    <tr><td>重置时间</td><td><b>每日 00:00（北京时间 UTC+8）</b>，全站统一。服务端以 UTC 存储、以北京时间判定日期边界，客户端显示「距重置还有 X 小时」</td></tr>
+    <tr><td>计数口径</td><td><b>已确认：按「Like 次数」扣，Pass 不扣。</b>用户可自由浏览，只在真正表达喜欢时消耗额度。UI 文案应写「今日还可喜欢 10 人」而非「今日还可划 10 张」</td></tr>
+    <tr><td>额度覆盖范围</td><td><b>划卡的 Like、广场的 Like、回 Like 三者共用同一份额度池</b>（均已确认）。浏览、筛选、Pass、Visit 一律不消耗额度</td></tr>
+    <tr><td>额度用完</td><td>停留在结果页，提示「今日额度已用完，明天 00:00 恢复」；提供入口去恋爱广场（浏览不消耗额度）</td></tr>
+    <tr><td>额度不累计</td><td>当天未用完不结转到次日</td></tr>
+    <tr><td>额度恢复</td><td>本期不做购买/邀请恢复；留出接口以便将来接付费</td></tr>
+  </table>
+
+  <h3>8.2 卡片内容（一张卡展示什么）</h3>
+  <div class="mock">
+    <div class="phone-mock">
+      <div class="ttl">划卡卡片（示意）</div>
+      <div class="mock-card">
+        <b>主图（相册第 1 张）</b><br>
+        <span style="color:#6B6366">昵称 · 28 岁 · 上海</span><br>
+        176cm · 互联网 · 硕士<br>
+        距离你约 3–5 km<br>
+        <span style="color:#B03A5B">[ 摄影 ] [ 徒步 ] [ 咖啡 ]</span>
+        <div class="mock-btn">查看详情 / 左滑跳过 · 右滑喜欢</div>
+      </div>
+    </div>
+    <div class="phone-mock">
+      <div class="ttl">卡片详情页</div>
+      <div class="mock-card">
+        主图轮播（相册 9 张）<br>
+        完整画像字段<br>
+        三个兴趣 + 文字介绍<br>
+        关于我<br>
+        期待的那个他/她<br>
+        <span style="color:#6B6366">（不展示：手机号、体重未公开时、收入未公开时、公司未公开时）</span>
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li><b>卡片正面</b>：主图 + 昵称、年龄、城市、身高、职业、学历、距离、兴趣标签（前 3 个）。</li>
+    <li><b>交互</b>：左滑 / 点✕ = Pass；右滑 / 点❤ = Like；点卡片 = 进入详情页（<b>进详情页算一次 Visit，会记入对方的 Like &amp; Visit</b>）。</li>
+    <li><b>撤回</b>：<span class="badge b-tbd">待定</span> 是否允许撤销上一次滑动（建议给 1 次/天，作为体验优化）。</li>
+    <li><b>防止误触</b>：滑动需超过阈值（屏宽 30%）才判定，或必须点按钮。</li>
+  </ul>
+
+  <h3>8.3 卡池构成与去重</h3>
+  <table>
+    <tr><th style="width:170px">规则</th><th>说明</th></tr>
+    <tr><td>排除已操作</td><td>已 Like / 已 Pass 过的人不再出现</td></tr>
+    <tr><td>排除已配对</td><td>已在会话列表中的人不再出现在卡池</td></tr>
+    <tr><td>排除拉黑/被封</td><td>双向拉黑与封禁账号一律不推</td></tr>
+    <tr><td>重复曝光</td><td>同一人在 N 天内（建议 30 天）不重复出现；若用户已 Pass，则永久不再出现</td></tr>
+    <tr><td>新用户扶持</td><td>新用户前 3 天给予曝光加权，否则新人无 Like 会立刻流失</td></tr>
+    <tr><td>均衡曝光</td><td>对「被 Like 极少」的用户做流量兜底，防止头部虹吸（见 8.4）</td></tr>
+  </table>
+
+  <h3>8.4 曝光公平性（容易被忽略但决定生态）</h3>
+  <div class="callout warn">
+    <div class="ct">马太效应会杀死交友产品</div>
+    <p>如果完全按匹配分排序，结果必然是：少数高吸引力用户获得绝大部分 Like，其余用户几乎无人问津 → 大量用户长期零配对 → 流失 → 卡池变小 → 剩下的人体验更差。</p>
+    <p><b>必须引入曝光均衡</b>：记录每个用户近 7 天的<b>曝光量</b>与<b>被 Like 率</b>，对曝光不足的用户在推荐排序中加权；对已获得大量曝光的用户做限流。同时设置<b>冷启动曝光保护</b>：新用户注册后 72 小时内保证最低曝光量（如至少出现在 50 人的卡池中）。</p>
+  </div>
+</section>
+
+<!-- ============ 09 ============ -->
+<section id="s9">
+  <h2 class="sec"><span class="num">09</span>Like 规则与配对</h2>
+
+  <h3>9.1 动作定义</h3>
+  <table>
+    <tr><th style="width:110px">动作</th><th style="width:110px">英文键</th><th>含义</th><th style="width:130px">是否消耗额度</th></tr>
+    <tr><td>喜欢</td><td><code>like</code></td><td>对某人表达兴趣</td><td>是</td></tr>
+    <tr><td>跳过</td><td><code>pass</code></td><td>不感兴趣，不再推荐</td><td>否</td></tr>
+    <tr><td>访问</td><td><code>visit</code></td><td>打开了对方主页</td><td>否</td></tr>
+  </table>
+
+  <h3>9.2 配对规则</h3>
+  <div class="chain">
+    <span class="st-box on">A Like B</span><span class="fa">→</span>
+    <span class="st-box dim">单方意向（B 未回应）</span><span class="fa">→ B 也 Like A →</span>
+    <span class="st-box on">配成 match</span><span class="fa">→</span>
+    <span class="st-box on">自动创建会话</span>
+  </div>
+  <table>
+    <tr><th style="width:180px">规则</th><th>说明</th></tr>
+    <tr><td>配对条件</td><td><b>A Like B 且 B Like A</b>，二者均处于有效状态（未被封禁、未互相拉黑）</td></tr>
+    <tr><td>配对时机</td><td>后一次 Like 发生时<b>立即</b>判定并创建配对与会话，无缝衔接</td></tr>
+    <tr><td>配对唯一性</td><td>同一对用户全局仅一条 match 记录，重复触发幂等</td></tr>
+    <tr><td>通知</td><td>双方均收到「配对成功」推送/站内提示，引导去聊天</td></tr>
+    <tr><td>配对后</td><td>双方从对方卡池中移除；出现在「会话」列表</td></tr>
+    <tr><td><b>解除配对</b></td><td><b>允许任一方主动解除</b>。解除后：配对状态置为 <code>unmatched</code>、会话冻结为只读、双方不再出现在彼此的卡池与广场中、不可再发消息。<b>历史消息保留可见</b>（只读），避免用户感觉记录被抹掉</td></tr>
+    <tr><td>解除后的再遇见</td><td>已解除的两人<b>不再互相推荐</b>（同 Pass 处理），避免反复纠缠</td></tr>
+    <tr><td>解除 vs 拉黑</td><td>解除是「体面退出」（对方不受惩罚、仍可被别人 Like）；拉黑是「阻断」（对方不可见、不可联系）。两者并存，入口分开</td></tr>
+    <tr><td>拉黑后的配对</td><td>任一方拉黑，配对立即失效，会话冻结，对方不可再发消息</td></tr>
+  </table>
+
+  <h3>9.3 单方 Like 的可见性（重要的产品决策）</h3>
+  <div class="callout ok">
+    <div class="ct">已确认：单向 Like 不通知对方，但记入「谁喜欢我」，且该列表免费可见</div>
+    <p><b>单向 Like 不推送通知给对方</b>，只静默记入对方的「谁喜欢我」列表。对方在 Like &amp; Visit 页可以看见，并选择回 Like 从而配成。</p>
+    <p>这样设计有两个好处：①保护表达者的心态——不会出现「我 Like 了你，你立刻知道并且没回应」的当面尴尬；②给了接收方发现的机会，是提升配对率最直接的杠杆。</p>
+    <p><b>「谁喜欢我」列表本期完全免费可见</b>（不做付费墙）。这是产品早期提高配对率、建立用户信任的必要选择。字段与接口设计<b>预留了将来改为付费的能力</b>（见 20.3 备注），但本期不实现。</p>
+  </div>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="s10">
+  <h2 class="sec"><span class="num">10</span>恋爱广场</h2>
+  <p>按条件检索的<b>主动发现通道</b>：用户筛选出符合条件的用户，浏览并 Like。浏览与筛选不受额度限制，<b>但 Like 是否消耗每日额度取决于 10.3 的待定项</b>（暂按共用编写）。</p>
+
+  <h3>10.1 筛选条件</h3>
+  <table>
+    <tr><th style="width:150px">筛选项</th><th style="width:90px">类型</th><th>取值</th><th style="width:110px">是否消耗额度</th></tr>
+    <tr><td>性别</td><td>单选</td><td>男 / 女 / 不限</td><td>—</td></tr>
+    <tr><td>年龄区间</td><td>区间</td><td>18–70</td><td>—</td></tr>
+    <tr><td>身高区间</td><td>区间</td><td>130–230</td><td>—</td></tr>
+    <tr><td>现居城市</td><td>多选/级联</td><td>省 → 市（支持多选）</td><td>—</td></tr>
+    <tr><td>家乡</td><td>多选</td><td>省级行政区多选</td><td>—</td></tr>
+    <tr><td>学历</td><td>多选</td><td>学历档位</td><td>—</td></tr>
+    <tr><td>职业</td><td>多选</td><td>职业分类</td><td>—</td></tr>
+    <tr><td>年收入区间</td><td>区间</td><td>收入档位</td><td>—</td></tr>
+    <tr><td>MBTI</td><td>多选</td><td>16 型</td><td>—</td></tr>
+    <tr><td>抽烟 / 喝酒</td><td>多选</td><td>各档位</td><td>—</td></tr>
+    <tr><td>车 / 房 / 丁克 / 独生</td><td>多选</td><td>各档位</td><td>—</td></tr>
+    <tr><td>兴趣标签</td><td>多选</td><td>兴趣库</td><td>—</td></tr>
+    <tr><td>关键词</td><td>文本</td><td>匹配昵称 / 关于我 / 兴趣介绍</td><td>—</td></tr>
+    <tr><td><b>Like</b></td><td>动作</td><td>对广场中的人表达喜欢</td><td><b>是（与划卡共用同一份每日额度）</b></td></tr>
+  </table>
+
+  <h3>10.2 列表与排序</h3>
+  <ul>
+    <li>卡片列表形式（头像 + 昵称 + 关键字段 + 兴趣标签），支持<b>双列瀑布流</b>或单列大卡。</li>
+    <li>排序默认按<b>匹配度 + 活跃度</b>；允许用户切换为「最新注册」「最近活跃」。</li>
+    <li>分页加载（每页 20 条），滚动加载更多。</li>
+    <li><b>必须过滤掉已划过的、已配对的、已拉黑的</b>，否则广场会不断重复出现同批人。</li>
+    <li>显示结果总数（如「找到 328 人」），并提示筛选条件过严时可以放宽（若结果为 0，给出「放宽某项条件」的快捷建议）。</li>
+  </ul>
+
+  <h3>10.3 广场 Like 与每日额度的关系（必须明确定义）</h3>
+  <div class="callout ok">
+    <div class="ct">已确认：广场 Like 与划卡共用同一份额度</div>
+    <p>额度按「Like 次数」扣，Pass 与浏览均不消耗。广场上点的 Like <b>与划卡共用同一份每日 10 次</b>——用户自己决定把这 10 次机会花在划卡还是主动搜索上，<b>浏览与筛选永远免费</b>。</p>
+    <p>这样设计的好处是逻辑统一、约束有效：不会出现「绕开划卡在广场无限 Like」的漏洞，也避免了大量「不看资料随手点」的低质量 Like。</p>
+    <p><b>对实现的要求</b>：额度是一个<b>全局单一计数池</b>，无论 Like 来自哪个入口（划卡 / 广场 / 回 Like），都从同一个计数器扣减，且扣减必须与 Like 动作在<b>同一事务</b>内完成（防并发超额）。每个 Like 记录 <code>source</code> 字段（<code>card</code> / <code>plaza</code> / <code>likes_me</code>），便于事后分析用户把额度花在了哪里。</p>
+  </div>
+</section>
+
+<!-- ============ 11 ============ -->
+<section id="s11">
+  <h2 class="sec"><span class="num">11</span>Like &amp; Visit</h2>
+
+  <h3>11.1 两个列表</h3>
+  <table>
+    <tr><th style="width:150px">列表</th><th>内容</th><th style="width:200px">可执行动作</th></tr>
+    <tr>
+      <td><b>谁喜欢我</b><br><small>Likes Me</small></td>
+      <td>所有对我发起过 <code>like</code> 且我尚未回应的人（我未 Like 也未 Pass）</td>
+      <td>查看主页 / <b>回 Like（立即配对）</b> / Pass（从此不再出现）</td>
+    </tr>
+    <tr>
+      <td><b>谁看过我</b><br><small>Visits Me</small></td>
+      <td>所有 <code>visit</code> 过我主页的人</td>
+      <td>查看主页 / Like</td>
+    </tr>
+  </table>
+
+  <h3>11.2 规则细节</h3>
+  <table>
+    <tr><th style="width:180px">规则</th><th>说明</th></tr>
+    <tr><td>排序</td><td>按时间倒序（最新在前）；可切换按匹配度排序</td></tr>
+    <tr><td>列表项内容</td><td>主图、昵称、年龄、城市、距离、匹配度；<b>「谁喜欢我」额外显示对方 Like 你的时间</b></td></tr>
+    <tr><td>已处理项</td><td>我已回 Like 的 → 移出列表，进入会话（并提示「已配对」）；我已 Pass 的 → 移出列表</td></tr>
+    <tr><td>未读标记</td><td>列表有新条目时，底部 Tab 显示红点与数字</td></tr>
+    <tr><td>Visit 记录</td><td>同一人对同一人的多次访问<b>只保留最新一次</b>，不重复占位</td></tr>
+    <tr><td>Visit 是否通知</td><td><b>不通知对方</b>。只在对方的「谁看过我」列表里静默呈现（若通知，用户会感到被监视）</td></tr>
+    <tr><td>回 Like 的额度</td><td><b>已确认：回 Like 同样消耗额度</b>（与划卡、广场共用同一份额度池）。注意其连带影响，见下方警示</td></tr>
+    <tr><td>防骚扰</td><td>同一人在我 Pass 后不可再次 Like 我；被我拉黑者不出现在任何列表</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="ct">回 Like 消耗额度 · 一个需要你知情的连带后果</div>
+    <p>你确认了「回 Like 也消耗额度」。按此实现会产生一个可预期的现象，我如实写在这里：</p>
+    <p><b>「谁喜欢我」会变成一个清不完的队列。</b>假设一位女用户当天收到 30 个 Like（在真实产品里并不罕见），但她的额度只有 10 次——她最多只能回应其中 10 人，剩下 20 人她「看得见却回不了」。而列表是按时间倒序的，新 Like 不断压进来，<b>越早喜欢她的人越容易被永久积压</b>。</p>
+    <p><b>直接后果</b>：①该页面的转化率被人为压到 10/30 ≈ 33%，而它本来是配对率最高的入口；②男性用户的 Like 大量石沉大海，打击主动表达意愿（男性是 Like 的主要发起方）；③用户会感到「明明有人喜欢我，我却回不了」的挫败。</p>
+    <p><b>如果这是有意的稀缺设计</b>（逼迫用户精挑细选、为将来付费埋点），那没有问题，只需在 UI 上把「今日还可喜欢 10 人」说清楚，避免用户误解为系统故障。<b>如果不是有意的，建议考虑三个缓解方向</b>：①回 Like 不消耗额度（最直接）；②仅「谁喜欢我」页面的回 Like 不消耗，广场与划卡照常消耗；③对收到 Like 远超额度的用户自动扩容。</p>
+  </div>
+
+  <div class="callout">
+    <div class="ct">「谁喜欢我」是产品最有价值的页面</div>
+    <p>它把「被动等待」变成「主动选择」——用户在这里的决策成本最低（对方已经喜欢我了，回 Like 的成功率是 100%）。<b>这个页面应该在 Tab 上有最强的视觉引导（未读数角标）</b>，它是提升配对率最直接的杠杆。同时它天然是未来的付费点（见 20 章）。</p>
+  </div>
+</section>
+
+<!-- ============ 12 ============ -->
+<section id="s12">
+  <h2 class="sec"><span class="num">12</span>聊天</h2>
+
+  <h3>12.1 会话创建</h3>
+  <ul>
+    <li><b>唯一触发条件</b>：双方配对成功（双向 Like）。系统自动创建会话，双方立即出现在「消息」列表中。</li>
+    <li>配对成功时，会话中插入一条<b>系统消息</b>：「你们互相喜欢，打个招呼吧」并给出破冰建议（如推荐对方某个兴趣作为话题）。</li>
+    <li>未配对的人<b>不产生会话、不可发消息</b>，任何形式的私信入口都不存在。</li>
+    <li>任一方<b>解除配对</b>后，会话转为<b>只读冻结</b>：历史消息仍可查看、不可再发消息、列表中标为「已解除」。这与「拉黑」不同——拉黑是阻断，解除是体面退出。</li>
+  </ul>
+
+  <h3>12.2 消息能力</h3>
+  <table>
+    <tr><th style="width:130px">类型</th><th>说明</th><th style="width:80px">优先级</th></tr>
+    <tr><td>文字</td><td>1–1000 字；支持 emoji、换行</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>图片</td><td>相册选图或拍摄；≤ 10MB；需走内容审核</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>系统消息</td><td>配对成功、时间分割线、对方注销等</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>语音</td><td>按住说话，≤ 60 秒</td><td><span class="badge b-p1">P1</span></td></tr>
+    <tr><td>表情包</td><td>内置表情包库</td><td><span class="badge b-p2">P2</span></td></tr>
+  </table>
+
+  <h3>12.3 会话列表</h3>
+  <ul>
+    <li>按<b>最后一条消息时间</b>倒序；置顶能力（P2）。</li>
+    <li>每项显示：对方头像（带主图）、昵称、最后一条消息摘要、时间、未读数。</li>
+    <li>未读角标汇总显示在底部 Tab。</li>
+    <li>配对但对方未发首条消息的会话，显示「配对成功，等待打招呼」的引导态，<b>并给出「催一下」的轻提示</b>（避免配对后沉默死亡，这是配对后流失的主因）。</li>
+  </ul>
+
+  <h3>12.4 消息可靠性</h3>
+  <table>
+    <tr><th style="width:170px">项目</th><th>规则</th></tr>
+    <tr><td>投递通道</td><td>WebSocket 长连接；断线自动重连（指数退避）</td></tr>
+    <tr><td>离线消息</td><td>离线期间的消息落库，上线后拉取增量</td></tr>
+    <tr><td>消息状态</td><td>发送中 → 已发送 → 已送达 → 已读（已读回执可在 P2 提供开关）</td></tr>
+    <tr><td>幂等</td><td>客户端生成 <code>client_msg_id</code>，服务端去重，避免重发产生重复消息</td></tr>
+    <tr><td>顺序</td><td>服务端统一分配序列号，客户端按序展示，防乱序</td></tr>
+    <tr><td>推送</td><td>App 未前台时走系统推送；推送内容<b>不含消息正文</b>（隐私），只提示「收到一条新消息」</td></tr>
+  </table>
+
+  <h3>12.5 聊天中的安全</h3>
+  <ul>
+    <li><b>敏感词拦截</b>：涉黄、涉政、诈骗话术（转账、投资、刷单、杀猪盘）命中则拦截并给出风险提示。</li>
+    <li><b>联系方式识别</b>：识别手机号、微信号、QQ、二维码图片 → 对发送者弹<b>一次</b>轻提示「为保障安全，建议在平台内交流」，<b>但消息照常发出，不做拦截</b>。同一会话内只提示一次，不反复打扰。</li>
+    <li><b>投诉入口</b>：会话页常驻举报入口（举报消息 / 举报用户）。</li>
+    <li><b>拉黑</b>：拉黑后配对失效、会话冻结、对方不可再发消息，且不再出现在任何列表与卡池。</li>
+  </ul>
+
+  <h4>「拦截」与「不拦截」的边界（已确认策略）</h4>
+  <div class="callout">
+    <div class="ct">两个场景处理方式不同，别搞混</div>
+    <table style="margin:0">
+      <tr><th style="width:190px">场景</th><th style="width:120px">处理</th><th>理由</th></tr>
+      <tr>
+        <td><b>公开资料</b>（关于我 / 期待的他 / 兴趣介绍）</td>
+        <td><b>拦截</b></td>
+        <td>这些内容对<b>所有人可见</b>，留联系方式等同于公开导流，且会被爬虫批量采集。命中即拒绝提交并提示修改。</td>
+      </tr>
+      <tr>
+        <td><b>私聊消息</b></td>
+        <td><b>不拦截</b>，仅提示一次</td>
+        <td>双方已经双向 Like 配对，是<b>私密且互相同意</b>的对话。此时用户有交换联系方式的自主意愿，强制拦截会引起反感，且实际上无法禁绝（谐音、图片、语音都能绕过）。</td>
+      </tr>
+      <tr>
+        <td>聊天中的<b>二维码图片</b></td>
+        <td><b>不拦截</b>，图片审核照常走</td>
+        <td>图片本身仍要过内容审核（涉黄涉政），但不因「疑似二维码」而拦截发送</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 13 ============ -->
+<section id="s13">
+  <h2 class="sec"><span class="num">13</span>个人中心与相册</h2>
+
+  <h3>13.1 资料编辑</h3>
+  <ul>
+    <li>所有 Onboarding 中填写的字段<b>均可在个人中心修改</b>（性别除外，锁定）。</li>
+    <li>修改后立即生效并影响后续推荐；<b>修改记录留痕</b>（便于风控识别频繁改资料的可疑账号）。</li>
+    <li>编辑页与 Onboarding 复用同一套表单组件与校验规则，避免两处规则不一致。</li>
+    <li>资料完整度实时更新，给「再补一项就能提升曝光」的引导。</li>
+  </ul>
+
+  <h3>13.2 九宫格相册（支持拖拽排序）</h3>
+  <div class="grid9">
+    <div class="first">主图</div><div>2</div><div>3</div><div>4</div><div>5</div>
+    <div>6</div><div>7</div><div>8</div><div class="add">＋</div>
+  </div>
+  <div class="caption9">九宫格示意：第 1 格为主图（卡片封面），第 9 格为上传入口；未上传时显示占位，支持长按拖拽调整顺序。</div>
+
+  <table>
+    <tr><th style="width:170px">项目</th><th>规则</th></tr>
+    <tr><td>数量上限</td><td><b>9 张</b>；少于 9 张时最后一格为「＋」上传入口</td></tr>
+    <tr><td>排序</td><td><b>长按拖拽调整顺序</b>（移动端）；Web 端支持鼠标拖拽。顺序即时保存或点「保存」提交</td></tr>
+    <tr><td>主图</td><td><b>第 1 张即主图</b>，用于划卡卡片、广场列表、聊天头像。拖拽换序后主图随之改变</td></tr>
+    <tr><td>删除</td><td>长按或点击进入编辑态，可删除单张（至少保留 1 张，否则无法划卡）</td></tr>
+    <tr><td>上传</td><td>单张 ≤ 10MB；支持 jpg/png/webp；建议前端压缩到 1080px 宽再上传</td></tr>
+    <tr><td>审核</td><td><b>全部照片需先审核后展示</b>；未过审的照片仅自己可见，卡片中不出现</td></tr>
+    <tr><td>隐私</td><td>用户可设置单张照片为「仅配对后可见」（如生活照、合照），增加安全选项</td></tr>
+    <tr><td>拖拽体验</td><td>拖拽时目标位置需有明确的占位反馈；移动端需处理长按与页面滚动的冲突</td></tr>
+  </table>
+
+  <h3>13.3 头像与相册的关系</h3>
+  <p><b>头像与相册是两套数据</b>：头像用于极小尺寸展示（列表、聊天），必须裁剪为正方形；相册用于卡片与主页大图展示，保留原始比例。两者互不影响，相册第一张不作为头像。</p>
+</section>
+
+<!-- ============ 14 ============ -->
+<section id="s14">
+  <h2 class="sec"><span class="num">14</span>安全、风控与合规</h2>
+  <div class="callout gap">
+    <div class="ct">这一章是我补充的，不在你原始需求里</div>
+    <p>你的功能列表里没有提到审核、举报、拉黑、实名、未成年人保护。<b>对一个带照片、带私聊、面向陌生人的社交产品，这些不是「锦上添花」，而是上线的前置条件</b>——缺了它们，产品上线后会在很短的时间内被违规内容与诈骗占据。以下是我建议的最小集合，<b>请在 20 章确认哪些进本期</b>。</p>
+  </div>
+
+  <h3>14.1 内容审核 <span class="badge b-new">建议补充</span></h3>
+  <table>
+    <tr><th style="width:150px">审核对象</th><th>方式</th><th style="width:100px">优先级</th></tr>
+    <tr><td>头像 / 相册</td><td>机审（涉黄、涉政、二维码、水印广告）+ 人工复审；未过审不展示</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>文字（关于我 / 期待 / 兴趣 / 聊天）</td><td>敏感词库 + 语义模型识别；命中则拦截或送审</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>导流识别</td><td><b>公开资料</b>中的联系方式、二维码、站外链接识别与<b>拦截</b>；<b>私聊消息中不拦截</b>，仅提示一次（口径见 12.5）</td><td><span class="badge b-p1">P1</span></td></tr>
+  </table>
+
+  <h3>14.2 举报与拉黑 <span class="badge b-new">建议补充</span></h3>
+  <ul>
+    <li><b>举报入口</b>：主页、卡片详情、聊天会话内均需常驻。</li>
+    <li><b>举报类型</b>：色情低俗 / 虚假信息 / 骚扰辱骂 / 诈骗 / 推销 / 未成年 / 其他。</li>
+    <li><b>举报处理</b>：进入审核队列，处置动作包括警告、内容下架、限流、冻结、封禁；<b>处置结果反馈给举报人</b>。</li>
+    <li><b>拉黑</b>：双向不可见、不在卡池与广场出现、配对失效、会话冻结。</li>
+    <li><b>反举报滥用</b>：同一用户短时间内大量举报需人工复核，避免被恶意举报打压。</li>
+  </ul>
+
+  <h3>14.3 未成年人保护 <span class="badge b-new">建议补充（合规硬要求）</span></h3>
+  <ul>
+    <li>注册时通过出生年月日强制校验，<b>未满 18 岁拒绝注册</b>。</li>
+    <li><b>年龄造假本期不做应对</b>（已确认）——只依赖用户自填的出生年月日，<b>不引入实名认证与活体检测</b>。风险敞口：用户可填虚假生日绕过未成年人限制，或谎报年龄。</li>
+    <li>补偿手段（低成本、本期可做）：举报类型中单列「未成年 / 年龄不实」，命中后最高优先级人工处置；同一账号频繁修改生日触发风控标记。</li>
+    <li><span class="badge b-tbd">后续</span> 若合规要求或风险上升，再引入身份证核验（成本与体验的权衡，本期不做）。</li>
+  </ul>
+
+  <h3>14.4 诈骗与风险提示 <span class="badge b-new">建议补充</span></h3>
+  <ul>
+    <li><b>高风险话术识别</b>：投资理财、博彩、代付、刷单、借款、索要红包等 → 实时弹出风险提示。</li>
+    <li><b>账号异常提示</b>：对方账号为新注册 / 无照片 / 刚从其他账号改名等 → 在会话顶部提示谨慎。</li>
+    <li><b>反诈教育</b>：在会话首次建立时展示一条简短的安全提示（不涉及转账、不点击外部链接）。</li>
+  </ul>
+
+  <h3>14.5 数据与隐私合规</h3>
+  <ul>
+    <li>手机号、身份证等敏感信息加密存储，展示时脱敏。</li>
+    <li>位置信息<b>只存粗粒度的 geohash（5 位，约 5km 精度）</b>，<b>不落库精确经纬度</b>；距离由 geohash 中心点估算，并以<b>区间</b>形式展示（如「3–5 km」），不给精确距离。原始定位用完即弃，不倒卖给第三方。</li>
+    <li>提供账号注销入口，注销后 30 天冷静期内可恢复，之后彻底匿名化。</li>
+    <li>《用户协议》《隐私政策》在注册页强制勾选；隐私政策需明确列出收集的字段与用途。</li>
+  </ul>
+</section>
+
+<!-- ============ 15 ============ -->
+<section id="s15">
+  <h2 class="sec"><span class="num">15</span>可见性与隐私矩阵</h2>
+  <p>本产品的字段里有大量敏感信息（收入、资产、公司、养老压力）。<b>「填了」不等于「公开」</b>——需要一张明确的可见性表来指导实现。</p>
+
+  <table>
+    <tr><th style="width:130px">字段</th><th style="width:100px">未登录</th><th style="width:110px">本人</th><th style="width:110px">划卡/广场中</th><th style="width:120px">配对后</th><th>备注</th></tr>
+    <tr><td>昵称 / 年龄 / 性别</td><td>—</td><td>✓</td><td>✓</td><td>✓</td><td>基础展示字段</td></tr>
+    <tr><td>手机号</td><td>—</td><td>✓</td><td><b>✗</b></td><td><b>✗</b></td><td><b>永不对外展示</b></td></tr>
+    <tr><td>身高</td><td>—</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
+    <tr><td>体重</td><td>—</td><td>✓</td><td>用户勾选后可见</td><td>同左</td><td>默认不公开</td></tr>
+    <tr><td>家乡 / 现居地</td><td>—</td><td>✓</td><td>显示城市 + 距离区间</td><td>✓</td><td>不显示精确坐标</td></tr>
+    <tr><td>职业 / 学历 / MBTI</td><td>—</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
+    <tr><td>学校</td><td>—</td><td>✓</td><td>默认显示标签（如「985」）</td><td>显示原文</td><td>降低精准定位风险</td></tr>
+    <tr><td><b>公司名字</b></td><td>—</td><td>✓</td><td>用户勾选后可见</td><td>同左</td><td>职场隐私，默认不公开</td></tr>
+    <tr><td><b>年收入</b></td><td>—</td><td>✓</td><td>用户勾选后可见</td><td>同左</td><td>但始终参与匹配计算</td></tr>
+    <tr><td>车 / 房</td><td>—</td><td>✓</td><td>✓</td><td>✓</td><td>作为择偶常考项，默认可见</td></tr>
+    <tr><td>独生 / 丁克</td><td>—</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
+    <tr><td><b>养老压力</b></td><td>—</td><td>✓</td><td><b>✗</b></td><td>用户勾选后可见</td><td>较敏感，默认仅参与匹配</td></tr>
+    <tr><td>抽烟 / 喝酒</td><td>—</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
+    <tr><td>兴趣 / 关于我 / 期待的他</td><td>—</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
+    <tr><td>相册</td><td>—</td><td>✓</td><td>已过审的可见</td><td>可见（含「仅配对可见」的）</td><td>未过审仅自己可见</td></tr>
+    <tr><td>谁看过我 / 谁喜欢我</td><td>—</td><td>✓</td><td>—</td><td>—</td><td>仅本人可见，<b>不告知对方</b></td></tr>
+  </table>
+</section>
+
+<!-- ============ 16 ============ -->
+<section id="s16">
+  <h2 class="sec"><span class="num">16</span>数据模型</h2>
+  <p>核心表清单（字段为要点，非全量）。</p>
+  <table>
+    <tr><th style="width:190px">表</th><th>关键字段</th><th>说明</th></tr>
+    <tr><td><code>user</code></td><td>id, phone, password_hash, salt, nickname, gender, birthday, status, device_id, created_at, last_login_at</td><td>账号主体；<code>phone</code> 唯一索引</td></tr>
+    <tr><td><code>user_profile</code></td><td>user_id, height, weight, hometown_prov/city, city_prov/city/district, <b>geo_hash</b>, occupation, mbti, smoking, drinking, income_range, education, school, company, has_sibling, eldercare_pressure, has_car, has_house, is_dink, weight_public, income_public, company_public, completeness</td><td>本人画像；<code>*_public</code> 为可见性开关；<code>geo_hash</code> 由现居地派生（5 位，约 5km），用于距离估算，<b>不存精确经纬度</b></td></tr>
+    <tr><td><code>user_hobby</code></td><td>id, user_id, name, description, sort_order</td><td>兴趣，每用户 ≤ 3 条</td></tr>
+    <tr><td><code>user_text</code></td><td>user_id, about_me, expect_partner</td><td>两段自述文字</td></tr>
+    <tr><td><code>user_photo</code></td><td>id, user_id, url, sort_order, audit_status, visibility(public/match_only), created_at</td><td>相册；<code>sort_order=1</code> 为主图；唯一约束 <code>(user_id, sort_order)</code></td></tr>
+    <tr><td><code>user_avatar</code></td><td>user_id, url, audit_status</td><td>头像，与相册分离</td></tr>
+    <tr><td><code>partner_preference</code></td><td>user_id, height_min, height_max, hometown_provinces(json), smoking_accept, drinking_accept, income_min, income_max, education_min, sibling_accept, car_prefer, house_prefer, dink_accept, tags(json)</td><td>伴侣画像</td></tr>
+    <tr><td><code>user_action</code></td><td>id, from_user, to_user, action(like/pass/visit), source(card/plaza/likes_me), created_at</td><td>动作流水；<code>(from_user,to_user,action)</code> 唯一，Visit 记录更新而非新增</td></tr>
+    <tr><td><code>match_record</code></td><td>id, user_a, user_b, status(active/unmatched/blocked), matched_at</td><td>配对；<code>(user_a,user_b)</code> 唯一且 user_a &lt; user_b 规范化</td></tr>
+    <tr><td><code>conversation</code></td><td>id, match_id, last_message_id, last_message_at, unread_a, unread_b</td><td>会话，与配对一对一</td></tr>
+    <tr><td><code>message</code></td><td>id, conversation_id, from_user, type(text/image/system), content, client_msg_id, seq, status, created_at</td><td>消息；<code>client_msg_id</code> 幂等；<code>seq</code> 保证顺序</td></tr>
+    <tr><td><code>daily_quota</code></td><td>user_id, date, used_like_count, limit_count</td><td><b>单一额度池</b>：划卡 / 广场 / 回 Like 共用；<code>(user_id,date)</code> 唯一，跨天按北京时间新建行</td></tr>
+    <tr><td><code>exposure_stat</code></td><td>user_id, date, exposed_count, liked_count, visited_count</td><td>曝光统计，用于公平性调控</td></tr>
+    <tr><td><code>report</code></td><td>id, reporter, target_user, target_type(user/photo/message), reason, evidence, status, handled_by, handled_at</td><td>举报工单</td></tr>
+    <tr><td><code>block</code></td><td>user_id, blocked_user_id, created_at</td><td>拉黑关系</td></tr>
+    <tr><td><code>audit_log</code></td><td>id, target_type, target_id, action, reason, operator, created_at</td><td>审核与风控处置留痕</td></tr>
+  </table>
+  <div class="callout">
+    <div class="ct">索引与性能要点</div>
+    <p><code>user_action</code> 按 <code>(to_user, action, created_at)</code> 建索引，支撑「谁喜欢我 / 谁看过我」的快速查询；<code>(from_user, to_user)</code> 唯一索引保证 Like 幂等。<code>message</code> 按 <code>(conversation_id, seq)</code> 建索引并考虑按时间分区。<code>user_profile</code> 上的筛选字段（身高、年龄、城市、学历、收入）建议建组合索引或同步到搜索引擎（ES）以支撑广场的复杂多条件检索。</p>
+  </div>
+</section>
+
+<!-- ============ 17 ============ -->
+<section id="s17">
+  <h2 class="sec"><span class="num">17</span>接口设计</h2>
+  <p>仅列核心接口，均为 <code>/api/v1</code> 前缀。</p>
+
+  <h3>17.1 账号</h3>
+  <table>
+    <tr><th style="width:70px">方法</th><th style="width:250px">路径</th><th>说明</th></tr>
+    <tr><td>POST</td><td><code>/auth/register</code></td><td>手机号 + 密码注册</td></tr>
+    <tr><td>POST</td><td><code>/auth/login</code></td><td>登录，返回 token 对</td></tr>
+    <tr><td>POST</td><td><code>/auth/refresh</code></td><td>刷新 token</td></tr>
+    <tr><td>GET</td><td><code>/users/me</code></td><td>获取本人全部资料</td></tr>
+    <tr><td>PATCH</td><td><code>/users/me/profile</code></td><td>更新本人画像</td></tr>
+    <tr><td>PATCH</td><td><code>/users/me/preference</code></td><td>更新伴侣画像</td></tr>
+    <tr><td>PUT</td><td><code>/users/me/hobbies</code></td><td>整体提交三个兴趣</td></tr>
+    <tr><td>PATCH</td><td><code>/users/me/text</code></td><td>更新关于我 / 期待的他</td></tr>
+  </table>
+
+  <h3>17.2 相册</h3>
+  <table>
+    <tr><th style="width:70px">方法</th><th style="width:250px">路径</th><th>说明</th></tr>
+    <tr><td>POST</td><td><code>/users/me/photos</code></td><td>上传单张（返回瞬时 url，异步审核）</td></tr>
+    <tr><td>DELETE</td><td><code>/users/me/photos/{id}</code></td><td>删除</td></tr>
+    <tr><td>PUT</td><td><code>/users/me/photos/order</code></td><td><b>提交排序</b>（拖拽后调用），body 为 id 有序数组</td></tr>
+    <tr><td>PATCH</td><td><code>/users/me/photos/{id}</code></td><td>修改可见性（public / match_only）</td></tr>
+  </table>
+
+  <h3>17.3 发现与互动</h3>
+  <table>
+    <tr><th style="width:70px">方法</th><th style="width:250px">路径</th><th>说明</th></tr>
+    <tr><td>GET</td><td><code>/cards</code></td><td>拉取划卡卡片（返回按分数排序的候选列表，含剩余额度）</td></tr>
+    <tr><td>POST</td><td><code>/actions</code></td><td>提交动作 <code>{to_user, action, source}</code>；返回是否配对成功</td></tr>
+    <tr><td>DELETE</td><td><code>/matches/{id}</code></td><td><b>解除配对</b>；会话转为只读，双方移出彼此卡池与广场</td></tr>
+    <tr><td>GET</td><td><code>/plaza/search</code></td><td>广场检索（全部筛选条件走 query，分页）</td></tr>
+    <tr><td>GET</td><td><code>/likes-me</code></td><td>谁喜欢我（分页）</td></tr>
+    <tr><td>GET</td><td><code>/visits-me</code></td><td>谁看过我（分页）</td></tr>
+    <tr><td>GET</td><td><code>/users/{id}</code></td><td>查看他人主页（自动记一次 Visit）</td></tr>
+    <tr><td>GET</td><td><code>/quota</code></td><td>查询今日剩余额度与重置时间</td></tr>
+  </table>
+
+  <h3>17.4 聊天</h3>
+  <table>
+    <tr><th style="width:70px">方法</th><th style="width:250px">路径</th><th>说明</th></tr>
+    <tr><td>GET</td><td><code>/conversations</code></td><td>会话列表</td></tr>
+    <tr><td>GET</td><td><code>/conversations/{id}/messages</code></td><td>拉取消息（游标分页，按 seq）</td></tr>
+    <tr><td>POST</td><td><code>/conversations/{id}/messages</code></td><td>发送消息（含幂等键）</td></tr>
+    <tr><td>POST</td><td><code>/conversations/{id}/read</code></td><td>标记已读</td></tr>
+    <tr><td>WS</td><td><code>/ws/chat</code></td><td>WebSocket 实时消息通道</td></tr>
+  </table>
+
+  <h3>17.5 安全</h3>
+  <table>
+    <tr><th style="width:70px">方法</th><th style="width:250px">路径</th><th>说明</th></tr>
+    <tr><td>POST</td><td><code>/reports</code></td><td>举报</td></tr>
+    <tr><td>POST</td><td><code>/blocks</code> · <code>DELETE /blocks/{id}</code></td><td>拉黑 / 取消拉黑</td></tr>
+    <tr><td>POST</td><td><code>/users/me/deactivate</code></td><td>注销账号</td></tr>
+  </table>
+</section>
+
+<!-- ============ 18 ============ -->
+<section id="s18">
+  <h2 class="sec"><span class="num">18</span>非功能需求</h2>
+
+  <h3>18.1 性能</h3>
+  <table>
+    <tr><th style="width:250px">指标</th><th style="width:140px">目标</th><th>说明</th></tr>
+    <tr><td>划卡首屏加载</td><td>P95 &lt; 800ms</td><td>卡片含图片，需 CDN 加速</td></tr>
+    <tr><td>提交动作响应</td><td>P99 &lt; 300ms</td><td>滑动后需即时反馈</td></tr>
+    <tr><td>广场检索</td><td>P95 &lt; 1s</td><td>复杂多条件，建议走 ES</td></tr>
+    <tr><td>消息投递</td><td>P99 &lt; 500ms</td><td>端到端</td></tr>
+    <tr><td>图片上传</td><td>≤ 3s（10MB）</td><td>前端压缩 + 分片</td></tr>
+  </table>
+
+  <h3>18.2 可用性与一致性</h3>
+  <ul>
+    <li>核心服务可用性 ≥ 99.9%。</li>
+    <li><b>配对的幂等性</b>：双方同时 Like 时必须只产生一条 match 记录（用唯一索引 + 事务保证），否则会出现两个会话。</li>
+    <li><b>额度扣减的原子性</b>：Like 与额度扣减在同一事务内，防止并发下超额。</li>
+    <li>消息「至少一次」投递 + 客户端幂等去重，效果等价于仅一次。</li>
+  </ul>
+
+  <h3>18.3 安全</h3>
+  <ul>
+    <li>全站 HTTPS；密码 bcrypt/argon2；token 可撤销。</li>
+    <li>接口鉴权 + 越权校验（<b>查看他人资料必须校验可见性规则</b>，不得因接口未鉴权而泄露手机号等字段）。</li>
+    <li>图片上传需校验文件类型与内容（防上传伪装的可执行文件）。</li>
+    <li>敏感字段（手机号、身份证）加密存储，日志脱敏。</li>
+  </ul>
+</section>
+
+<!-- ============ 19 ============ -->
+<section id="s19">
+  <h2 class="sec"><span class="num">19</span>边界与异常清单</h2>
+  <p>以下场景必须显式定义行为，缺一个都可能在线上出问题。</p>
+  <table>
+    <tr><th style="width:40px">#</th><th style="width:260px">场景</th><th>期望行为</th></tr>
+    <tr><td>1</td><td>手机号已被注册</td><td>提示已注册并跳登录；不泄露该号是否真实存在（统一话术）</td></tr>
+    <tr><td>2</td><td>用户未满 18 岁</td><td>拒绝注册，明确告知原因</td></tr>
+    <tr><td>3</td><td>Onboarding 中途退出 / 断网 / 切后台</td><td>进度实时保存，下次登录续填并回到断点步骤。<b>允许暂停，但不允许跳过未完成的步骤</b></td></tr>
+    <tr><td>4</td><td>未完成 Onboarding 就尝试划卡 / 进广场 / 发消息</td><td>全部拦截并引导回到断点步骤；<b>接口层必须同步拦截</b>（前端拦截可被绕过）</td></tr>
+    <tr><td>4-1</td><td>文字字段只填空格或符号</td><td>去空白后计长度，视为未填写，不计入完成</td></tr>
+    <tr><td>4-2</td><td>选了 3 个兴趣但其中一个文字为空</td><td>本步未完成，定位并高亮缺文字的那个兴趣</td></tr>
+    <tr><td>4-3</td><td>已完成的字段被清空后重新提交</td><td>视为回退到未完成态，重新拦截划卡入口</td></tr>
+    <tr><td>5</td><td>头像/照片审核未通过</td><td>不进入卡池，通知用户重新上传；已进入卡池的立即下架</td></tr>
+    <tr><td>6</td><td>今日额度用完</td><td>划卡页提示明日恢复；引导去广场浏览（浏览免费）</td></tr>
+    <tr><td>7</td><td>卡池不足 10 人</td><td>逐步放宽软条件；仍不足则展示实际数量，不以「无推荐」收场</td></tr>
+    <tr><td>8</td><td>推荐结果为空</td><td>给出「放宽条件」的具体建议 + 引导完善资料以提升曝光</td></tr>
+    <tr><td>9</td><td>双方同时 Like</td><td>只产生一条 match；两边的请求都返回「配对成功」，不重复创建会话</td></tr>
+    <tr><td>10</td><td>对已配对的人再次 Like</td><td>幂等，忽略并返回已配对状态</td></tr>
+    <tr><td>11</td><td>Like 后发现对方已注销</td><td>不产生配对，从列表移除</td></tr>
+    <tr><td>12</td><td>对方在配对后被拉黑</td><td>配对失效、会话冻结、从所有列表移除</td></tr>
+    <tr><td>13</td><td>「谁喜欢我」里回 Like</td><td>立即配对并跳转会话；该条目从列表移除</td></tr>
+    <tr><td>14</td><td>「谁喜欢我」里 Pass</td><td>条目移除，对方永久不再 Like 我（防止反复骚扰）</td></tr>
+    <tr><td>15</td><td>同一人反复访问我主页</td><td>Visit 记录只更新最新时间，列表不重复占位</td></tr>
+    <tr><td>16</td><td>收入选「不便透露」但对方设了收入要求</td><td>按「未知」处理，降权但不硬过滤，卡片上提示「未公开」</td></tr>
+    <tr><td>17</td><td>广场筛选条件过严</td><td>返回 0 结果时给出「放宽某项」的快捷建议，而非空页面</td></tr>
+    <tr><td>18</td><td>消息发送失败（网络中断）</td><td>本地标记「发送中」，重连后自动重发（凭 client_msg_id 去重）</td></tr>
+    <tr><td>19</td><td>聊天中发送联系方式</td><td><b>不拦截</b>，仅对发送者提示一次；公开资料（关于我 / 期待的他）中的联系方式则<b>拦截</b>（口径见 12.5）</td></tr>
+    <tr><td>20</td><td>相册已满 9 张再上传</td><td>拒绝并提示已知上限，引导删除或替换</td></tr>
+    <tr><td>21</td><td>拖拽排序中途断网</td><td>前端保留本地顺序并重试提交；服务端以最终提交的顺序为准</td></tr>
+    <tr><td>22</td><td>删除相册最后一张</td><td>拒绝（至少保留 1 张），否则用户无法再被划卡</td></tr>
+    <tr><td>23</td><td>被举报待审核期间</td><td>账号冻结：可登录但不可划卡、不可发消息</td></tr>
+    <tr><td>24</td><td>用户连续快速滑动</td><td>前端限流 + 服务端校验额度，防止脚本刷 Like</td></tr>
+    <tr><td>25</td><td>修改性别</td><td>不允许自助修改，需客服申诉（防性别伪装）</td></tr>
+    <tr><td>26</td><td>账号注销后对方仍在会话中</td><td>会话保留但显示「对方已注销」，不可再发消息</td></tr>
+    <tr><td>27</td><td>一方主动解除配对</td><td>配对置 <code>unmatched</code>、会话冻结为只读、双方移出彼此卡池与广场；历史消息保留可查</td></tr>
+    <tr><td>28</td><td>对方正在输入时我解除了配对</td><td>对方消息发送失败并提示「对方已解除配对」，不产生孤儿消息</td></tr>
+    <tr><td>29</td><td>解除配对后又想恢复</td><td><b>不支持自助恢复</b>（避免反复拉扯）；需重新在卡池或广场相遇并双向 Like</td></tr>
+    <tr><td>30</td><td>每日额度跨零点时正在划卡</td><td>以服务端判定的北京时间日期为准；跨点后请求自动使用新一天的额度，不重复扣减</td></tr>
+  </table>
+</section>
+
+<!-- ============ 20 ============ -->
+<section id="s20">
+  <h2 class="sec"><span class="num">20</span>需求缺口与决策记录</h2>
+
+  <h3>20.1 需求里缺失、但必须补的（已在正文标注）</h3>
+  <table>
+    <tr><th style="width:190px">缺口</th><th style="width:80px">严重度</th><th>说明与建议</th></tr>
+    <tr><td><b>性别字段</b></td><td>阻断</td><td>没有性别，推荐无法做最基本的匹配。必须补「性别」（<b>已确认只做异性匹配，无需「期望对方性别」</b>）。</td></tr>
+    <tr><td><b>昵称字段</b></td><td>阻断</td><td>卡片、列表、聊天都需要展示名，手机号不能对外。必须补。</td></tr>
+    <tr><td><b>内容审核</b></td><td>高</td><td>带照片的陌生人社交，没有审核会被违规内容淹没。建议进 MVP。</td></tr>
+    <tr><td><b>举报与拉黑</b></td><td>高</td><td>没有举报入口，用户遇到骚扰只能卸载。建议进 MVP。</td></tr>
+    <tr><td><b>未成年人保护</b></td><td>高</td><td>合规要求，注册时需做年龄硬校验。</td></tr>
+    <tr><td>找回密码</td><td>中</td><td>无验证码则无法自助找回，至少要有客服通道。</td></tr>
+    <tr><td>消息推送</td><td>中</td><td>不推送则用户不会回来，配对与消息的触达依赖推送。</td></tr>
+  </table>
+
+  <h3>20.2 已确认的决策</h3>
+  <div class="callout ok">
+    <div class="ct">已定 · 2026-10-09</div>
+    <dl class="kv">
+      <dt>Q1 额度口径</dt>
+      <dd><b>按「Like 次数」扣，Pass 不扣。</b>浏览自由，只在表达喜欢时消耗。UI 文案为「今日还可喜欢 N 人」。详见 8.1。</dd>
+      <dt>Q2 广场 Like 是否与划卡共用额度</dt>
+      <dd><b>共用同一份额度池。</b>划卡、广场、回 Like 三者的 Like 全部从同一个计数器扣减；浏览与筛选不消耗。详见 10.3。</dd>
+      <dt>Q3 「谁喜欢我」是否免费可见</dt>
+      <dd><b>免费可见</b>，不做付费墙。但同时<b>不向对方推送通知</b>（单向 Like 静默记入列表）。字段与接口预留将来改为付费的能力，本期不实现。详见 9.3。</dd>
+      <dt>Q4 回 Like 是否消耗额度</dt>
+      <dd><b>消耗</b>，与划卡、广场共用同一份额度池。注意其连带后果（「谁喜欢我」队列清不完），已写在 11.2 的警示中。</dd>
+      <dt>Q5 是否支持同性匹配</dt>
+      <dd><b>只做异性匹配。</b>性别为第一道硬过滤；<b>无需「期望对方性别」字段</b>；性别注册后永久锁定，不可自助修改。详见 5.1。</dd>
+      <dt>Q6 是否允许主动解除配对</dt>
+      <dd><b>允许。</b>解除后配对失效、会话冻结为只读、双方移出彼此卡池与广场、不可再发消息，<b>历史消息保留可查</b>；已解除的两人不再互相推荐。详见 9.2。</dd>
+      <dt>Q7 聊天中发联系方式是否拦截</dt>
+      <dd><b>不拦截</b>，仅对发送者提示一次。<b>但公开资料（关于我 / 期待的他 / 兴趣介绍）中的联系方式仍拦截</b>——那里对所有人可见，属于公开导流。详见 12.5。</dd>
+      <dt>Q8 年龄造假如何应对</dt>
+      <dd><b>本期不应对</b>：只依赖用户自填的出生年月日，不引入实名认证与活体检测。仅保留「未成年 / 年龄不实」举报类型作为人工兜底。详见 14.3。</dd>
+      <dt>Q9 每日额度重置时区</dt>
+      <dd><b>北京时间（UTC+8）</b>，全站统一。服务端以 UTC 存储、按北京时间判定日期边界。详见 8.1。</dd>
+    </dl>
+  </div>
+
+  <h3>20.3 其余非阻塞的小项</h3>
+  <div class="callout tbd">
+    <div class="ct">不影响开工，实现时顺手定即可</div>
+    <dl class="kv">
+      <dt>划卡是否允许撤回上一次滑动 <span class="badge b-p2">体验</span></dt>
+      <dd>建议给「每日 1 次撤回」，作为误触的补救。若实现成本高可先不做（滑动已设阈值防误触）。详见 8.2。</dd>
+      <dt>被 Pass 的人是否要在广场中继续可见 <span class="badge b-p2">体验</span></dt>
+      <dd>建议 Pass 后不再出现在任何通道（含广场），与卡池保持一致。</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- ============ 21 ============ -->
+<section id="s21">
+  <h2 class="sec"><span class="num">21</span>里程碑与排期</h2>
+  <table>
+    <tr><th style="width:110px">里程碑</th><th style="width:80px">周期</th><th>交付内容</th><th style="width:170px">验收标准</th></tr>
+    <tr>
+      <td><b>M1 账号与画像</b></td><td>2 周</td>
+      <td>注册登录、Onboarding 五步（本人画像 / 兴趣 / 关于我 / 伴侣画像 / 期待的他）、资料完整度、个人中心资料编辑</td>
+      <td>新用户可完成注册并走完五步（<b>不可跳过，含三段文字</b>）；未走完无法进入划卡</td>
+    </tr>
+    <tr>
+      <td><b>M2 发现与配对</b></td><td>2.5 周</td>
+      <td>划卡（浏览不限量 + 每日 10 次 Like 额度）、额度系统、Like/Pass、双向配对、谁喜欢我 / 谁看过我、恋爱广场检索</td>
+      <td>两个账号可跑通「划卡 → 双向 Like → 配对」</td>
+    </tr>
+    <tr>
+      <td><b>M3 聊天</b></td><td>2 周</td>
+      <td>配对自动建会话、消息收发（文字/图片）、会话列表、未读数、WebSocket 实时通道、离线消息</td>
+      <td>配对双方可实时聊天</td>
+    </tr>
+    <tr>
+      <td><b>M4 相册与安全</b></td><td>2 周</td>
+      <td>九宫格相册（上传/删除/拖拽排序/主图）、内容审核接入、举报与拉黑、风控限流</td>
+      <td>相册可拖拽排序；举报与拉黑生效</td>
+    </tr>
+    <tr>
+      <td><b>M5 体验打磨与压测</b></td><td>1.5 周</td>
+      <td>推送、异常兜底、空态引导、曝光公平性调控、性能压测</td>
+      <td>核心接口达标，异常路径全部覆盖</td>
+    </tr>
+  </table>
+  <p><b>合计约 10 周</b>。M1 与 M2 之间有一个硬前置：<b>需要先确定 Q1～Q4（额度口径、广场额度、是否付费、回 Like 额度）</b>，这四个问题直接决定 M2 的数据模型与接口形态，后改代价大。</p>
+
+  <div class="callout ok">
+    <div class="ct">建议的推进方式</div>
+    <p>M2 结束时做一次<b>双人真机走查</b>：用两个真实账号从注册一路走到聊天，把每个空态、每个错误提示都过一遍。<b>交友产品的体验问题几乎都藏在「不合预期」的路径里</b>——比如卡池空了、Like 了没人回应、配对后对方不说话。这些路径走一遍，比多看十页 PRD 有用。</p>
+  </div>
+</section>
+
+<div class="foot">
+  相悦 Mutual · 产品需求文档 · v1.5 · 2026-10-09 · 草案待评审<br>
+  评审时建议优先定：第 20.2 节 Q1～Q4（额度与付费口径），以及第 20.1 节的安全类缺口是否进 MVP。
+</div>
+
+</div>
+</body>
+</html>
