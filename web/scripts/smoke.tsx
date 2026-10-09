@@ -31,6 +31,9 @@ import { INCOME } from "../src/data/options";
 import { INCOME_LABEL_RANGE } from "../src/pages/Onboarding";
 import { RangeField } from "../src/components/ui/range-slider";
 import { ProvinceMultiField } from "../src/components/picker/province-field";
+import { UniversityField } from "../src/components/picker/university-field";
+import { loadUniversities, searchSchools, OTHER_SCHOOL } from "../src/data/universities";
+import { OCCUPATION } from "../src/data/options";
 import { calcAge } from "../src/components/picker/birthday-field";
 import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
 import { AuthProvider } from "../src/store/auth";
@@ -270,10 +273,54 @@ function optionSheetChecks() {
 mbtiChecks();
 optionSheetChecks();
 rangeAndProvinceChecks();
+occupationChecks();
 
-// 行政区划那一段需要 await（数据是懒加载的），而构建目标不支持顶层 await，
+/** 职业选项本身的口径 */
+function occupationChecks() {
+  console.log("\n[职业]");
+  check("选项足够全（40 项以上）", OCCUPATION.length >= 40, `实际 ${OCCUPATION.length}`);
+  check("保留兜底的「其他」", OCCUPATION.some((o) => o.value === "其他"));
+  check("没有重复项", new Set(OCCUPATION.map((o) => o.value)).size === OCCUPATION.length);
+  check("老的取值还在（不破坏已有数据）", ["互联网", "金融", "医疗", "学生"].every((v) => OCCUPATION.some((o) => o.value === v)));
+
+  const empty = renderToString(<UniversityField label="学校" value="" onChange={() => {}} />);
+  check("院校字段收起时只占一行", empty.includes("请选择学校") && !empty.includes(">北京<"));
+  const picked = renderToString(<UniversityField label="学校" value="浙江大学" onChange={() => {}} />);
+  check("院校字段已选时显示校名", picked.includes("浙江大学"));
+}
+
+/** 院校名单：数据完整性 + 搜索（中文/全拼/首字母/简称） */
+async function universityChecks() {
+  console.log("\n[院校名单]");
+  const list = await loadUniversities();
+  const total = list.reduce((n, p) => n + p.schools.length, 0);
+
+  check("覆盖 34 个省级行政区", list.length === 34, `实际 ${list.length}`);
+  check("学校数 3000 所左右", total >= 2900, `实际 ${total}`);
+  check("含港澳台", ["香港特别行政区", "澳门特别行政区", "台湾省"].every((n) => list.some((p) => p.name === n)));
+  const bj = list.find((p) => p.name === "北京市")!;
+  check("北大清华都在", ["北京大学", "清华大学"].every((n) => bj.schools.some((s) => s.name === n)));
+  check("带城市（同名学校靠它区分）", bj.schools.every((s) => s.city.length > 0));
+
+  const names = (hits: { school: { name: string } }[]) => hits.map((h) => h.school.name);
+  check("中文搜「浙江大学」命中", names(searchSchools(list, "浙江大学")).includes("浙江大学"));
+  check("全拼命中（zhejiangdaxue）", names(searchSchools(list, "zhejiangdaxue")).includes("浙江大学"));
+  check("核心全拼命中（zhejiang）", names(searchSchools(list, "zhejiang")).includes("浙江大学"));
+  check("核心首字母命中（hzdzkj → 杭州电子科技大学）", names(searchSchools(list, "hzdzkj")).includes("杭州电子科技大学"));
+  check("简称命中（浙大）", names(searchSchools(list, "浙大")).includes("浙江大学"));
+  check("英文缩写命中（zju）", names(searchSchools(list, "zju")).includes("浙江大学"));
+  check("简称排在结果第一位", names(searchSchools(list, "浙大"))[0] === "浙江大学");
+  check("按城市搜也能出（杭州）", names(searchSchools(list, "杭州")).length > 0);
+  check("空关键词返回空", searchSchools(list, "   ").length === 0);
+  check("搜不存在返回空", searchSchools(list, "不存在的学校xyz").length === 0);
+  check("结果受 limit 约束", searchSchools(list, "大学", 10).length <= 10);
+  check("默认上限 60 条", searchSchools(list, "大学").length <= 60);
+  check("兜底出口有取值", OTHER_SCHOOL.length > 0);
+}
+
+// 区划与院校这两段需要 await（数据是懒加载的），而构建目标不支持顶层 await，
 // 所以放到 async 函数里跑，跑完再决定退出码。
-regionChecks().then(() => {
+regionChecks().then(universityChecks).then(() => {
   console.log(failed === 0 ? "\n全部通过 ✅" : `\n有 ${failed} 项失败 ❌`);
   process.exit(failed === 0 ? 0 : 1);
 });

@@ -6,6 +6,7 @@ import { Choice } from "@/components/ui/choice";
 import { OptionSheet } from "@/components/ui/option-sheet";
 import { RangeField } from "@/components/ui/range-slider";
 import { ProvinceMultiField } from "@/components/picker/province-field";
+import { UniversityField } from "@/components/picker/university-field";
 import { useToast } from "@/components/ui/toast";
 import { HeightField } from "@/components/picker/height-field";
 import { BirthdayField, type Birthday } from "@/components/picker/birthday-field";
@@ -31,7 +32,6 @@ interface Draft {
   hometown: RegionValue | null;
   residence: RegionValue | null;
   occupation: string | null;
-  occupationOther: string;
   mbti: string | null;
   smoking: number | null;
   drinking: number | null;
@@ -71,7 +71,7 @@ interface Draft {
 
 const EMPTY: Draft = {
   gender: null, birthday: null, heightCm: null, weightKg: null,
-  hometown: null, residence: null, occupation: null, occupationOther: "", mbti: null,
+  hometown: null, residence: null, occupation: null, mbti: null,
   smoking: null, drinking: null, incomeRange: null,
   education: null, school: "", company: "",
   isOnlyChild: null, eldercarePressure: null, hasCar: null, hasHouse: null, isDink: null,
@@ -141,7 +141,6 @@ export default function Onboarding() {
             ? { province: p.cityProvince, city: p.city, district: p.cityDistrict }
             : prev.residence,
           occupation: p.occupation || null,
-          occupationOther: p.occupationOther ?? "",
           mbti: p.mbti ?? null,
           smoking: p.smoking || null,
           drinking: p.drinking || null,
@@ -253,7 +252,6 @@ export default function Onboarding() {
             city: d.residence!.city,
             cityDistrict: d.residence!.district,
             occupation: d.occupation,
-            occupationOther: d.occupation === "其他" ? d.occupationOther : undefined,
             mbti: d.mbti,
             smoking: d.smoking,
             drinking: d.drinking,
@@ -533,10 +531,14 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
       <RegionField label="家乡" value={d.hometown} onChange={(v) => set("hometown", v)} placeholder="请选择家乡" />
       <RegionField label="现居地" value={d.residence} onChange={(v) => set("residence", v)} withDistrict />
 
-      <Choice label="职业" options={OCCUPATION} value={d.occupation} onChange={(v) => set("occupation", v)} />
-      {d.occupation === "其他" && (
-        <Input value={d.occupationOther} onChange={(e) => set("occupationOther", e.target.value)} placeholder="简单说明一下" maxLength={20} />
-      )}
+      <OptionSheet
+        label="职业"
+        options={OCCUPATION}
+        value={d.occupation}
+        onChange={(v) => set("occupation", v)}
+        columns={2}
+        searchable
+      />
 
       <MbtiField value={d.mbti} onChange={(v) => set("mbti", v)} />
       <Choice label="抽烟" options={SMOKING} value={d.smoking} onChange={(v) => set("smoking", v)} />
@@ -551,7 +553,7 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
       />
 
       <Choice label="学历" options={EDUCATION} value={d.education} onChange={(v) => set("education", v)} />
-      <Input label="学校" value={d.school} onChange={(e) => set("school", e.target.value)} placeholder="请输入学校" maxLength={30} />
+      <UniversityField label="学校" value={d.school} onChange={(v) => set("school", v)} />
 
       <Input label="公司" value={d.company} onChange={(e) => set("company", e.target.value)} placeholder="请输入公司" maxLength={30} />
 

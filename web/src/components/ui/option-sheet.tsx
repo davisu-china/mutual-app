@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FieldRow } from "@/components/ui/field-row";
+import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 import { Choice, type ChoiceOption } from "@/components/ui/choice";
 
@@ -15,6 +16,8 @@ interface Props<T extends string | number | boolean> {
   placeholder?: string;
   /** 弹层里选项上方的一句说明 */
   hint?: string;
+  /** 选项多时（职业 50+ 项）给个搜索框，省得在长列表里翻 */
+  searchable?: boolean;
 }
 
 /**
@@ -36,9 +39,17 @@ export function OptionSheet<T extends string | number | boolean>({
   title,
   placeholder = "请选择",
   hint,
+  searchable = false,
 }: Props<T>) {
   const [open, setOpen] = useState(false);
+  const [keyword, setKeyword] = useState("");
   const current = options.find((o) => o.value === value);
+
+  const shown = useMemo(() => {
+    const kw = keyword.trim().toLowerCase();
+    if (!kw) return options;
+    return options.filter((o) => o.label.toLowerCase().includes(kw));
+  }, [options, keyword]);
 
   return (
     <>
@@ -46,14 +57,33 @@ export function OptionSheet<T extends string | number | boolean>({
         label={label}
         value={current?.label ?? ""}
         placeholder={placeholder}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setKeyword("");
+          setOpen(true);
+        }}
       />
 
-      <Sheet open={open} onClose={() => setOpen(false)} title={title ?? label}>
+      <Sheet
+        open={open}
+        onClose={() => {
+          setKeyword("");
+          setOpen(false);
+        }}
+        title={title ?? label}
+      >
         <div className="px-5 pb-6 pt-1">
           {hint && <p className="mb-3 text-[13px] leading-relaxed text-muted-2">{hint}</p>}
+          {searchable && (
+            <div className="mb-3">
+              <Input
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="搜索"
+              />
+            </div>
+          )}
           <Choice
-            options={options}
+            options={shown}
             value={value}
             columns={columns}
             onChange={(v) => {
