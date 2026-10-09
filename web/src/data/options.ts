@@ -5,12 +5,13 @@ export const GENDER = [
   { value: 1, label: "男" },
 ];
 
+/** 16 型。列表只用于展示已有的值（选择走四维滑杆，见 components/profile/mbti-slider） */
 export const MBTI = [
   "INTJ","INTP","ENTJ","ENTP",
   "INFJ","INFP","ENFJ","ENFP",
   "ISTJ","ISFJ","ESTJ","ESFJ",
   "ISTP","ISFP","ESTP","ESFP",
-].map((t) => ({ value: t, label: t })).concat([{ value: "NONE", label: "不知道" }]);
+].map((t) => ({ value: t, label: t }));
 
 export const OCCUPATION = [
   "互联网","金融","医疗","教育","公务员","法律","制造","传媒","自由职业","学生","其他",
@@ -53,7 +54,6 @@ export const EDUCATION_MIN = [{ value: 0, label: "无要求" }].concat(EDUCATION
 export const ELDERCARE = [
   { value: 1, label: "有" },
   { value: 2, label: "无" },
-  { value: 3, label: "暂无考虑" },
 ];
 
 export const HOUSE = [
@@ -65,7 +65,6 @@ export const HOUSE = [
 export const DINK = [
   { value: 1, label: "是" },
   { value: 2, label: "否" },
-  { value: 3, label: "暂不考虑" },
 ];
 
 export const YES_NO = [

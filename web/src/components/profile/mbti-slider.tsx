@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { Sheet } from "@/components/ui/sheet";
+import { FieldRow } from "@/components/ui/field-row";
 
 /** 四个维度，顺序即类型字母的顺序（E/I · S/N · T/F · J/P）。 */
 export const MBTI_DIMS = [
@@ -90,5 +93,57 @@ export function MbtiSlider({
         )}
       </p>
     </div>
+  );
+}
+
+/**
+ * 表单里的 MBTI 字段：平时只占一行，点开才是那四根滑杆。
+ *
+ * 四根滑杆直接铺在页面上太占地方（还会把「本人画像」这一屏撑长一倍），
+ * 所以收进底部弹层——和身高、生日、省市三个选择器是同一种交互语言：
+ * 点一行 → 从底部弹出 → 选完收起。
+ *
+ * 弹层里先滑、点「确认」才写回表单：中途取消不该改动已经填好的值。
+ */
+export function MbtiField({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<MbtiDims>(() => splitMbti(value));
+
+  const type = dimsToMbti(draft);
+
+  function openSheet() {
+    setDraft(splitMbti(value)); // 每次打开都从当前值重新开始
+    setOpen(true);
+  }
+
+  return (
+    <>
+      <FieldRow label="MBTI" value={value ?? ""} placeholder="请选择" onClick={openSheet} />
+
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="MBTI"
+        confirmText={type ? "确认" : undefined}
+        onConfirm={() => {
+          if (!type) return;
+          onChange(type);
+          setOpen(false);
+        }}
+      >
+        <div className="px-5 pb-6 pt-1">
+          <p className="mb-4 text-[13px] leading-relaxed text-muted-2">
+            按四个维度各自滑动即可，不必先知道自己属于哪一型。
+          </p>
+          <MbtiSlider dims={draft} onChange={setDraft} />
+        </div>
+      </Sheet>
+    </>
   );
 }

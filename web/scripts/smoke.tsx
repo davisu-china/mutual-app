@@ -25,7 +25,7 @@ import { PhotoGrid } from "../src/components/profile/photo-grid";
 import { ProfileCard } from "../src/components/deck/profile-card";
 import { MatchOverlay } from "../src/components/deck/match-overlay";
 import { WheelPicker } from "../src/components/picker/wheel-picker";
-import { MbtiSlider, splitMbti, dimsToMbti } from "../src/components/profile/mbti-slider";
+import { MbtiSlider, MbtiField, splitMbti, dimsToMbti } from "../src/components/profile/mbti-slider";
 import { calcAge } from "../src/components/picker/birthday-field";
 import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
 import { AuthProvider } from "../src/store/auth";
@@ -190,6 +190,15 @@ function mbtiChecks() {
   const full = renderToString(<MbtiSlider dims={splitMbti("ENFP")} onChange={() => {}} />);
   check("选齐后显示合成类型", full.includes("你的类型") && full.includes("ENFP"));
   check("未选齐就不显示类型", !partial.includes("你的类型"));
+
+  // 表单里是「一行 + 弹层」：滑杆不该直接铺在页面上，否则把这一步撑得老长
+  const empty = renderToString(<MbtiField value={null} onChange={() => {}} />);
+  check("未填时只显示一行占位", empty.includes("请选择") && !empty.includes("你的类型"));
+  check("收起状态不渲染滑杆", !empty.includes('type="range"'));
+
+  const filled = renderToString(<MbtiField value="ENFP" onChange={() => {}} />);
+  check("已填时行内显示类型", filled.includes("ENFP"));
+  check("已填时同样不占版面", !filled.includes('type="range"'));
 }
 
 mbtiChecks();

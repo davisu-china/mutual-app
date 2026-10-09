@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { HeightField } from "@/components/picker/height-field";
 import { BirthdayField, type Birthday } from "@/components/picker/birthday-field";
 import { RegionField, type RegionValue } from "@/components/picker/region-field";
-import { MbtiSlider, dimsToMbti, splitMbti, emptyDims, type MbtiDims } from "@/components/profile/mbti-slider";
+import { MbtiField } from "@/components/profile/mbti-slider";
 import { api, uploadToPresigned, ApiError } from "@/lib/api";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
@@ -31,8 +31,6 @@ interface Draft {
   occupation: string | null;
   occupationOther: string;
   mbti: string | null;
-  /** MBTI 四个维度的独立选择；四项都选齐时才合成 mbti */
-  mbtiDims: MbtiDims;
   smoking: number | null;
   drinking: number | null;
   incomeRange: number | null;
@@ -72,7 +70,6 @@ interface Draft {
 const EMPTY: Draft = {
   gender: null, birthday: null, heightCm: null, weightKg: null,
   hometown: null, residence: null, occupation: null, occupationOther: "", mbti: null,
-  mbtiDims: emptyDims(),
   smoking: null, drinking: null, incomeRange: null,
   education: null, school: "", company: "",
   isOnlyChild: null, eldercarePressure: null, hasCar: null, hasHouse: null, isDink: null,
@@ -103,19 +100,13 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [d, setD] = useState<Draft>(() => {
     // 进度本地留一份：中途退出、切后台、误刷新都能续填（PRD 3.3）
-    let init: Draft = EMPTY;
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) init = { ...EMPTY, ...JSON.parse(raw) };
+      if (raw) return { ...EMPTY, ...JSON.parse(raw) };
     } catch {
       /* 损坏的草稿直接丢弃 */
     }
-    // 改版前存下的草稿只有 mbti 字符串、没有四个维度，这里拆回去，
-    // 否则滑杆全停在「还没选」，和已经选好的类型对不上。
-    if (!(init.mbtiDims ?? []).some(Boolean) && init.mbti && init.mbti !== "NONE") {
-      init = { ...init, mbtiDims: splitMbti(init.mbti) };
-    }
-    return init;
+    return EMPTY;
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -150,7 +141,6 @@ export default function Onboarding() {
           occupation: p.occupation || null,
           occupationOther: p.occupationOther ?? "",
           mbti: p.mbti ?? null,
-          mbtiDims: splitMbti(p.mbti),
           smoking: p.smoking || null,
           drinking: p.drinking || null,
           incomeRange: p.incomeRange ?? null,
@@ -546,38 +536,7 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
         <Input value={d.occupationOther} onChange={(e) => set("occupationOther", e.target.value)} placeholder="简单说明一下" maxLength={20} />
       )}
 
-      <div>
-        <p className="mb-2 text-[15px] text-muted">MBTI</p>
-        {d.mbti === "NONE" ? (
-          <div className="flex items-center justify-between rounded-field border border-line bg-surface px-3 py-2.5">
-            <span className="text-[14px] text-muted">已选择「不知道」</span>
-            <button type="button" className="text-[13px] text-brand" onClick={() => set("mbti", null)}>
-              改成滑动选择
-            </button>
-          </div>
-        ) : (
-          <>
-            <MbtiSlider
-              dims={d.mbtiDims}
-              onChange={(dims) => {
-                // 两次 set 都是函数式更新，顺序执行不会互相覆盖
-                set("mbtiDims", dims);
-                set("mbti", dimsToMbti(dims));
-              }}
-            />
-            <button
-              type="button"
-              className="mt-2 text-[13px] text-muted-2 underline"
-              onClick={() => {
-                set("mbti", "NONE");
-                set("mbtiDims", emptyDims());
-              }}
-            >
-              不确定、还没测过
-            </button>
-          </>
-        )}
-      </div>
+      <MbtiField value={d.mbti} onChange={(v) => set("mbti", v)} />
       <Choice label="抽烟" options={SMOKING} value={d.smoking} onChange={(v) => set("smoking", v)} />
       <Choice label="喝酒" options={DRINKING} value={d.drinking} onChange={(v) => set("drinking", v)} />
 
