@@ -39,17 +39,30 @@ function formatBirthday(b: Birthday): string {
 interface BirthdayFieldProps {
   value: Birthday | null;
   onChange: (b: Birthday) => void;
+  gender?: "male" | "female";
   error?: string;
 }
 
-export function BirthdayField({ value, onChange, error }: BirthdayFieldProps) {
+/**
+ * 默认年龄：男女用户的人群均值不同（相亲类产品里男性普遍比女性大两三岁），
+ * 落在均值上用户只要微调几格——年滚轮有 53 项，停在 18 岁那种端点会让人滚很久。
+ * 日期取 6 月 15 日，一年中间，往前或往后都差不多远。
+ */
+export const AGE_DEFAULT_BY_GENDER: Record<string, number> = {
+  male: 28,
+  female: 26,
+};
+
+/** 供测试断言用：按性别算出默认生日 */
+export function defaultBirthdayFor(gender: "male" | "female" = "male", today = new Date()): Birthday {
+  return { year: today.getFullYear() - (AGE_DEFAULT_BY_GENDER[gender] ?? 28), month: 6, day: 15 };
+}
+
+export function BirthdayField({ value, onChange, gender = "male", error }: BirthdayFieldProps) {
   const [open, setOpen] = useState(false);
 
   const today = useMemo(() => new Date(), []);
-  const defaultBirthday = useMemo<Birthday>(
-    () => ({ year: today.getFullYear() - 28, month: 6, day: 15 }),
-    [today]
-  );
+  const defaultBirthday = useMemo<Birthday>(() => defaultBirthdayFor(gender, today), [gender, today]);
 
   const [draft, setDraft] = useState<Birthday>(value ?? defaultBirthday);
 

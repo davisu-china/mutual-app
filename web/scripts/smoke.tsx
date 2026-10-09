@@ -34,7 +34,9 @@ import { ProvinceMultiField } from "../src/components/picker/province-field";
 import { UniversityField } from "../src/components/picker/university-field";
 import { loadUniversities, searchSchools, OTHER_SCHOOL } from "../src/data/universities";
 import { OCCUPATION } from "../src/data/options";
-import { calcAge } from "../src/components/picker/birthday-field";
+import { calcAge, defaultBirthdayFor, AGE_DEFAULT_BY_GENDER } from "../src/components/picker/birthday-field";
+import { HEIGHT_DEFAULT_BY_GENDER, HEIGHT_QUICK_PICKS, HeightField } from "../src/components/picker/height-field";
+import { WEIGHT_DEFAULT_BY_GENDER, WEIGHT_QUICK_PICKS_BY_GENDER, WeightField } from "../src/components/picker/weight-field";
 import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
 import { AuthProvider } from "../src/store/auth";
 import { ToastProvider } from "../src/components/ui/toast";
@@ -274,6 +276,41 @@ mbtiChecks();
 optionSheetChecks();
 rangeAndProvinceChecks();
 occupationChecks();
+defaultsChecks();
+
+/**
+ * 身高/体重/年龄的默认落点。
+ *
+ * 这一组盯的是「少滑几格」这条体验：默认值要按性别落在人群均值上，
+ * 而且附近得有能一键点的快捷档位，否则用户还是得滚几十格。
+ */
+function defaultsChecks() {
+  console.log("\n[默认落点]");
+
+  for (const [g, name] of [["male", "男"], ["female", "女"]] as const) {
+    const h = HEIGHT_DEFAULT_BY_GENDER[g];
+    const w = WEIGHT_DEFAULT_BY_GENDER[g];
+    check(`${name}身高默认值合理（${h}）`, h >= 150 && h <= 185);
+    check(`${name}体重默认值合理（${w}）`, w >= 45 && w <= 85);
+
+    const hNear = HEIGHT_QUICK_PICKS.some((v) => Math.abs(v - h) <= 5);
+    const wNear = (WEIGHT_QUICK_PICKS_BY_GENDER[g] ?? []).some((v) => Math.abs(v - w) <= 5);
+    check(`${name}身高默认值附近有快捷档位`, hNear);
+    check(`${name}体重默认值附近有快捷档位`, wNear);
+  }
+  check("男性默认值比女性高/重", HEIGHT_DEFAULT_BY_GENDER.male > HEIGHT_DEFAULT_BY_GENDER.female
+    && WEIGHT_DEFAULT_BY_GENDER.male > WEIGHT_DEFAULT_BY_GENDER.female);
+
+  const today = new Date(2026, 9, 9);
+  check("年龄默认值：男 28 岁", calcAge(defaultBirthdayFor("male", today), today) === AGE_DEFAULT_BY_GENDER.male);
+  check("年龄默认值：女 26 岁", calcAge(defaultBirthdayFor("female", today), today) === AGE_DEFAULT_BY_GENDER.female);
+  check("年龄默认值在合法的 18–70 内", Object.values(AGE_DEFAULT_BY_GENDER).every((a) => a >= 18 && a <= 70));
+
+  const w = renderToString(<WeightField value={null} onChange={() => {}} gender="female" />);
+  check("体重字段收起时只占一行（不渲染滚轮）", w.includes("体重") && w.includes("请选择") && !w.includes('role="option"'));
+  const h = renderToString(<HeightField value={175} onChange={() => {}} gender="male" />);
+  check("身高字段已填时显示带单位的值", h.includes("175 cm"));
+}
 
 /** 职业选项本身的口径 */
 function occupationChecks() {

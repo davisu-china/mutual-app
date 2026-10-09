@@ -9,6 +9,7 @@ import { ProvinceMultiField } from "@/components/picker/province-field";
 import { UniversityField } from "@/components/picker/university-field";
 import { useToast } from "@/components/ui/toast";
 import { HeightField } from "@/components/picker/height-field";
+import { WeightField } from "@/components/picker/weight-field";
 import { BirthdayField, type Birthday } from "@/components/picker/birthday-field";
 import { RegionField, type RegionValue } from "@/components/picker/region-field";
 import { MbtiField } from "@/components/profile/mbti-slider";
@@ -87,6 +88,11 @@ const EMPTY: Draft = {
 };
 
 const DRAFT_KEY = "mutual.onboarding.draft";
+
+/** 性别值 → 字段默认值用的键。未选性别时按男性兜底（它在表单里是第一个必填项）。 */
+function genderOf(d: Draft): "male" | "female" {
+  return d.gender === 2 ? "female" : "male";
+}
 
 /** 后端返回的是出生日期，但 Profile 不带这个字段——这里用年龄反推一个占位生日。
  *  实际上后端 /users/me 不下发生日（出于隐私），所以编辑时生日保持用户已选的草稿值。 */
@@ -512,20 +518,13 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
         <p className="text-[12px] text-muted-2">性别填写后不可修改，请确认无误</p>
       )}
 
-      <BirthdayField value={d.birthday} onChange={(v) => set("birthday", v)} />
-      <HeightField
-        value={d.heightCm}
-        onChange={(v) => set("heightCm", v)}
-        gender={d.gender === 1 ? "male" : "female"}
-      />
+      <BirthdayField value={d.birthday} onChange={(v) => set("birthday", v)} gender={genderOf(d)} />
+      <HeightField value={d.heightCm} onChange={(v) => set("heightCm", v)} gender={genderOf(d)} />
 
-      <Input
-        label="体重（kg）"
-        type="number"
-        inputMode="numeric"
-        value={d.weightKg ?? ""}
-        onChange={(e) => set("weightKg", e.target.value ? Number(e.target.value) : null)}
-        placeholder={`${WEIGHT_MIN}–${WEIGHT_MAX}`}
+      <WeightField
+        value={d.weightKg}
+        onChange={(v) => set("weightKg", v)}
+        gender={genderOf(d)}
       />
 
       <RegionField label="家乡" value={d.hometown} onChange={(v) => set("hometown", v)} placeholder="请选择家乡" />
