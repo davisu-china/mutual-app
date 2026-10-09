@@ -354,9 +354,8 @@ func forwardScore(me *Candidate, c *Candidate) (float64, []string) {
 	if me.PrefEducationMin > 0 {
 		add(1.0, c.Education >= me.PrefEducationMin, "学历")
 	}
-	if me.PrefIncomeMax > 0 {
-		ok := me.PrefIncomeMin == 0 || (c.Income >= me.PrefIncomeMin && c.Income <= me.PrefIncomeMax)
-		add(1.0, ok, "收入")
+	if me.PrefIncomeMin > 0 || me.PrefIncomeMax > 0 {
+		add(1.0, incomeMatches(me.PrefIncomeMin, me.PrefIncomeMax, c.Income), "收入")
 	}
 	if me.PrefSmoking > 0 {
 		ok := me.PrefSmoking == 3 || // 3=无所谓
@@ -416,8 +415,8 @@ func reverseScore(c *Candidate, me *Candidate) (float64, []string) {
 	if c.PrefEducationMin > 0 {
 		add(1.0, me.Education >= c.PrefEducationMin)
 	}
-	if c.PrefIncomeMax > 0 {
-		add(1.0, c.PrefIncomeMin == 0 || (me.Income >= c.PrefIncomeMin && me.Income <= c.PrefIncomeMax))
+	if c.PrefIncomeMin > 0 || c.PrefIncomeMax > 0 {
+		add(1.0, incomeMatches(c.PrefIncomeMin, c.PrefIncomeMax, me.Income))
 	}
 	if c.PrefSmoking > 0 {
 		add(0.8, c.PrefSmoking == 1 || c.PrefSmoking == 3 || me.Smoking == 1)

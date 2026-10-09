@@ -6,6 +6,7 @@ import { Choice } from "@/components/ui/choice";
 import { OptionSheet } from "@/components/ui/option-sheet";
 import { RangeField } from "@/components/ui/range-slider";
 import { ProvinceMultiField } from "@/components/picker/province-field";
+import { IncomeRangeField } from "@/components/picker/income-range-field";
 import { UniversityField } from "@/components/picker/university-field";
 import { OccupationField } from "@/components/picker/occupation-field";
 import { useToast } from "@/components/ui/toast";
@@ -747,15 +748,10 @@ function Step4({
       <Choice label="抽烟" options={ACCEPT_3} value={p.smokingAccept} onChange={(v) => setPref("smokingAccept", v)} />
       <Choice label="喝酒" options={ACCEPT_3} value={p.drinkingAccept} onChange={(v) => setPref("drinkingAccept", v)} />
 
-      <RangeField
+      <IncomeRangeField
         label="期望年收入"
-        min={0}
-        max={7}
-        valueMin={p.incomeMin}
-        valueMax={p.incomeMax}
-        format={(v) => (v <= 0 || v === 7 ? "不限" : INCOME[v - 1]?.label ?? "?")}
-        formatRange={INCOME_LABEL_RANGE}
-        endLabels={["不限", "不限"]}
+        min={p.incomeMin}
+        max={p.incomeMax}
         onChange={(lo, hi) => {
           setPref("incomeMin", lo);
           setPref("incomeMax", hi);
@@ -796,24 +792,6 @@ function Step4({
   );
 }
 
-/**
- * 期望收入的区间文案。
- *
- * 刻度是 0–7：0 与 7 都是「不限」（区间两端各一个），六档收入占 1–6。
- * 所以下限拉到 7 时要按最高档读（「100 万以上起」），不能直接拿 INCOME[6]
- * ——那里已经没有第七项了（「不便透露」已删）。
- */
-export function INCOME_LABEL_RANGE(min: number, max: number): string {
-  if (min === 0 && max === 7) return "不限";
-  const lo = min === 0 ? "不限" : bracketLabel(min);
-  const hi = max === 7 ? "不限" : bracketLabel(max);
-  return `${lo} — ${hi}`;
-
-  function bracketLabel(step: number): string {
-    const idx = Math.min(Math.max(step, 1), INCOME.length) - 1;
-    return INCOME[idx]?.label ?? "?";
-  }
-}
 
 // ============================ Step 5 ============================
 

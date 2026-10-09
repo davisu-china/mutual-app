@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal, Store } from "lucide-react";
+import { RangeField } from "@/components/ui/range-slider";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton, Empty } from "@/components/ui/empty";
@@ -108,22 +109,27 @@ export default function Plaza() {
             </Row>
 
             <Row label="年龄">
-              <RangeInput
-                min={18} max={70}
-                lo={f.ageMin ?? 18} hi={f.ageMax ?? 70}
+              <RangeField
+                label="年龄"
+                min={18}
+                max={70}
+                valueMin={f.ageMin ?? 18}
+                valueMax={f.ageMax ?? 70}
+                format={(v) => `${v} 岁`}
                 onChange={(lo, hi) => setF({ ...f, ageMin: lo, ageMax: hi })}
-                clear={() => setF({ ...f, ageMin: undefined, ageMax: undefined })}
-                active={f.ageMin !== undefined || f.ageMax !== undefined}
               />
             </Row>
 
             <Row label="身高">
-              <RangeInput
-                min={140} max={210}
-                lo={f.heightMin ?? 140} hi={f.heightMax ?? 210}
+              <RangeField
+                label="身高"
+                min={140}
+                max={210}
+                valueMin={f.heightMin ?? 140}
+                valueMax={f.heightMax ?? 210}
+                gap={5}
+                format={(v) => `${v} cm`}
                 onChange={(lo, hi) => setF({ ...f, heightMin: lo, heightMax: hi })}
-                clear={() => setF({ ...f, heightMin: undefined, heightMax: undefined })}
-                active={f.heightMin !== undefined || f.heightMax !== undefined}
               />
             </Row>
 
@@ -242,32 +248,3 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   );
 }
 
-function RangeInput({
-  min, max, lo, hi, onChange, clear, active,
-}: {
-  min: number; max: number; lo: number; hi: number;
-  onChange: (lo: number, hi: number) => void;
-  clear: () => void;
-  active: boolean;
-}) {
-  return (
-    <div className="w-full">
-      <div className="mb-2 flex items-center gap-3">
-        <span className="text-[14px] tabular-nums text-ink">{lo} – {hi}</span>
-        {active && (
-          <button type="button" onClick={clear} className="text-[12px] text-muted-2 underline">
-            清除
-          </button>
-        )}
-      </div>
-      <div className="flex gap-4">
-        <input type="range" min={min} max={max} value={lo}
-          onChange={(e) => onChange(Math.min(Number(e.target.value), hi), hi)}
-          className="h-1.5 w-full accent-[#E4596B]" />
-        <input type="range" min={min} max={max} value={hi}
-          onChange={(e) => onChange(lo, Math.max(Number(e.target.value), lo))}
-          className="h-1.5 w-full accent-[#E4596B]" />
-      </div>
-    </div>
-  );
-}

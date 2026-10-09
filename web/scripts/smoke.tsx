@@ -31,8 +31,9 @@ import { Empty } from "../src/components/ui/empty";
 import { FieldRow } from "../src/components/ui/field-row";
 import { fieldIcon } from "../src/components/ui/icons";
 import { Heart } from "lucide-react";
-import { INCOME } from "../src/data/options";
-import { INCOME_LABEL_RANGE } from "../src/pages/Onboarding";
+import { INCOME, INCOME_MIN_CHOICES, INCOME_MAX_CHOICES } from "../src/data/options";
+import { INCOME_LABEL_RANGE } from "../src/data/options";
+import { IncomeRangeField } from "../src/components/picker/income-range-field";
 import { RangeField } from "../src/components/ui/range-slider";
 import { ProvinceMultiField } from "../src/components/picker/province-field";
 import { UniversityField } from "../src/components/picker/university-field";
@@ -201,14 +202,9 @@ function rangeAndProvinceChecks() {
   check("轨道两端有刻度说明", h.includes("140") && h.includes("210"));
 
   const inc = renderToString(
-    <RangeField
-      label="期望年收入" min={0} max={7} valueMin={0} valueMax={7}
-      format={(v) => (v <= 0 || v === 7 ? "不限" : INCOME[v - 1]?.label ?? "?")}
-      formatRange={INCOME_LABEL_RANGE}
-      onChange={() => {}}
-    />
+    <IncomeRangeField label="期望年收入" min={0} max={7} onChange={() => {}} />
   );
-  check("两端都开时显示「不限」而不是「不限 – 不限」", inc.includes("不限") && !inc.includes("不限 – 不限"));
+  check("期望收入收起时只占一行", inc.includes("期望年收入") && inc.includes("不限"));
 
   const empty = renderToString(<ProvinceMultiField label="期待家乡" value={[]} onChange={() => {}} />);
   check("未选时只占一行（占位「不限」）", empty.includes("不限") && !empty.includes("清空已选"));
@@ -270,11 +266,25 @@ function optionSheetChecks() {
 
   // 期望收入的区间刻度是 0–7（两端各一个「不限」），六档占 1–6。
   // 删掉「不便透露」后下限拉到 7 不能再取 INCOME[6]（那里已经空了）。
-  check("区间全开显示不限", INCOME_LABEL_RANGE(0, 7) === "不限");
-  check("区间下限拉到顶按最高档读", INCOME_LABEL_RANGE(7, 7) === "100 万以上 — 不限");
-  check("区间上限拉到顶即不限", INCOME_LABEL_RANGE(3, 7) === "20–30 万 — 不限");
-  check("区间中段正常", INCOME_LABEL_RANGE(0, 4) === "不限 — 30–50 万");
-  check("区间文案里不出现问号", [0,1,3,6,7].every((a) => [0,4,7].every((b) => !INCOME_LABEL_RANGE(a, Math.max(a,b)).includes("?"))));
+  check("两端都不设时显示「不限」", INCOME_LABEL_RANGE(0, 7) === "不限");
+  check("只设下限说「X 万以上」", INCOME_LABEL_RANGE(3, 7) === "20 万以上");
+  check("只设上限说「X 万以下」", INCOME_LABEL_RANGE(0, 4) === "50 万以下");
+  check("两边都设说「X–Y 万」", INCOME_LABEL_RANGE(3, 4) === "20–50 万");
+  check("下限正好压在上限上时说「X 万左右」", INCOME_LABEL_RANGE(3, 2) === "20 万左右");
+  check("越界下标当不设这一端", INCOME_LABEL_RANGE(7, 7) === "不限" && INCOME_LABEL_RANGE(9, 9) === "不限");
+  check("文案里不出现问号或 undefined", [0,1,2,3,4,5,6,7].every((a) => [0,3,7].every((b) => {
+    const t = INCOME_LABEL_RANGE(a, Math.max(a, b));
+    return !t.includes("?") && !t.includes("undefined");
+  })));
+
+  // 只暴露有意义的那几档：下限从「10 万以上」起、上限到「100 万以下」止
+  check("下限选项不包含「10 万以下」那一档", !INCOME_MIN_CHOICES.some((o) => o.value === 1));
+  check("上限选项不包含「100 万以上」那一档", !INCOME_MAX_CHOICES.some((o) => o.value === 6));
+  check("两端各有「不限」", INCOME_MIN_CHOICES[0].value === 0 && INCOME_MAX_CHOICES[0].value === 7);
+  check("下限文案都是「以上」", INCOME_MIN_CHOICES.slice(1).every((o) => o.label.endsWith("以上")));
+  check("上限文案都是「以下」", INCOME_MAX_CHOICES.slice(1).every((o) => o.label.endsWith("以下")));
+  check("选项里的档位都不重复", new Set(INCOME_MIN_CHOICES.map((o) => o.value)).size === INCOME_MIN_CHOICES.length
+    && new Set(INCOME_MAX_CHOICES.map((o) => o.value)).size === INCOME_MAX_CHOICES.length);
 }
 
 mbtiChecks();
