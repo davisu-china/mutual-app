@@ -133,7 +133,9 @@ func (s *DiscoveryService) Cards(ctx context.Context, uid int64, limit int) ([]C
 	if me.Gender == nil {
 		return nil, errors.New("请先选择性别")
 	}
-	targetGender := int16(model.GenderFemale)
+	// ⚠️ 这里原本两个分支都写 GenderFemale（if 是空操作），于是**女生会看到女生**：
+	// 男用户看女用户是对的，所以只有女性账号才会暴露这个问题。
+	targetGender := int16(model.GenderMale)
 	if *me.Gender == model.GenderMale {
 		targetGender = model.GenderFemale
 	}
