@@ -53,6 +53,8 @@ export function Sheet({ open, onClose, title, confirmText, onConfirm, children }
   }
 
   const pan = Gesture.Pan()
+    // 向下 6pt 才认，避免在把手上轻点/横向微动就把面板抓住
+    .activeOffsetY(6)
     .onChange((e) => {
       // 只跟手向下拖，向上不做响应（列表还要滚）
       translateY.value = Math.max(0, translateY.value + e.changeY);
@@ -79,30 +81,40 @@ export function Sheet({ open, onClose, title, confirmText, onConfirm, children }
           <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="关闭" />
         </Animated.View>
 
-        <GestureDetector gesture={pan}>
-          <Animated.View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space(4)) }, sheetStyle]}>
-            {/* 顶部拖拽把手：既是可拖的提示，也是唯一的视觉"握点" */}
-            <View style={styles.handleWrap}>
-              <View style={styles.handle} />
-            </View>
+        <Animated.View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space(4)) }, sheetStyle]}>
+          {/*
+            拖拽手势**只挂在把手和标题栏上**，内容区完全不接。
 
-            <View style={styles.header}>
-              <Pressable onPress={close} hitSlop={10} accessibilityLabel="取消">
-                <Text style={styles.cancel}>取消</Text>
-              </Pressable>
-              {title ? <Text style={styles.title}>{title}</Text> : <View />}
-              {confirmText ? (
-                <Pressable onPress={onConfirm ?? close} hitSlop={10} accessibilityLabel={confirmText}>
-                  <Text style={styles.confirm}>{confirmText}</Text>
+            原来的写法是把整个面板包进 GestureDetector，那会让 RNGH 的 Pan
+            和面板里的滚动控件（滚轮用的 FlatList、列表用的 ScrollView）抢同一个
+            纵向手势——RNGH 默认优先级更高，里面的东西就滚不动了。把手恰好是
+            这里"唯一的视觉握点"，从它开始拖也本来就是用户的直觉动作。
+          */}
+          <GestureDetector gesture={pan}>
+            <View>
+              {/* 顶部拖拽把手：既是可拖的提示，也是唯一的视觉"握点" */}
+              <View style={styles.handleWrap}>
+                <View style={styles.handle} />
+              </View>
+
+              <View style={styles.header}>
+                <Pressable onPress={close} hitSlop={10} accessibilityLabel="取消">
+                  <Text style={styles.cancel}>取消</Text>
                 </Pressable>
-              ) : (
-                <View style={styles.spacer} />
-              )}
+                {title ? <Text style={styles.title}>{title}</Text> : <View />}
+                {confirmText ? (
+                  <Pressable onPress={onConfirm ?? close} hitSlop={10} accessibilityLabel={confirmText}>
+                    <Text style={styles.confirm}>{confirmText}</Text>
+                  </Pressable>
+                ) : (
+                  <View style={styles.spacer} />
+                )}
+              </View>
             </View>
+          </GestureDetector>
 
-            {children}
-          </Animated.View>
-        </GestureDetector>
+          {children}
+        </Animated.View>
       </View>
     </Modal>
   );
