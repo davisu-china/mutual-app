@@ -54,22 +54,22 @@ func NewDiscoveryService(db *gorm.DB, svc *ProfileService, exp *ExposureService)
 
 // Candidate 是一个候选人的原始数据（画像 + 伴侣偏好），用于算分。
 type Candidate struct {
-	UserID    int64
-	Nickname  string
-	Gender    *int16 // 可为空：性别在 Onboarding 才收集
-	Age       int
-	HeightCm  int16
-	Education int16
-	Income    int16
-	Smoking   int16
-	Drinking  int16
-	HasCar    bool
-	HasHouse  int16
-	IsDink    int16
-	OnlyChild bool
-	CityProv  string
-	CityCity  string
-	GeoHash   *string
+	UserID       int64
+	Nickname     string
+	Gender       *int16 // 可为空：性别在 Onboarding 才收集
+	Age          int
+	HeightCm     int16
+	Education    int16
+	Income       int16
+	Smoking      int16
+	Drinking     int16
+	HasCar       bool
+	HasHouse     int16
+	IsDink       int16
+	OnlyChild    bool
+	CityProv     string
+	CityCity     string
+	GeoHash      *string
 	HometownProv string
 	Occupation   string
 	MBTI         *string
@@ -83,13 +83,13 @@ type Candidate struct {
 	CreatedAt      time.Time
 
 	// 对方的伴侣偏好，用于反向匹配
-	PrefHeightMin, PrefHeightMax int16
-	PrefIncomeMin, PrefIncomeMax int16
-	PrefEducationMin             int16
-	PrefSmoking, PrefDrinking    int16
+	PrefHeightMin, PrefHeightMax                int16
+	PrefIncomeMin, PrefIncomeMax                int16
+	PrefEducationMin                            int16
+	PrefSmoking, PrefDrinking                   int16
 	PrefOnlyChild, PrefCar, PrefHouse, PrefDink int16
-	PrefProvinces                model.StringArray
-	PrefTags                     model.StringArray
+	PrefProvinces                               model.StringArray
+	PrefTags                                    model.StringArray
 }
 
 type CardView struct {
@@ -270,7 +270,9 @@ func (s *DiscoveryService) fetchCandidates(
 // scoreAndRank 在应用层算分并排序。
 //
 // 分数构成（PRD 7.3）：
-//   0.6 × 正向匹配（我的偏好 vs TA 的画像）
+//
+//	0.6 × 正向匹配（我的偏好 vs TA 的画像）
+//
 // + 0.4 × 反向匹配（TA 的偏好 vs 我的画像）
 // + 完整度与活跃度微调
 func (s *DiscoveryService) scoreAndRank(cands []Candidate, me *Candidate, targetGender int16) []CardView {
@@ -444,16 +446,19 @@ func reverseScore(c *Candidate, me *Candidate) (float64, []string) {
 // ---------- 广场检索 ----------
 
 type PlazaFilter struct {
-	Gender     *int16
-	AgeMin     *int
-	AgeMax     *int
-	HeightMin  *int16
-	HeightMax  *int16
-	CityProv   *string
+	AgeMin    *int
+	AgeMax    *int
+	HeightMin *int16
+	HeightMax *int16
+	// 省份可多选（广场的筛选就是这样用的）：空表示不限
+	Provinces  []string
 	Education  []int16
 	Occupation []string
-	Keyword    *string
-	Cursor     int64 // 上一页最后一条的 id（keyset 分页）
+	// 收入按档位下标过滤（1–6 对应六档）。两个都是独立的，不设就不加这一条 SQL
+	IncomeMin *int16
+	IncomeMax *int16
+	Keyword   *string
+	Cursor    int64 // 上一页最后一条的 id（keyset 分页）
 }
 
 // Plaza 按条件检索。
@@ -493,10 +498,6 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 	`)
 	args = append(args, uid, uid, uid)
 
-	if f.Gender != nil {
-		sb.WriteString(" AND u.gender = ?")
-		args = append(args, *f.Gender)
-	}
 	if f.AgeMin != nil {
 		sb.WriteString(" AND u.birthday <= (CURRENT_DATE - (? || ' years')::interval)")
 		args = append(args, *f.AgeMin)
@@ -513,9 +514,19 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 		sb.WriteString(" AND p.height_cm <= ?")
 		args = append(args, *f.HeightMax)
 	}
-	if f.CityProv != nil && *f.CityProv != "" {
-		sb.WriteString(" AND p.city_prov = ?")
-		args = append(args, *f.CityProv)
+	if len(f.Provinces) > 0 {
+		sb.WriteString(" AND p.city_prov IN (" + placeholders(len(f.Provinces)) + ")")
+		for _, p := range f.Provinces {
+			args = append(args, p)
+		}
+	}
+	if f.IncomeMin != nil {
+		sb.WriteString(" AND p.income_range >= ?")
+		args = append(args, *f.IncomeMin)
+	}
+	if f.IncomeMax != nil {
+		sb.WriteString(" AND p.income_range <= ?")
+		args = append(args, *f.IncomeMax)
 	}
 	// 用 IN 子句而不是 ANY(数组)：驱动对 []int16 没有内建支持，
 	// 转成 IN (?,?,?) 免去自己实现 Valuer

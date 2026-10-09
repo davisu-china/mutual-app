@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -100,19 +101,20 @@ func (h *DiscoveryHandler) Plaza(c *gin.Context) {
 	uid := middleware.UserID(c)
 
 	f := service.PlazaFilter{}
-	if v := c.Query("gender"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			g := int16(n)
-			f.Gender = &g
-		}
-	}
 	f.AgeMin = intPtr(c.Query("ageMin"))
 	f.AgeMax = intPtr(c.Query("ageMax"))
 	f.HeightMin = int16Ptr(c.Query("heightMin"))
 	f.HeightMax = int16Ptr(c.Query("heightMax"))
-	if v := c.Query("cityProvince"); v != "" {
-		f.CityProv = &v
+	// 省份多选，逗号分隔（省名里不含逗号，不用转义）
+	if v := c.Query("provinces"); v != "" {
+		for _, p := range strings.Split(v, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				f.Provinces = append(f.Provinces, p)
+			}
+		}
 	}
+	f.IncomeMin = int16Ptr(c.Query("incomeMin"))
+	f.IncomeMax = int16Ptr(c.Query("incomeMax"))
 	if v := c.Query("keyword"); v != "" {
 		f.Keyword = &v
 	}

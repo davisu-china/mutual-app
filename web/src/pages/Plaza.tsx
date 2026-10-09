@@ -1,28 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal, Store } from "lucide-react";
-import { RangeField } from "@/components/ui/range-slider";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton, Empty } from "@/components/ui/empty";
 import { ProfileCard } from "@/components/deck/profile-card";
+import { ProvinceMultiField } from "@/components/picker/province-field";
+import { IncomeRangeField } from "@/components/picker/income-range-field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, type Card } from "@/lib/api";
 import { EDUCATION } from "@/data/options";
-import { PROVINCE_NAMES, provinceShort } from "@/data/regions";
 import { cn } from "@/lib/utils";
 
 interface Filter {
-  gender?: number;
-  ageMin?: number;
-  ageMax?: number;
-  heightMin?: number;
-  heightMax?: number;
-  cityProvince?: string;
+  /** 省份可多选，空/未设表示不限 */
+  provinces?: string[];
   education?: number;
+  /** 收入按档位下标（1–6）；未设表示这一端不限 */
+  incomeMin?: number;
+  incomeMax?: number;
 }
-
-// 省份筛选用的官方名单（国家统计局口径，34 个省级行政区）
-const PROVINCES = PROVINCE_NAMES;
 
 /**
  * 恋爱广场。
@@ -33,7 +29,7 @@ const PROVINCES = PROVINCE_NAMES;
 export default function Plaza() {
   const nav = useNavigate();
   const toast = useToast();
-  const [f, setF] = useState<Filter>({ gender: undefined });
+  const [f, setF] = useState<Filter>({});
   const [open, setOpen] = useState(false);
   const [cards, setCards] = useState<Card[] | null>(null);
   const [cursor, setCursor] = useState(0);
@@ -41,9 +37,10 @@ export default function Plaza() {
 
   const qs = useMemo(() => {
     const p = new URLSearchParams();
-    Object.entries(f).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== "") p.set(k, String(v));
-    });
+    if (f.provinces?.length) p.set("provinces", f.provinces.join(","));
+    if (f.education !== undefined) p.set("education", String(f.education));
+    if (f.incomeMin !== undefined) p.set("incomeMin", String(f.incomeMin));
+    if (f.incomeMax !== undefined) p.set("incomeMax", String(f.incomeMax));
     return p.toString();
   }, [f]);
 
@@ -73,7 +70,11 @@ export default function Plaza() {
     // 筛选条件变化即重新检索
   }, [qs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeCount = Object.values(f).filter((v) => v !== undefined).length;
+  // 一组筛选算一次（省份选了 5 个也只显示「筛选 · 1」）
+  const activeCount =
+    (f.provinces?.length ? 1 : 0) +
+    (f.education !== undefined ? 1 : 0) +
+    (f.incomeMin !== undefined || f.incomeMax !== undefined ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-paper">
@@ -99,54 +100,24 @@ export default function Plaza() {
         </div>
 
         {open && (
-          <div className="mx-auto max-w-[520px] space-y-4 border-t border-line-soft px-5 py-4">
-            <Row label="性别">
-              {[{ v: undefined, t: "不限" }, { v: 2, t: "女" }, { v: 1, t: "男" }].map((o) => (
-                <Chip key={String(o.v)} on={f.gender === o.v} onClick={() => setF({ ...f, gender: o.v })}>
-                  {o.t}
-                </Chip>
-              ))}
-            </Row>
+          <div className="mx-auto max-w-[520px] space-y-3 border-t border-line-soft px-5 py-4">
+            {/* 省份可多选，收进弹层——34 个省铺在筛选面板里会把面板撑爆 */}
+            <ProvinceMultiField
+              label="省份"
+              hint="可多选，不选即不限。"
+              value={f.provinces ?? []}
+              onChange={(v) => setF({ ...f, provinces: v.length ? v : undefined })}
+            />
 
-            <Row label="年龄">
-              <RangeField
-                label="年龄"
-                min={18}
-                max={70}
-                valueMin={f.ageMin ?? 18}
-                valueMax={f.ageMax ?? 70}
-                format={(v) => `${v} 岁`}
-                onChange={(lo, hi) => setF({ ...f, ageMin: lo, ageMax: hi })}
-              />
-            </Row>
-
-            <Row label="身高">
-              <RangeField
-                label="身高"
-                min={140}
-                max={210}
-                valueMin={f.heightMin ?? 140}
-                valueMax={f.heightMax ?? 210}
-                gap={5}
-                format={(v) => `${v} cm`}
-                onChange={(lo, hi) => setF({ ...f, heightMin: lo, heightMax: hi })}
-              />
-            </Row>
-
-            <Row label="省份">
-              <Chip on={!f.cityProvince} onClick={() => setF({ ...f, cityProvince: undefined })}>
-                不限
-              </Chip>
-              {PROVINCES.map((p) => (
-                <Chip
-                  key={p}
-                  on={f.cityProvince === p}
-                  onClick={() => setF({ ...f, cityProvince: p })}
-                >
-                  {provinceShort(p)}
-                </Chip>
-              ))}
-            </Row>
+            {/* 收入按档位给区间；两端都「不限」就不带这个参数 */}
+            <IncomeRangeField
+              label="年收入"
+              min={f.incomeMin ?? 0}
+              max={f.incomeMax ?? 7}
+              onChange={(lo, hi) =>
+                setF({ ...f, incomeMin: lo > 0 ? lo : undefined, incomeMax: hi < 7 ? hi : undefined })
+              }
+            />
 
             <Row label="学历">
               <Chip on={f.education === undefined} onClick={() => setF({ ...f, education: undefined })}>
@@ -160,7 +131,7 @@ export default function Plaza() {
             </Row>
 
             <div className="flex justify-end pt-1">
-              <Button size="sm" variant="ghost" onClick={() => setF({ gender: undefined })}>
+              <Button size="sm" variant="ghost" onClick={() => setF({})}>
                 重置
               </Button>
             </div>
@@ -175,9 +146,9 @@ export default function Plaza() {
           <Empty
             icon={Search}
             title="没有找到符合条件的人"
-            desc="试着放宽一些条件——比如去掉学历要求，或扩大年龄范围。"
+            desc="试着放宽一些条件——比如去掉省份或学历的要求。"
             action={
-              <Button variant="outline" onClick={() => setF({ gender: undefined })}>
+              <Button variant="outline" onClick={() => setF({})}>
                 清除筛选条件
               </Button>
             }
