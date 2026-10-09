@@ -1,44 +1,91 @@
 #!/usr/bin/env bash
 #
-# 相悦 Mutual 部署脚本（后端 API + 前端静态站）
+# 相悦 Mutual 一键部署
 #
-# 部署形态：
-#   https://<域名>/            → nginx 提供前端静态文件
-#   https://<域名>/api/v1/*    → nginx 反代到本机的 Go API
-#   https://<域名>/api/v1/ws   → 同上，但需要 WebSocket 升级头
+#   sudo ./deploy/deploy.sh                 # 独立域名（需先加 DNS）
+#   sudo SUBPATH=mutual ./deploy/deploy.sh  # 挂主站子路径（不需 DNS）
 #
-# 用法：
-#   sudo ./deploy/deploy.sh
+# 做完全套：构建 → 数据库 → systemd → nginx → 证书 → 验收。
+# 数据库默认装一个专用实例（不碰机器上已有的那套）。
 #
-# 可覆盖的环境变量见下方。
+# 唯一需要人工的前置：独立域名模式下要先加一条 DNS 记录（脚本会提示）。
+#
+# 可覆盖变量：
+#   DOMAIN=mutual.jianjiange.site   独立域名模式的域名
+#   SUBPATH=mutual                  非空则挂到 https://<SITE>/<SUBPATH>/
+#   SITE=jianjiange.site            子路径模式挂靠的主站
+#   DB_MODE=local|external          local=自动装专用 PG；external=用 EXTERNAL_DSN
+#   API_PORT=8099  PG_PORT=5433
 set -euo pipefail
 
-# ---------------------------------------------------------------- 配置
 DOMAIN="${DOMAIN:-mutual.jianjiange.site}"
+SUBPATH="${SUBPATH:-}"
+SITE="${SITE:-jianjiange.site}"
 API_PORT="${API_PORT:-8099}"
+DB_MODE="${DB_MODE:-local}"
+PG_PORT="${PG_PORT:-5433}"
+
 API_DIR="${API_DIR:-/opt/mutual-api}"
+PG_DIR="${PG_DIR:-/opt/mutual-pg}"
+PG_DATA="${PG_DATA:-/opt/mutual-pgdata}"
 WEB_DIR="${WEB_DIR:-/opt/mutual-web}"
 NGINX_CONF="${NGINX_CONF:-/opt/jianjian/deploy/nginx/nginx.conf}"
 NGINX_HTML="${NGINX_HTML:-/opt/jianjian/deploy/nginx/html}"
 NGINX_CONTAINER="${NGINX_CONTAINER:-jianjian-nginx}"
 CERTBOT_DIR="${CERTBOT_DIR:-/opt/jianjian/deploy/certbot}"
 LE_EMAIL="${LE_EMAIL:-898168605@qq.com}"
-SUBPATH="${SUBPATH:-mutual}"        # 前端挂在子路径下，复用主站证书
 RUN_USER="${RUN_USER:-${SUDO_USER:-metabot}}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# 网页在 nginx 容器里的固定落点。容器的 /usr/share/nginx/html 是
+# 宿主 $NGINX_HTML 的只读挂载，所以网站文件必须放在这里容器才看得见。
+WEB_IN_CONTAINER="/usr/share/nginx/html/mutual"
+WEB_STAGE="$NGINX_HTML/mutual"
+
+# 两种模式的差异收敛成两个变量
+if [ -n "$SUBPATH" ]; then
+  MODE="subpath"
+  VITE_BASE="/$SUBPATH/"
+  WEB_URL_PATH="/$SUBPATH/"
+  API_URL_PATH="/$SUBPATH/api/"
+  ACCESS_URL="https://$SITE/$SUBPATH/"
+else
+  MODE="domain"
+  VITE_BASE="/"
+  WEB_URL_PATH="/"
+  API_URL_PATH="/api/"
+  ACCESS_URL="https://$DOMAIN/"
+fi
 
 log(){ printf '\n\033[36m==> %s\033[0m\n' "$*"; }
 warn(){ printf '\033[33m! %s\033[0m\n' "$*" >&2; }
 die(){ printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 [ "$(id -u)" = 0 ] || die "需要 root：sudo $0"
+[ -d "$REPO/server" ] || die "找不到 server/ 目录，请在仓库根目录执行"
 
-# ---------------------------------------------------------------- 1. 构建
-log "构建后端与前端"
+# ================================================================ 1. 前置检查
+log "前置检查"
 
-if ! command -v go >/dev/null 2>&1 && [ ! -x "$RUN_USER/.local/go/bin/go" ]; then
-  die "找不到 go，请先安装（可参考 README 的免 root 安装方式）"
+# 独立域名模式：没证书就意味着 DNS 还没指过来，早点发现比装到一半失败好
+if [ "$MODE" = "domain" ] && [ ! -d "$CERTBOT_DIR/conf/live/$DOMAIN" ]; then
+  if ! getent hosts "$DOMAIN" >/dev/null 2>&1; then
+    die "DNS 未解析 $DOMAIN。
+
+  请先在 Cloudflare 加一条记录：$DOMAIN → 111.228.14.136
+  加好后重跑本脚本。
+
+  或者用子路径模式免去这步（复用主站证书）：
+      sudo SUBPATH=mutual $0"
+  fi
 fi
+
 GO_BIN="$(command -v go 2>/dev/null || echo "$RUN_USER/.local/go/bin/go")"
+[ -x "$GO_BIN" ] || die "找不到 go，README 有免 root 的装法"
+command -v docker >/dev/null || die "找不到 docker"
+echo "  ✓ 环境检查通过（模式：$MODE）"
+
+# ================================================================ 2. 构建
+log "构建后端与前端"
 
 sudo -u "$RUN_USER" -H bash -lc "
   set -e
@@ -50,26 +97,106 @@ sudo -u "$RUN_USER" -H bash -lc "
 sudo -u "$RUN_USER" -H bash -lc "
   set -e
   cd '$REPO/web'
-  NODE_ENV=development npm install --include=dev --no-audit --no-fund >/dev/null
-  NODE_ENV=production VITE_BASE='/$SUBPATH/' npx vite build --outDir dist-deploy --logLevel warn
+  NODE_ENV=development npm install --include=dev --no-audit --no-fund >/dev/null 2>&1
+  NODE_ENV=production VITE_BASE='$VITE_BASE' npx vite build --outDir dist-deploy --logLevel warn
 " || die "前端构建失败"
-echo "  ✓ 构建完成"
+[ -f "$REPO/web/dist-deploy/index.html" ] || die "前端构建产物缺失"
+echo "  ✓ 构建完成（前端 base=$VITE_BASE）"
 
-# ---------------------------------------------------------------- 2. 落盘
-log "同步到 $API_DIR 与 $WEB_DIR"
-mkdir -p "$API_DIR" "$WEB_DIR"
+# ================================================================ 3. 落盘
+log "同步产物"
+# 前端放到 nginx 容器看得见的位置——两种模式都一样，
+# 差别只在 vhost 里怎么引用它
+mkdir -p "$WEB_STAGE" "$WEB_DIR" "$API_DIR"
 install -m 0755 /tmp/mutual-api "$API_DIR/mutual-api"
-rm -rf "${WEB_DIR:?}/"*
+rm -rf "${WEB_STAGE:?}/"*
+cp -r "$REPO/web/dist-deploy/." "$WEB_STAGE/"
 cp -r "$REPO/web/dist-deploy/." "$WEB_DIR/"
-# 同时放一份到 nginx 容器可见的目录（它是只读挂载进容器的）
-mkdir -p "$NGINX_HTML/$SUBPATH"
-rm -rf "${NGINX_HTML:?}/$SUBPATH"/*
-cp -r "$REPO/web/dist-deploy/." "$NGINX_HTML/$SUBPATH/"
-chmod -R a+rX "$WEB_DIR" "$NGINX_HTML/$SUBPATH"
-echo "  ✓ 后端二进制 $(du -h "$API_DIR/mutual-api" | cut -f1)，前端 $(find "$WEB_DIR" -type f | wc -l) 个文件"
+chmod -R a+rX "$WEB_STAGE" "$WEB_DIR"
+echo "  ✓ 后端 $(du -h "$API_DIR/mutual-api" | cut -f1)，前端 $(find "$WEB_STAGE" -type f | wc -l) 个文件"
 
-# ---------------------------------------------------------------- 3. 环境变量
-log "准备环境变量"
+# ================================================================ 4. 数据库
+log "准备数据库"
+
+postgres_unit=""
+if [ "$DB_MODE" = "local" ]; then
+  if [ ! -x "$PG_DIR/bin/postgres" ]; then
+    SRC_PG="$RUN_USER/.local/pg/usr/pgsql-14"
+    [ -x "$SRC_PG/bin/postgres" ] || die "找不到 PostgreSQL 二进制（$SRC_PG）"
+    mkdir -p "$PG_DIR"
+    cp -r "$SRC_PG/bin" "$SRC_PG/lib" "$SRC_PG/share" "$PG_DIR/"
+    mkdir -p "$PG_DIR/syslib"
+    cp -a "$RUN_USER/.local/pg/usr/lib64/"*.so* "$PG_DIR/syslib/" 2>/dev/null || true
+    echo "  ✓ PostgreSQL 二进制已就位"
+  fi
+
+  if [ ! -s "$PG_DATA/PG_VERSION" ]; then
+    mkdir -p "$PG_DATA/sock"
+    chown -R "$RUN_USER" "$PG_DATA"
+    # socket 目录必须显式指定：这份 PG 编译时把 /run/postgresql 写死了，
+    # 普通用户建不了那个目录，照默认走会启动失败
+    sudo -u "$RUN_USER" -H env LD_LIBRARY_PATH="$PG_DIR/lib:$PG_DIR/syslib" \
+      "$PG_DIR/bin/initdb" -D "$PG_DATA" -U mutual --encoding=UTF8 --locale=C >/dev/null
+    echo "  ✓ 数据库已初始化"
+  fi
+
+  cat > /etc/systemd/system/mutual-postgres.service <<UNIT
+[Unit]
+Description=相悦 Mutual PostgreSQL
+After=network-online.target
+
+[Service]
+Type=simple
+User=$RUN_USER
+Environment=LD_LIBRARY_PATH=$PG_DIR/lib:$PG_DIR/syslib
+ExecStart=$PG_DIR/bin/postgres -D $PG_DATA -p $PG_PORT -c listen_addresses=127.0.0.1 -c unix_socket_directories=$PG_DATA/sock
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable mutual-postgres >/dev/null
+  systemctl restart mutual-postgres
+
+  printf '  等待数据库就绪'
+  for _ in $(seq 1 25); do
+    if sudo -u "$RUN_USER" -H env LD_LIBRARY_PATH="$PG_DIR/lib:$PG_DIR/syslib" \
+        "$PG_DIR/bin/pg_isready" -h 127.0.0.1 -p "$PG_PORT" >/dev/null 2>&1; then break; fi
+    printf '.'; sleep 1
+  done
+  echo
+  systemctl is-active --quiet mutual-postgres || die "数据库没起来"
+
+  psql_run() {
+    sudo -u "$RUN_USER" -H env LD_LIBRARY_PATH="$PG_DIR/lib:$PG_DIR/syslib" \
+      "$PG_DIR/bin/psql" -h 127.0.0.1 -p "$PG_PORT" "$@"
+  }
+
+  psql_run -U mutual -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='mutual'" \
+    | grep -q 1 || psql_run -U mutual -d postgres -c "CREATE DATABASE mutual" >/dev/null
+  echo "  ✓ 库 mutual 就绪"
+
+  HAS_TABLES=$(psql_run -U mutual -d mutual -tAc \
+    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" || echo 0)
+  if [ "$HAS_TABLES" -lt 5 ]; then
+    psql_run -U mutual -d mutual -v ON_ERROR_STOP=1 -f "$REPO/schema.sql" >/dev/null
+    echo "  ✓ 表结构已导入"
+  else
+    echo "  ✓ 表结构已存在（跳过）"
+  fi
+
+  DSN="host=127.0.0.1 port=$PG_PORT user=mutual dbname=mutual sslmode=disable TimeZone=UTC"
+  postgres_unit="mutual-postgres.service"
+else
+  DSN="${EXTERNAL_DSN:-}"
+  [ -n "$DSN" ] || die "DB_MODE=external 时必须提供 EXTERNAL_DSN"
+  echo "  ✓ 使用外部数据库"
+fi
+
+# ================================================================ 5. 环境变量
+log "写入环境变量"
 ENV_FILE="$API_DIR/api.env"
 if [ ! -f "$ENV_FILE" ]; then
   cat > "$ENV_FILE" <<ENV
@@ -77,51 +204,40 @@ APP_ENV=prod
 PORT=$API_PORT
 TZ_NAME=Asia/Shanghai
 
-# 必填：数据库连接串
-DATABASE_DSN=host=127.0.0.1 port=5432 user=mutual password=CHANGE_ME dbname=mutual sslmode=disable
+DATABASE_DSN=$DSN
 
-# 必填：JWT 密钥（至少 32 位随机串）
-JWT_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n/+=' | head -c 48)
+JWT_SECRET=$(head -c 64 /dev/urandom | base64 | tr -d '\n/+=' | head -c 48)
 
-# Redis（可选，不可用时自动降级为无缓存）
+# 用独立的 DB 号，避免和机器上其他项目串键
 REDIS_ADDR=127.0.0.1:6379
+REDIS_DB=1
 
-# MinIO（必填，照片与头像存在这里）
+# 机器上已有的 MinIO
 MINIO_ENDPOINT=127.0.0.1:9000
-MINIO_ACCESS_KEY=CHANGE_ME
-MINIO_SECRET_KEY=CHANGE_ME
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
 MINIO_USE_SSL=false
+MINIO_BUCKET_PHOTOS=mutual-photos
+MINIO_BUCKET_AVATARS=mutual-avatars
 
-# 允许的前端来源
-ALLOW_ORIGINS=https://$DOMAIN,https://jianjiange.site
+ALLOW_ORIGINS=https://$SITE,https://$DOMAIN
 
 DAILY_LIKE_LIMIT=10
 MAX_PHOTOS=9
 ENV
   chmod 600 "$ENV_FILE"
-  warn "已生成 $ENV_FILE，请把 CHANGE_ME 换成真实值后重启服务"
+  echo "  ✓ 已生成 $ENV_FILE"
 else
   echo "  ✓ 保留已有 $ENV_FILE"
 fi
 
-# ---------------------------------------------------------------- 4. 数据库
-log "检查数据库表"
-grep -q "CHANGE_ME" "$ENV_FILE" && warn "数据库未配置，跳过建表（配好后重跑本脚本）" || {
-  DSN=$(grep '^DATABASE_DSN=' "$ENV_FILE" | cut -d= -f2-)
-  if command -v psql >/dev/null 2>&1; then
-    psql "$DSN" -v ON_ERROR_STOP=1 -f "$REPO/schema.sql" >/dev/null 2>&1 \
-      && echo "  ✓ schema 已应用" || warn "schema 应用失败（表可能已存在，可忽略）"
-  else
-    warn "找不到 psql，请手动执行 schema.sql 建表"
-  fi
-}
-
-# ---------------------------------------------------------------- 5. systemd
-log "安装 systemd 服务"
+# ================================================================ 6. API 服务
+log "安装 API systemd 服务"
 cat > /etc/systemd/system/mutual-api.service <<UNIT
 [Unit]
 Description=相悦 Mutual API
-After=network-online.target
+After=network-online.target ${postgres_unit}
+${postgres_unit:+Requires=$postgres_unit}
 
 [Service]
 Type=simple
@@ -140,7 +256,7 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable mutual-api >/dev/null
-# 每次部署都重启：代码已经换了，不重启跑的还是旧二进制
+# 端口若被手工起的实例占着，服务会 bind 失败，先清掉
 if ss -ltn 2>/dev/null | grep -q ":$API_PORT "; then
   for p in $(ss -ltnp 2>/dev/null | grep ":$API_PORT " | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
     kill "$p" 2>/dev/null || true
@@ -149,53 +265,100 @@ if ss -ltn 2>/dev/null | grep -q ":$API_PORT "; then
 fi
 systemctl restart mutual-api
 
-printf '  等待服务就绪'
-for _ in $(seq 1 20); do
-  if curl -fsS -o /dev/null "http://127.0.0.1:$API_PORT/health" 2>/dev/null; then break; fi
+printf '  等待 API 就绪'
+API_OK=0
+for _ in $(seq 1 25); do
+  if curl -fsS -o /dev/null "http://127.0.0.1:$API_PORT/health" 2>/dev/null; then API_OK=1; break; fi
   printf '.'; sleep 1
 done
 echo
-systemctl is-active --quiet mutual-api || { journalctl -u mutual-api -n 30 --no-pager; die "服务没起来"; }
-curl -fsS "http://127.0.0.1:$API_PORT/health" >/dev/null || die "健康检查失败"
+if [ "$API_OK" != "1" ]; then
+  echo "--- journalctl ---"; journalctl -u mutual-api -n 30 --no-pager 2>/dev/null || true
+  echo "--- $API_DIR/api.log ---"; tail -30 "$API_DIR/api.log" 2>/dev/null || true
+  die "API 没起来，日志见上"
+fi
 echo "  ✓ API 在跑（:$API_PORT）"
 
-# ---------------------------------------------------------------- 6. nginx
-log "合并 nginx 配置"
+# ================================================================ 7. 证书
+if [ "$MODE" = "domain" ] && [ ! -d "$CERTBOT_DIR/conf/live/$DOMAIN" ]; then
+  log "申请证书 $DOMAIN"
+  docker run --rm \
+    -v "$CERTBOT_DIR/conf:/etc/letsencrypt" \
+    -v "$CERTBOT_DIR/www:/var/www/certbot" \
+    certbot/certbot certonly --webroot -w /var/www/certbot \
+    -d "$DOMAIN" --email "$LE_EMAIL" --agree-tos --non-interactive \
+    || die "证书申请失败（DNS 可能还没生效，等几分钟重跑）"
+  echo "  ✓ 证书已签发"
+fi
 
-cat > /tmp/mutual.loc <<'LOC'
+# ================================================================ 8. nginx
+log "配置 nginx"
 
-    # ===== 相悦 Mutual =====
-    location /__SUBPATH__/api/ {
-        proxy_pass http://172.17.0.1:__API_PORT__/api/;
+PROXY_LOC="location ${API_URL_PATH} {
+        proxy_pass http://172.17.0.1:${API_PORT}/api/;
         proxy_http_version 1.1;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # WebSocket 必须带升级头，否则聊天连不上（任务照跑但前端收不到消息）
-        proxy_set_header Upgrade    $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Host              \$host;
+        proxy_set_header X-Real-IP         \$remote_addr;
+        proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        # WebSocket 必须带升级头，否则任务照跑但前端收不到消息
+        proxy_set_header Upgrade    \$http_upgrade;
+        proxy_set_header Connection \"upgrade\";
         proxy_buffering off;
         proxy_read_timeout 600s;
-    }
+    }"
 
-    location /__SUBPATH__/ {
-        alias /usr/share/nginx/html/__SUBPATH__/;
-        try_files $uri $uri/ /__SUBPATH__/index.html;
-    }
-LOC
-sed -i "s#__SUBPATH__#$SUBPATH#g; s#__API_PORT__#$API_PORT#g" /tmp/mutual.loc
+WEB_LOC="location ${WEB_URL_PATH} {
+        alias ${WEB_IN_CONTAINER}/;
+        try_files \$uri \$uri/ ${WEB_URL_PATH}index.html;
+    }"
 
 MARK="# ===== 相悦 Mutual ====="
+
 if grep -q "$MARK" "$NGINX_CONF"; then
-  echo "  ✓ 配置已存在"
-  if grep -q "172.17.0.1:$API_PORT" "$NGINX_CONF"; then
-    echo "  ✓ 端口一致，无需改动"
-  else
-    warn "端口变了，请手动更新 $NGINX_CONF 里的 Mutual 段"
-  fi
+  echo "  ✓ 配置已存在（改端口请手动更新后 reoad）"
 else
   cp "$NGINX_CONF" "$NGINX_CONF.bak.mutual.$(date +%Y%m%d-%H%M%S)"
+
+  if [ "$MODE" = "domain" ]; then
+    cat > /tmp/mutual.loc <<LOC
+
+    $MARK
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name $DOMAIN;
+        client_max_body_size 12m;
+        ssl_certificate     /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 1d;
+        ssl_session_tickets off;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+$(echo "$PROXY_LOC" | sed 's/^/        /')
+$(echo "$WEB_LOC" | sed 's/^/        /')
+    }
+    server {
+        listen 80;
+        server_name $DOMAIN;
+        return 301 https://\$host\$request_uri;
+    }
+LOC
+  else
+    cat > /tmp/mutual.loc <<LOC
+
+    $MARK
+$(echo "$PROXY_LOC" | sed 's/^/    /')
+$(echo "$WEB_LOC" | sed 's/^/    /')
+LOC
+  fi
+
   # 必须插在 http{} 的收尾大括号之前——直接追加会落到 http 块外，
   # nginx -t 报 "server directive is not allowed here"
   awk -v ins=/tmp/mutual.loc '
@@ -208,7 +371,7 @@ else
         print line[i]
       }
     }' "$NGINX_CONF" > /tmp/mutual.nginx.new
-  cat /tmp/mutual.nginx.new > "$NGINX_CONF"   # 原地覆盖，不能 sed -i
+  cat /tmp/mutual.nginx.new > "$NGINX_CONF"   # 原地覆盖，不能 sed -i（换 inode 容器读不到）
   echo "  ✓ 已插入配置"
 fi
 
@@ -220,16 +383,22 @@ fi
 docker exec "$NGINX_CONTAINER" nginx -s reload
 echo "  ✓ nginx 已 reload"
 
-# ---------------------------------------------------------------- 7. 验收
+# ================================================================ 9. 验收
 log "验收"
 sleep 1
-CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://jianjiange.site/$SUBPATH/" || true)
-API_CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://jianjiange.site/$SUBPATH/api/" || true)
-echo "  API   https://jianjiange.site/$SUBPATH/api/  -> $API_CODE（404 也正常，说明已反代到后端）"
-echo "  前端  https://jianjiange.site/$SUBPATH/  -> $CODE"
-[ "$CODE" = "200" ] || warn "前端返回 $CODE，检查 nginx 配置与文件权限"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$ACCESS_URL" || true)
+API_CODE=$(curl -s -o /dev/null -w '%{http_code}' "${ACCESS_URL}api/v1/quota" || true)
+echo "  网站首页  $ACCESS_URL        -> $CODE"
+echo "  API 探测  ${ACCESS_URL}api/v1/quota -> $API_CODE（401 属正常，说明已反代到后端）"
 
 echo
-echo "访问地址： https://jianjiange.site/$SUBPATH/"
-echo "API 日志： journalctl -u mutual-api -f   或  $API_DIR/api.log"
-echo "环境变量： $API_DIR/api.env"
+echo "════════════════════════════════════════════"
+echo " 访问地址： $ACCESS_URL"
+echo " 数据库：   $([ "$DB_MODE" = local ] && echo "本机专用实例 :$PG_PORT（数据 $PG_DATA）" || echo "外部")"
+echo " 环境变量： $ENV_FILE"
+echo " 日志：     journalctl -u mutual-api -f   或   $API_DIR/api.log"
+echo "════════════════════════════════════════════"
+echo
+echo "上线前还需处理："
+echo "  · 内容审核尚未接入 —— 照片目前自动过审。正式开放注册前要接内容安全服务。"
+echo "  · 若 MinIO 凭据不是 minioadmin，改 $ENV_FILE 后 systemctl restart mutual-api"
