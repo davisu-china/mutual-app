@@ -20,7 +20,7 @@ import Plaza from "../src/pages/Plaza";
 import Likes from "../src/pages/Likes";
 import Profile from "../src/pages/Profile";
 import UserDetail, { RelationActions } from "../src/pages/UserDetail";
-import { ChatEntry, ChatList, ChatRoom, MessageRow } from "../src/pages/Chat";
+import { ChatEntry, ChatList, ChatRoom, MessageRow, takeText } from "../src/pages/Chat";
 import { PhotoGrid } from "../src/components/profile/photo-grid";
 import { ProfileCard } from "../src/components/deck/profile-card";
 import { MatchOverlay } from "../src/components/deck/match-overlay";
@@ -131,6 +131,18 @@ console.log("\n=== 2. 关键组件渲染 ===");
   );
   check("配对文案说人话（不是「匹配成功」）", html.includes("你们互相喜欢"));
   check("有去聊天入口", html.includes("去打个招呼"));
+}
+
+// 连按 Enter 不该把同一条消息发两遍（React 的 setText 是异步的，会读到旧值）
+{
+  console.log("\n[连按 Enter 不发重]");
+  const box = { current: "你好呀" };
+  check("第一次按键取到内容", takeText(box) === "你好呀");
+  check("紧接着再按一次就没内容可发了", takeText(box) === "");
+  const blank = { current: "   " };
+  check("只有空格视为没内容", takeText(blank) === "");
+  box.current = "第二条";
+  check("发完再输入新内容照常能发", takeText(box) === "第二条");
 }
 
 // 他人主页的操作条：已经配对/喜欢/跳过的人不该再看到「喜欢」按钮

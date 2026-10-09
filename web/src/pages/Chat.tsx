@@ -106,6 +106,10 @@ export function ChatRoom() {
   const [peer, setPeer] = useState<{ userId: number; nickname: string; avatarUrl: string } | null>(null);
   const [myAvatar, setMyAvatar] = useState("");
   const [text, setText] = useState("");
+  // 输入框内容的「真源」是 ref，不是 state：setText 是异步的，
+  // 连按两次 Enter 时第二次拿到的还是旧值，同一条消息会发两遍
+  // （而且每次 clientMsgId 都是新生成的，服务端幂等也拦不住）。
+  const textRef = useRef("");
   const [frozen, setFrozen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -201,8 +205,11 @@ export function ChatRoom() {
   }, [convId, scrollToBottom]);
 
   async function send() {
-    const content = text.trim();
+    // 原子地「取走」输入框内容：取过一次就为空，所以连按 Enter
+    // 第二次会直接 return，不会把同一条消息发两遍。
+    const content = takeText(textRef);
     if (!content) return;
+    setText("");
 
     // 乐观上屏：本地先显示，带「发送中」态。失败再标红。
     const clientMsgId = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -217,7 +224,6 @@ export function ChatRoom() {
       clientMsgId,
     };
     setMsgs((prev) => [...(prev ?? []), optimistic]);
-    setText("");
     scrollToBottom();
 
     try {
@@ -301,7 +307,10 @@ export function ChatRoom() {
         <div className="mx-auto flex max-w-[520px] items-center gap-2 pb-safe">
           <input
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              textRef.current = e.target.value;
+              setText(e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -326,6 +335,19 @@ export function ChatRoom() {
       </footer>
     </div>
   );
+}
+
+/**
+ * 从输入框里「取走」内容：取过一次就为空。
+ *
+ * 消息只能靠输入框里当前的内容发出去，而 React 的 setText 是异步的——
+ * 连按两次 Enter 时第二次读到的还是旧值，于是同一条消息发两遍。
+ * 让「取走」这个动作同步地清空，重复触发自然就发不出去东西了。
+ */
+export function takeText(ref: { current: string }): string {
+  const v = ref.current.trim();
+  ref.current = "";
+  return v;
 }
 
 /**
