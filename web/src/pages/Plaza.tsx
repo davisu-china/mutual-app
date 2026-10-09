@@ -6,12 +6,18 @@ import { ListSkeleton, Empty } from "@/components/ui/empty";
 import { ProfileCard } from "@/components/deck/profile-card";
 import { ProvinceMultiField } from "@/components/picker/province-field";
 import { IncomeRangeField } from "@/components/picker/income-range-field";
+import { RangeSheetField } from "@/components/ui/range-sheet-field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, type Card } from "@/lib/api";
 import { EDUCATION } from "@/data/options";
 import { cn } from "@/lib/utils";
 
 interface Filter {
+  /** 年龄/身高：未设表示不限（后端只在带了这个参数时才加 SQL 条件） */
+  ageMin?: number;
+  ageMax?: number;
+  heightMin?: number;
+  heightMax?: number;
   /** 省份可多选，空/未设表示不限 */
   provinces?: string[];
   education?: number;
@@ -19,6 +25,12 @@ interface Filter {
   incomeMin?: number;
   incomeMax?: number;
 }
+
+// 年龄/身高的默认区间（也是「不限」的落点）
+const AGE_MIN = 18;
+const AGE_MAX = 70;
+const HEIGHT_MIN = 140;
+const HEIGHT_MAX = 210;
 
 /**
  * 恋爱广场。
@@ -37,6 +49,10 @@ export default function Plaza() {
 
   const qs = useMemo(() => {
     const p = new URLSearchParams();
+    if (f.ageMin !== undefined) p.set("ageMin", String(f.ageMin));
+    if (f.ageMax !== undefined) p.set("ageMax", String(f.ageMax));
+    if (f.heightMin !== undefined) p.set("heightMin", String(f.heightMin));
+    if (f.heightMax !== undefined) p.set("heightMax", String(f.heightMax));
     if (f.provinces?.length) p.set("provinces", f.provinces.join(","));
     if (f.education !== undefined) p.set("education", String(f.education));
     if (f.incomeMin !== undefined) p.set("incomeMin", String(f.incomeMin));
@@ -72,6 +88,8 @@ export default function Plaza() {
 
   // 一组筛选算一次（省份选了 5 个也只显示「筛选 · 1」）
   const activeCount =
+    (f.ageMin !== undefined || f.ageMax !== undefined ? 1 : 0) +
+    (f.heightMin !== undefined || f.heightMax !== undefined ? 1 : 0) +
     (f.provinces?.length ? 1 : 0) +
     (f.education !== undefined ? 1 : 0) +
     (f.incomeMin !== undefined || f.incomeMax !== undefined ? 1 : 0);
@@ -101,6 +119,40 @@ export default function Plaza() {
 
         {open && (
           <div className="mx-auto max-w-[520px] space-y-3 border-t border-line-soft px-5 py-4">
+            {/* 年龄、身高：区间收进弹层，面板里各占一行；拉到两端即「不限」 */}
+            <RangeSheetField
+              label="年龄"
+              min={AGE_MIN}
+              max={AGE_MAX}
+              valueMin={f.ageMin ?? AGE_MIN}
+              valueMax={f.ageMax ?? AGE_MAX}
+              format={(v) => `${v} 岁`}
+              onChange={(lo, hi) =>
+                setF({
+                  ...f,
+                  ageMin: lo > AGE_MIN ? lo : undefined,
+                  ageMax: hi < AGE_MAX ? hi : undefined,
+                })
+              }
+            />
+
+            <RangeSheetField
+              label="身高"
+              min={HEIGHT_MIN}
+              max={HEIGHT_MAX}
+              gap={5}
+              valueMin={f.heightMin ?? HEIGHT_MIN}
+              valueMax={f.heightMax ?? HEIGHT_MAX}
+              format={(v) => `${v} cm`}
+              onChange={(lo, hi) =>
+                setF({
+                  ...f,
+                  heightMin: lo > HEIGHT_MIN ? lo : undefined,
+                  heightMax: hi < HEIGHT_MAX ? hi : undefined,
+                })
+              }
+            />
+
             {/* 省份可多选，收进弹层——34 个省铺在筛选面板里会把面板撑爆 */}
             <ProvinceMultiField
               label="省份"

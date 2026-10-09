@@ -512,12 +512,16 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 	`)
 	args = append(args, uid, uid, uid)
 
+	// ⚠️ 这里必须用 make_interval + 显式 ::int，不能写成 (? || ' years')::interval：
+	// 后者会因为 || 把参数推断成 text，而 Go 的 int 编不进 text 参数，
+	// 运行时直接报 "unable to encode ... for text" —— 年龄筛选曾经因此整个不可用。
 	if f.AgeMin != nil {
-		sb.WriteString(" AND u.birthday <= (CURRENT_DATE - (? || ' years')::interval)")
+		sb.WriteString(" AND u.birthday <= (CURRENT_DATE - make_interval(years => ?::int))")
 		args = append(args, *f.AgeMin)
 	}
 	if f.AgeMax != nil {
-		sb.WriteString(" AND u.birthday >= (CURRENT_DATE - (? || ' years')::interval)")
+		// 生日 <= 今天-年龄 表示「已满 N 岁」，所以要 +1 取到「不超过 N 岁」的边界
+		sb.WriteString(" AND u.birthday >= (CURRENT_DATE - make_interval(years => ?::int))")
 		args = append(args, *f.AgeMax+1)
 	}
 	if f.HeightMin != nil {

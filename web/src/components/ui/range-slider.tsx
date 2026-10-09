@@ -15,6 +15,8 @@ interface Props {
   formatRange?: (lo: number, hi: number) => string;
   /** 轨道两端的小字，例如 140 / 210 */
   endLabels?: [string, string];
+  /** 不画标签行（弹层里用：标题已经说明是什么，再显示一行标签就重复了） */
+  hideLabel?: boolean;
   onChange: (lo: number, hi: number) => void;
 }
 
@@ -41,6 +43,7 @@ export function RangeField({
   format,
   formatRange,
   endLabels,
+  hideLabel = false,
   onChange,
 }: Props) {
   const Icon = fieldIcon(label);
@@ -67,15 +70,17 @@ export function RangeField({
 
   return (
     <div>
-      <div className="mb-1 flex items-baseline justify-between gap-3">
-        <p className="flex items-center gap-2 text-[15px] text-muted">
-          {Icon && <Icon size={18} strokeWidth={1.9} className="shrink-0 text-muted-2" aria-hidden="true" />}
-          {label}
-        </p>
-        <p className="truncate text-[15px] font-medium tabular-nums text-ink">
-          {formatRange ? formatRange(valueMin, valueMax) : `${format(valueMin)} – ${format(valueMax)}`}
-        </p>
-      </div>
+      {!hideLabel && (
+        <div className="mb-1 flex items-baseline justify-between gap-3">
+          <p className="flex items-center gap-2 text-[15px] text-muted">
+            {Icon && <Icon size={18} strokeWidth={1.9} className="shrink-0 text-muted-2" aria-hidden="true" />}
+            {label}
+          </p>
+          <p className="truncate text-[15px] font-medium tabular-nums text-ink">
+            {formatRange ? formatRange(valueMin, valueMax) : `${format(valueMin)} – ${format(valueMax)}`}
+          </p>
+        </div>
+      )}
 
       <div className="relative h-9">
         <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-line" />

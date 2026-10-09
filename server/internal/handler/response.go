@@ -6,6 +6,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -78,6 +79,9 @@ func mapErr(c *gin.Context, err error) {
 			fail(c, http.StatusBadRequest, "INVALID_INPUT", inv.Msg)
 			return
 		}
+		// 未映射的错误一定要留下日志：上面那个「年龄筛选参数被推断成 text」的
+		// 问题就是因为只回了 500、日志里什么都不说，才一直没人发现。
+		log.Printf("[error] %s %s -> %v", c.Request.Method, c.Request.URL.Path, err)
 		fail(c, http.StatusInternalServerError, "INTERNAL", "服务暂时不可用，请稍后重试")
 	}
 }

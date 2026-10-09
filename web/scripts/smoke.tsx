@@ -35,6 +35,7 @@ import { INCOME, INCOME_MIN_CHOICES, INCOME_MAX_CHOICES } from "../src/data/opti
 import { INCOME_LABEL_RANGE } from "../src/data/options";
 import { IncomeRangeField } from "../src/components/picker/income-range-field";
 import { RangeField } from "../src/components/ui/range-slider";
+import { RangeSheetField } from "../src/components/ui/range-sheet-field";
 import { ProvinceMultiField } from "../src/components/picker/province-field";
 import { UniversityField } from "../src/components/picker/university-field";
 import { loadUniversities, searchSchools, OTHER_SCHOOL } from "../src/data/universities";
@@ -200,6 +201,19 @@ function rangeAndProvinceChecks() {
   check("区间是两根原生滑杆（叠在一根轨道上）", (h.match(/type="range"/g) ?? []).length === 2);
   check("滑杆有无障碍标签", h.includes("期望身高下限") && h.includes("期望身高上限"));
   check("轨道两端有刻度说明", h.includes("140") && h.includes("210"));
+
+  // 区间弹层字段（广场的年龄/身高用它）
+  const rsIdle = renderToString(
+    <RangeSheetField label="年龄" min={18} max={70} valueMin={18} valueMax={70}
+      format={(v) => `${v} 岁`} onChange={() => {}} />
+  );
+  check("区间字段未设时只显示「不限」", rsIdle.includes("不限") && !rsIdle.includes("18 岁 – 70 岁"));
+  check("区间字段收起时不渲染轨道", !rsIdle.includes('type="range"'));
+  const rsSet = renderToString(
+    <RangeSheetField label="身高" min={140} max={210} gap={5} valueMin={165} valueMax={180}
+      format={(v) => `${v} cm`} onChange={() => {}} />
+  );
+  check("区间字段已设时行内显示区间", rsSet.includes("165 cm – 180 cm"));
 
   const inc = renderToString(
     <IncomeRangeField label="期望年收入" min={0} max={7} onChange={() => {}} />
