@@ -30,10 +30,12 @@ type UploadService struct {
 	db      *gorm.DB
 	cfg     *config.Config
 	storage *infra.Storage
+	// 缩略图内存缓存（见 media_resize.go）
+	thumbs *thumbCache
 }
 
 func NewUploadService(db *gorm.DB, cfg *config.Config, storage *infra.Storage) *UploadService {
-	return &UploadService{db: db, cfg: cfg, storage: storage}
+	return &UploadService{db: db, cfg: cfg, storage: storage, thumbs: newThumbCache(96 << 20)}
 }
 
 type PresignResult struct {

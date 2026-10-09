@@ -170,7 +170,7 @@ export function PhotoGrid({ photos, onChange }: { photos: Photo[]; onChange: (p:
               overIdx === i && dragIdx !== i ? "ring-2 ring-brand" : ""
             )}
           >
-            <img src={p.url} alt="" draggable={false} className="h-full w-full object-cover" />
+            <img loading="lazy" decoding="async" src={p.url} alt="" draggable={false} className="h-full w-full object-cover" />
             {i === 0 && (
               <span className="absolute left-1 top-1 rounded bg-black/55 px-1.5 py-[1px] text-[9px] text-white">
                 主图

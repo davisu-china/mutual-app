@@ -422,6 +422,22 @@ WEB_LOC="location ${LOC_MOD}${WEB_URL_PATH} {
     try_files \$uri \$uri/ ${WEB_URL_PATH}index.html;
 }"
 
+# 静态资源与首页的缓存策略。
+#
+# 前端产物是**带内容哈希**的（index-a1b2c3.js），换了内容文件名就变，
+# 所以可以永久缓存——重复访问不用再下一次 130KB 的包。
+# 而 index.html 必须不缓存：不给这个头，浏览器会按「距上次修改时间的 10%」
+# 启发式缓存，于是**部署完了用户可能几个小时都看不到新版本**——
+# 自己测的时候最容易误判成「改了没生效」。
+CACHE_LOC="location ^~ ${WEB_URL_PATH}assets/ {
+    alias ${WEB_IN_CONTAINER}/assets/;
+    add_header Cache-Control \"public, max-age=31536000, immutable\";
+}
+    location = ${WEB_URL_PATH}index.html {
+    alias ${WEB_IN_CONTAINER}/index.html;
+    add_header Cache-Control \"no-store\";
+}"
+
 MARK="# ===== 相悦 Mutual ====="
 
 # 「是否已经配过」必须分模式判断。
@@ -532,6 +548,7 @@ else
         add_header X-Robots-Tag "noindex, nofollow" always;
 $(printf '%s\n' "$PROXY_LOC" | sed 's/^/        /')
 $(printf '%s\n' "$WEB_LOC" | sed 's/^/        /')
+$(printf '%s\n' "$CACHE_LOC" | sed 's/^/        /')
     }
     server {
         listen 80;
@@ -550,6 +567,7 @@ LOC
         }
 $(printf '%s\n' "$PROXY_LOC" | sed 's/^/        /')
 $(printf '%s\n' "$WEB_LOC" | sed 's/^/        /')
+$(printf '%s\n' "$CACHE_LOC" | sed 's/^/        /')
 LOC
   fi
 
@@ -586,6 +604,42 @@ if [ "$MODE" = "subpath" ] && ! grep -qF "location = ${WEB_URL_PATH%/} {" "$NGIN
     }' "$NGINX_CONF" > /tmp/mutual.nginx.new
   cat /tmp/mutual.nginx.new > "$NGINX_CONF"
   echo "  ✓ 已补上 /${SUBPATH}（不带尾斜杠）的跳转"
+fi
+
+# 静态资源/首页的缓存头也一样要能补进老部署。放在 nginx -t 之前，失败仍走回滚。
+# 注意判据要用**我们自己那条 location**，不能用 "max-age=31536000, immutable" ——
+# 主站的 /_next/static/ 早就有一条一模一样的头，用它当判据会让这段永远不执行。
+if ! grep -qF "location ^~ ${WEB_URL_PATH}assets/ {" "$NGINX_CONF"; then
+  cp "$NGINX_CONF" "$NGINX_CONF.bak.mutual.$(date +%Y%m%d-%H%M%S)"
+  if [ "$MODE" = "subpath" ]; then
+    ANCHOR="$MARK"
+  else
+    ANCHOR="server_name $DOMAIN;"
+  fi
+  cat > /tmp/mutual.cache.loc <<LOC
+        location ^~ ${WEB_URL_PATH}assets/ {
+            alias ${WEB_IN_CONTAINER}/assets/;
+            add_header Cache-Control "public, max-age=31536000, immutable";
+        }
+        location = ${WEB_URL_PATH}index.html {
+            alias ${WEB_IN_CONTAINER}/index.html;
+            add_header Cache-Control "no-store";
+        }
+LOC
+  # 插在锚点行之后：两种模式下锚点都在 server 块内部，location 放这儿合法
+  awk -v ins=/tmp/mutual.cache.loc -v anchor="$ANCHOR" '
+    BEGIN { done = 0 }
+    {
+      print
+      if (!done && index($0, anchor) > 0) {
+        while ((getline l < ins) > 0) print l
+        close(ins)
+        done = 1
+      }
+    }
+    END { if (!done) exit 3 }' "$NGINX_CONF" > /tmp/mutual.nginx.new || die "没找到锚点「$ANCHOR」，无法补缓存头配置"
+  cat /tmp/mutual.nginx.new > "$NGINX_CONF"
+  echo "  ✓ 已补上静态资源缓存头（assets 永久缓存 / index.html 不缓存）"
 fi
 
 if ! docker exec "$NGINX_CONTAINER" nginx -t; then

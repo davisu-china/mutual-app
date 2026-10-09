@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -68,6 +69,40 @@ func (h *MediaHandler) Get(c *gin.Context) {
 		return
 	}
 
+	// 默认给缩略图：卡片/列表上只显示一两百像素，而用户传的是手机原图（几 MB），
+	// 这台机器的公网上行只有 ~0.47MB/s——不缩的话首屏就是几秒钟的白块。
+	// `?w=` 指定宽度，`?full=1` 取原图（给将来的大图查看用）。
+	width := service.DefaultThumbWidth
+	if v := c.Query("w"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			width = n
+		}
+	}
+	if c.Query("full") == "1" {
+		width = 0
+	}
+
+	// 同一张图、同一宽度，内容永远一样（对象名带 uuid，不会复用），
+	// 所以 ETag 直接用 key+宽度算，省掉一次图片传输。
+	etag := fmt.Sprintf(`"%s@%d"`, key, width)
+	if c.GetHeader("If-None-Match") == etag {
+		c.Status(http.StatusNotModified)
+		return
+	}
+	c.Header("ETag", etag)
+	c.Header("Cache-Control", "private, max-age=86400")
+
+	if width > 0 {
+		if data, ct, ok := h.svc.ThumbBytes(c.Request.Context(), key, width); ok {
+			c.Header("Content-Type", ct)
+			c.Header("Content-Length", strconv.Itoa(len(data)))
+			c.Status(http.StatusOK)
+			_, _ = c.Writer.Write(data)
+			return
+		}
+		// 缩不了（不认识的编码等）就回原图，不能因为缩略图失败让图片打不开
+	}
+
 	obj, contentType, size, err := h.svc.OpenMedia(c.Request.Context(), key)
 	if err != nil {
 		if errors.Is(err, service.ErrMediaNotFound) {
@@ -79,8 +114,6 @@ func (h *MediaHandler) Get(c *gin.Context) {
 	}
 	defer obj.Close()
 
-	// 私有内容：允许浏览器缓存，但只允许私有缓存（共享缓存里不能留副本）
-	c.Header("Cache-Control", "private, max-age=3600")
 	c.Header("Content-Type", contentType)
 	if size > 0 {
 		c.Header("Content-Length", strconv.FormatInt(size, 10))

@@ -56,7 +56,7 @@ export function ChatList() {
               >
                 <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-line-soft">
                   {c.peerAvatar ? (
-                    <img src={c.peerAvatar} alt="" className="h-full w-full object-cover" />
+                    <img loading="lazy" decoding="async" src={c.peerAvatar} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <span className="flex h-full items-center justify-center text-[16px] font-bold text-muted-2">
                       {c.peerNickname.slice(0, 1)}

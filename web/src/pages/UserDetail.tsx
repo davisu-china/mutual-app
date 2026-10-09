@@ -81,7 +81,12 @@ export default function UserDetail() {
         {(photos.length ? photos : [{ id: 0, url: main, sortOrder: 1 }]).map((ph, i) => (
           <div key={ph.id ?? i} className="h-[380px] w-full shrink-0 snap-center bg-line-soft">
             {ph.url ? (
-              <img src={ph.url} alt="" className="h-full w-full object-cover" />
+              <img
+                src={ph.url}
+                alt=""
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
             ) : null}
           </div>
         ))}

@@ -22,6 +22,7 @@ export function ProfileCard({ card, compact }: { card: Card; compact?: boolean }
           <img
             src={photo}
             alt=""
+            decoding="async"
             className="h-full w-full object-cover"
             // 图片解码是异步的，加个淡入避免「白块突然变图」的跳动
             onLoad={(e) => (e.currentTarget.style.opacity = "1")}
