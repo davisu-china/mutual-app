@@ -42,7 +42,7 @@ app/                    expo-router 的页面（文件即路由）
   _layout.tsx           根：手势根容器 / 安全区 / 会话 / 全局提示
   index.tsx             启动分流（未登录 → 登录；未填资料 → 向导）
   login.tsx             登录 / 注册
-  (tabs)/               底部五个 Tab：发现 / 广场 / 心动 / 消息 / 我的
+  (tabs)/               底部五个 Tab：推荐 / 广场 / 心动 / 消息 / 我的
   chat/[id].tsx         聊天室（WebSocket 实时）
   user/[id].tsx         TA 的主页
   onboarding.tsx        资料向导（占位，见下）

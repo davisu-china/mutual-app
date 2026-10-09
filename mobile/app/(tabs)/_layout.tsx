@@ -24,7 +24,7 @@ interface TabBarProps {
 }
 
 const ICONS: Record<string, { on: IconName; off: IconName; label: string }> = {
-  index: { on: "compass", off: "compass-outline", label: "发现" },
+  index: { on: "sparkles", off: "sparkles-outline", label: "推荐" },
   plaza: { on: "grid", off: "grid-outline", label: "广场" },
   likes: { on: "heart", off: "heart-outline", label: "心动" },
   chat: { on: "chatbubble", off: "chatbubble-outline", label: "消息" },

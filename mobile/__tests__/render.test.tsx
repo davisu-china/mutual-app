@@ -71,6 +71,7 @@ import ChatList from "../app/(tabs)/chat";
 import ChatRoom from "../app/chat/[id]";
 import UserDetail from "../app/user/[id]";
 import Me from "../app/(tabs)/me";
+import { api } from "@/lib/api";
 import type { Card } from "@/lib/types";
 
 const card: Card = {
@@ -116,7 +117,7 @@ function renderScreen(name: string, ui: React.ReactElement) {
 describe("页面与组件渲染", () => {
   it("所有页面都能渲染出来", () => {
     renderScreen("登录页", <Login />);
-    renderScreen("发现（划卡）", <Discover />);
+    renderScreen("推荐（划卡）", <Discover />);
     renderScreen("恋爱广场", <Plaza />);
     renderScreen("心动", <Likes />);
     renderScreen("消息列表", <ChatList />);
@@ -125,6 +126,41 @@ describe("页面与组件渲染", () => {
     renderScreen("TA 的主页", <UserDetail />);
     renderScreen("资料向导", <Onboarding />);
     expect(failed).toBe(0);
+  });
+
+  it("推荐页的卡栈：一次只画三张，滑卡提示与按钮都在", async () => {
+    // 上面那条用例里 /cards 返回空对象 → 走的是"没有推荐"的空态，
+    // 卡栈那一整块（手势、纵深、提示）根本没被执行到。这里给它真的卡片。
+    const get = api.get as jest.Mock;
+    const original = get.getMockImplementation();
+    const deck: Card[] = [
+      card,
+      { ...card, userId: 3, nickname: "阿雅" },
+      { ...card, userId: 4, nickname: "林深" },
+      { ...card, userId: 5, nickname: "多余的第四张" },
+    ];
+    get.mockImplementation(async (url: string) =>
+      String(url).startsWith("/cards") ? { cards: deck, quota: { used: 0, limit: 10, remain: 10 } } : {}
+    );
+
+    try {
+      const r = render(wrap(<Discover />));
+      await r.findByText("小晴");
+
+      // 后面两张是"露出一点点"的预览，对无障碍是隐藏的，所以要显式带上
+      expect(r.getByText("阿雅", { includeHiddenElements: true })).toBeTruthy();
+      expect(r.getByText("林深", { includeHiddenElements: true })).toBeTruthy();
+      // 第四张不进栈
+      expect(r.queryByText("多余的第四张", { includeHiddenElements: true })).toBeNull();
+
+      // 滑动是加成，按钮是兜底——屏幕阅读器用户只有按钮可用，不能少
+      expect(r.getByLabelText("喜欢")).toBeTruthy();
+      expect(r.getByLabelText("跳过")).toBeTruthy();
+      expect(r.getByText("左滑跳过 · 右滑喜欢")).toBeTruthy();
+      expect(r.getByText(/今日还可喜欢 10 人/)).toBeTruthy();
+    } finally {
+      get.mockImplementation(original);
+    }
   });
 
   it("关键组件渲染出该有的东西", () => {
