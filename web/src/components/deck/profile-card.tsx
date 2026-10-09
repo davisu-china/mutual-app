@@ -15,7 +15,7 @@ function distanceText(km: number): string {
 export function ProfileCard({ card, compact }: { card: Card; compact?: boolean }) {
   const photo = card.photos?.[0] || card.avatarUrl;
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[18px] border border-black/5 bg-surface shadow-card">
+    <div className="flex h-full flex-col overflow-hidden rounded-card border border-ink/[.06] bg-surface shadow-card">
       {/* 主图 */}
       <div className="relative shrink-0 overflow-hidden" style={{ height: compact ? 200 : 216 }}>
         {photo ? (
@@ -39,7 +39,7 @@ export function ProfileCard({ card, compact }: { card: Card; compact?: boolean }
           </span>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-4 pb-3 pt-10">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 via-ink/25 to-transparent px-4 pb-3.5 pt-16">
           <p className="text-[17px] font-bold leading-tight text-white drop-shadow">
             {card.nickname}
           </p>

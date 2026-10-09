@@ -33,7 +33,7 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-[#1C1618] px-8"
+      className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-ink px-8"
       role="dialog"
       aria-modal="true"
     >
@@ -45,7 +45,7 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
         className="pointer-events-none absolute h-[420px] w-[420px] rounded-full"
         style={{
           background:
-            "radial-gradient(circle, rgba(228,89,107,.55) 0%, rgba(228,89,107,0) 68%)",
+            "radial-gradient(circle, rgba(192,69,90,.40) 0%, rgba(168,118,62,.30) 42%, rgba(168,118,62,0) 72%)",
         }}
       />
 
@@ -55,13 +55,13 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
           initial={{ x: -150, opacity: 0, scale: 0.8 }}
           animate={{ x: 0, opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          className="h-[76px] w-[76px] overflow-hidden rounded-full border-[2.5px] border-[#1C1618]"
-          style={{ boxShadow: "0 0 0 3px rgba(228,89,107,.35)" }}
+          className="h-[76px] w-[76px] overflow-hidden rounded-full border-[2.5px] border-ink"
+          style={{ boxShadow: "0 0 0 3px rgba(192,69,90,.30)" }}
         >
           {myAvatar ? (
             <img src={myAvatar} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="h-full w-full bg-gradient-to-br from-[#F0C6D0] to-[#C9A7B8]" />
+            <div className="h-full w-full bg-gradient-to-br from-brand-soft to-brand-line" />
           )}
         </motion.div>
 
@@ -70,7 +70,7 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.34, type: "spring", stiffness: 320, damping: 14 }}
           className="z-10 -mx-2 text-[26px] leading-none text-brand"
-          style={{ textShadow: "0 0 18px rgba(228,89,107,.9)" }}
+          style={{ textShadow: "0 0 18px rgba(168,118,62,.85)" }}
         >
           ♥
         </motion.div>
@@ -79,13 +79,13 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
           initial={{ x: 150, opacity: 0, scale: 0.8 }}
           animate={{ x: 0, opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          className="h-[76px] w-[76px] overflow-hidden rounded-full border-[2.5px] border-[#1C1618]"
-          style={{ boxShadow: "0 0 0 3px rgba(228,89,107,.35)" }}
+          className="h-[76px] w-[76px] overflow-hidden rounded-full border-[2.5px] border-ink"
+          style={{ boxShadow: "0 0 0 3px rgba(168,118,62,.30)" }}
         >
           {peerAvatar ? (
             <img src={peerAvatar} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="h-full w-full bg-gradient-to-br from-[#C7D2E8] to-[#9FAECB]" />
+            <div className="h-full w-full bg-gradient-to-br from-gold-soft to-gold-line" />
           )}
         </motion.div>
       </div>
@@ -96,7 +96,7 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
         transition={{ delay: 0.36, type: "spring", stiffness: 260, damping: 18 }}
         className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-brand/15"
       >
-        <Heart size={28} strokeWidth={2} className="text-[#F2748A]" aria-hidden="true" />
+        <Heart size={28} strokeWidth={2} className="text-gold" aria-hidden="true" />
       </motion.div>
 
       <motion.h3
@@ -125,7 +125,7 @@ export function MatchOverlay({ myAvatar, peerAvatar, peerNickname, onChat, onClo
         <button
           type="button"
           onClick={onChat}
-          className="rounded-full bg-gradient-to-br from-[#EF7183] to-[#D8445C] py-3 text-[14px] font-semibold text-white transition-transform active:scale-[0.97]"
+          className="rounded-full bg-gradient-to-br from-brand to-brand-dark py-3 text-[14px] font-semibold text-white transition-transform active:scale-[0.97]"
         >
           去打个招呼
         </button>

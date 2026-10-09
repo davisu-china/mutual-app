@@ -74,7 +74,7 @@ export default function Likes() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <header className="sticky top-0 z-10 border-b border-line-soft bg-paper/95 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-line/70 bg-paper/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[520px] items-center gap-5 px-5 pb-0 pt-3">
           <TabBtn on={tab === "likes"} onClick={() => setTab("likes")} icon={Heart}>
             喜欢我
@@ -151,7 +151,7 @@ export default function Likes() {
                     <button
                       type="button"
                       onClick={() => likeBack(u)}
-                      className="rounded-full bg-gradient-to-br from-[#EF7183] to-[#D8445C] px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition-transform active:scale-95"
+                      className="rounded-full bg-gradient-to-br from-brand to-brand-dark px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition-transform active:scale-95"
                     >
                       回喜欢
                     </button>

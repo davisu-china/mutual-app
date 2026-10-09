@@ -11,17 +11,21 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
+// 主按钮：干玫瑰底 + 克制的玫瑰柔光 + 顶部一道极淡的内高光。
+// 内高光是廉价感与高级感的分界线——纯色块按下去像贴纸，有一点光才有"厚度"。
 const variants: Record<Variant, string> = {
-  primary: "bg-brand text-white hover:bg-brand-dark shadow-brand/60 shadow-md",
+  primary:
+    "bg-brand text-white hover:bg-brand-dark shadow-brand " +
+    "shadow-[inset_0_1px_0_rgba(255,255,255,.16)]",
   ghost: "text-ink hover:bg-line-soft",
-  outline: "border border-line bg-surface text-ink hover:border-brand/40",
-  danger: "border border-line bg-surface text-brand hover:bg-brand-soft",
+  outline: "border border-line bg-surface text-ink hover:border-brand/40 hover:bg-brand-soft/40",
+  danger: "border border-brand-line bg-surface text-brand hover:bg-brand-soft",
 };
 
 const sizes: Record<Size, string> = {
   sm: "px-3 py-1.5 text-[13px] rounded-lg",
-  md: "px-4 py-3 text-[15px] rounded-field",
-  lg: "px-5 py-3.5 text-[16px] rounded-field",
+  md: "px-4 py-3 text-[15px] tracking-[.01em] rounded-field",
+  lg: "px-5 py-3.5 text-[16px] tracking-[.01em] rounded-field",
 };
 
 export function Button({

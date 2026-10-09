@@ -31,7 +31,7 @@ export function ChatList() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <header className="sticky top-0 z-10 border-b border-line-soft bg-paper/95 px-5 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-line/70 bg-paper/85 backdrop-blur-xl px-5 py-3 backdrop-blur">
         <span className="text-[17px] font-bold text-ink">消息</span>
       </header>
 
@@ -248,7 +248,7 @@ export function ChatRoom() {
 
   return (
     <div className="flex h-screen flex-col bg-paper">
-      <header className="flex shrink-0 items-center gap-3 border-b border-line-soft bg-paper/95 px-4 py-3 backdrop-blur">
+      <header className="flex shrink-0 items-center gap-3 border-b border-line/70 bg-paper/85 backdrop-blur-xl px-4 py-3 backdrop-blur">
         <button type="button" onClick={() => nav("/chat")} className="text-muted-2" aria-label="返回">
           <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
         </button>
@@ -327,7 +327,7 @@ export function ChatRoom() {
             onClick={send}
             disabled={!text.trim() || frozen}
             aria-label="发送"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#EF7183] to-[#D8445C] text-white transition-transform active:scale-95 disabled:opacity-40"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-brand-dark text-white transition-transform active:scale-95 disabled:opacity-40"
           >
             <Send size={17} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -391,8 +391,8 @@ export function MessageRow({
         className={cn(
           "max-w-[76%] break-words rounded-2xl px-3.5 py-2.5 text-[14px] leading-relaxed",
           mine
-            ? "rounded-br-[5px] bg-gradient-to-br from-[#EF7183] to-[#D8445C] text-white"
-            : "rounded-bl-[5px] border border-line-soft bg-surface text-ink",
+            ? "rounded-br-[5px] bg-gradient-to-br from-brand to-brand-dark text-white shadow-[0_2px_8px_rgba(192,69,90,.20)]"
+            : "rounded-bl-[5px] border border-line/70 bg-surface text-ink shadow-[0_1px_2px_rgba(27,22,20,.04)]",
           message.status === "failed" && "opacity-60"
         )}
       >

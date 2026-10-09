@@ -37,8 +37,8 @@ function cnBase(...c: (string | undefined)[]) {
 
 export function CardSkeleton() {
   return (
-    <div className="rounded-[18px] border border-line bg-surface p-4 shadow-card">
-      <Skeleton className="mb-4 h-[216px] w-full rounded-[14px]" />
+    <div className="rounded-card border border-line bg-surface p-4 shadow-card">
+      <Skeleton className="mb-4 h-[216px] w-full rounded-field" />
       <Skeleton className="mb-2 h-5 w-2/5" />
       <Skeleton className="mb-4 h-4 w-3/5" />
       <div className="flex gap-2">

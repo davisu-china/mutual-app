@@ -40,10 +40,15 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col justify-center bg-paper px-6 pb-16">
-      <div className="mx-auto w-full max-w-[400px]">
+    <div className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-paper px-6 pb-16">
+      {/* 顶部一层柔和的玫瑰光：登录页是全站第一印象，纯色底显得像内部工具 */}
+      <div
+        className="pointer-events-none absolute inset-x-0 -top-40 h-96 bg-[radial-gradient(60%_60%_at_50%_50%,rgba(192,69,90,.14),transparent_70%)]"
+        aria-hidden="true"
+      />
+      <div className="relative mx-auto w-full max-w-[400px]">
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#F4909F] to-[#E4596B] shadow-brand">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-brand to-brand-deep shadow-brand">
             <HeartHandshake size={30} strokeWidth={1.9} className="text-white" aria-hidden="true" />
           </div>
           <h1 className="font-sans text-[34px] font-bold tracking-tight text-ink">相悦</h1>
@@ -109,7 +114,7 @@ export default function Login() {
                 type="checkbox"
                 checked={agreed}
                 onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-[3px] h-4 w-4 shrink-0 accent-[#E4596B]"
+                className="mt-[3px] h-4 w-4 shrink-0 accent-brand"
               />
               <span>
                 我已阅读并同意

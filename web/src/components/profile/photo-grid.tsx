@@ -165,7 +165,7 @@ export function PhotoGrid({ photos, onChange }: { photos: Photo[]; onChange: (p:
             key={p.id}
             onPointerDown={(e) => onPointerDown(e, i)}
             className={cn(
-              "relative aspect-square overflow-hidden rounded-[9px] bg-line-soft transition-transform",
+              "relative aspect-square overflow-hidden rounded-field bg-line-soft transition-transform",
               dragIdx === i ? "z-10 scale-[1.04] shadow-card" : "",
               overIdx === i && dragIdx !== i ? "ring-2 ring-brand" : ""
             )}
@@ -199,7 +199,7 @@ export function PhotoGrid({ photos, onChange }: { photos: Photo[]; onChange: (p:
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             aria-label="添加照片"
-            className="flex aspect-square items-center justify-center rounded-[9px] border-[1.5px] border-dashed border-line text-brand transition-colors hover:border-brand/50 disabled:opacity-50"
+            className="flex aspect-square items-center justify-center rounded-field border-[1.5px] border-dashed border-line text-brand transition-colors hover:border-brand/50 disabled:opacity-50"
           >
             {uploading ? (
               <span className="text-[12px] text-muted-2">上传中</span>

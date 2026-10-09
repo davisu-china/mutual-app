@@ -135,7 +135,7 @@ export default function Discover() {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
       {/* 顶部额度 */}
-      <header className="flex items-center justify-between px-5 py-3">
+      <header className="flex items-center justify-between px-5 pb-3 pt-4">
         <span className="text-[17px] font-bold tracking-tight text-ink">相悦</span>
         <span
           className={cn(
@@ -217,7 +217,7 @@ export default function Discover() {
             onClick={() => act("pass")}
             className={cn(
               "flex h-14 w-14 items-center justify-center rounded-full border border-line bg-surface",
-              "text-[#8B8489] shadow-sm transition-all duration-150",
+              "text-muted shadow-sm transition-all duration-150",
               "active:scale-95 disabled:opacity-40",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             )}
@@ -232,8 +232,8 @@ export default function Discover() {
             onClick={() => act("like")}
             className={cn(
               "flex h-16 w-16 items-center justify-center rounded-full text-white",
-              "bg-gradient-to-br from-[#EF7183] to-[#D8445C]",
-              "shadow-[0_6px_18px_rgba(228,89,107,.38)] transition-all duration-150",
+              "bg-gradient-to-br from-brand to-brand-dark",
+              "shadow-[0_6px_18px_rgba(192,69,90,.34)] transition-all duration-150",
               "active:scale-95 disabled:opacity-40 disabled:shadow-none",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
             )}

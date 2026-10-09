@@ -113,7 +113,7 @@ function TabBar() {
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line-soft bg-surface/95 backdrop-blur">
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line/70 bg-surface/85 backdrop-blur-xl">
       <div className="mx-auto flex max-w-[520px] pb-safe pt-1.5">
         {tabs.map((t) => {
           const on = t.path === "/" ? loc.pathname === "/" : loc.pathname.startsWith(t.path);
@@ -124,13 +124,21 @@ function TabBar() {
               onClick={() => nav(t.path)}
               className="relative flex flex-1 flex-col items-center gap-1 py-1.5"
             >
-              {/* 选中态把图标加粗一档，比只换颜色更容易一眼扫到 */}
-              <t.Icon
-                size={22}
-                strokeWidth={on ? 2.4 : 1.8}
-                className={cn("transition-colors", on ? "text-brand" : "text-muted-2")}
-                aria-hidden="true"
-              />
+              {/* 选中态：柔和的玫瑰胶囊底 + 图标加粗一档。
+                  只换颜色在浅色底上不够醒目，加个底才像"当前在这里"。 */}
+              <span
+                className={cn(
+                  "flex h-7 w-12 items-center justify-center rounded-full transition-colors duration-200",
+                  on ? "bg-brand-soft" : "bg-transparent"
+                )}
+              >
+                <t.Icon
+                  size={21}
+                  strokeWidth={on ? 2.3 : 1.8}
+                  className={cn("transition-colors", on ? "text-brand" : "text-muted-2")}
+                  aria-hidden="true"
+                />
+              </span>
               <span
                 className={cn(
                   "text-[12.5px] transition-colors",

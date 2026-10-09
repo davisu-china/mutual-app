@@ -78,7 +78,7 @@ export function MbtiSlider({
                 next[i] = n === 0 ? dim.left : n === 2 ? dim.right : null;
                 onChange(next);
               }}
-              className="h-6 w-full accent-[#E4596B]"
+              className="h-6 w-full accent-brand"
             />
           </div>
         );
