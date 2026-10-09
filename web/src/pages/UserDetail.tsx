@@ -20,6 +20,8 @@ export default function UserDetail() {
   const toast = useToast();
   const [p, setP] = useState<Profile | null | "error">(null);
   const [busy, setBusy] = useState(false);
+  // p 可能是 "error" 哨兵值，取关系前先排掉
+  const rel = p && p !== "error" ? p.relation : undefined;
 
   useEffect(() => {
     if (!id) return;
@@ -38,6 +40,20 @@ export default function UserDetail() {
         action,
         source: "plaza",
       });
+      // 先本地反映关系：万一 nav(-1) 无处可回（比如从链接直接进来），
+      // 底部操作条也不会停在「喜欢 / 跳过」上
+      setP((prev) =>
+        prev && prev !== "error"
+          ? {
+              ...prev,
+              relation: {
+                liked: action === "like" || !!prev.relation?.liked,
+                passed: action === "pass" || !!prev.relation?.passed,
+                matched: res.matched || !!prev.relation?.matched,
+              },
+            }
+          : prev
+      );
       toast(res.matched ? `和 ${p.nickname} 配对成功` : action === "like" ? "已表达喜欢" : "已跳过");
       nav(-1);
     } catch (e) {
@@ -158,27 +174,64 @@ export default function UserDetail() {
         )}
       </div>
 
-      {/* 底部操作条 */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-line-soft bg-paper/95 px-5 backdrop-blur">
-        <div className="mx-auto flex max-w-[520px] items-center gap-3 py-4 pb-safe">
-          <Button
-            variant="outline"
-            size="lg"
-            className="flex-1"
-            disabled={busy}
-            onClick={() => act("pass")}
-          >
-            跳过
-          </Button>
-          <Button
-            size="lg"
-            className="flex-[1.4]"
-            loading={busy}
-            onClick={() => act("like")}
-          >
-            喜欢
-          </Button>
-        </div>
+      <RelationActions rel={rel} busy={busy} onLike={() => act("like")} onPass={() => act("pass")} onChat={() => nav("/chat")} />
+    </div>
+  );
+}
+
+/**
+ * 他人主页底部操作条。
+ *
+ * 已经配对/喜欢/跳过的人不能再给一遍按钮：后端是幂等的（不会重复配对），但用户
+ * 点下去只看到重复的「配对成功」提示，像是没生效——实测就是这样被发现的。
+ */
+export function RelationActions({
+  rel,
+  busy,
+  onLike,
+  onPass,
+  onChat,
+}: {
+  rel?: { liked: boolean; passed: boolean; matched: boolean };
+  busy: boolean;
+  onLike: () => void;
+  onPass: () => void;
+  onChat: () => void;
+}) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 border-t border-line-soft bg-paper/95 px-5 backdrop-blur">
+      <div className="mx-auto flex max-w-[520px] items-center gap-3 py-4 pb-safe">
+        {rel?.matched ? (
+          <>
+            <span className="flex-1 text-[14px] text-muted-2">你们已经配对</span>
+            <Button size="lg" className="flex-[1.4]" onClick={onChat}>
+              去聊天
+            </Button>
+          </>
+        ) : rel?.liked ? (
+          <>
+            <span className="flex-1 text-[14px] text-muted-2">已喜欢，等 TA 回应</span>
+            <Button size="lg" variant="outline" disabled>
+              已喜欢
+            </Button>
+          </>
+        ) : rel?.passed ? (
+          <>
+            <span className="flex-1 text-[14px] text-muted-2">你之前跳过了 TA</span>
+            <Button size="lg" variant="outline" disabled>
+              已跳过
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="outline" size="lg" className="flex-1" disabled={busy} onClick={onPass}>
+              跳过
+            </Button>
+            <Button size="lg" className="flex-[1.4]" loading={busy} onClick={onLike}>
+              喜欢
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

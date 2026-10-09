@@ -19,7 +19,7 @@ import Discover from "../src/pages/Discover";
 import Plaza from "../src/pages/Plaza";
 import Likes from "../src/pages/Likes";
 import Profile from "../src/pages/Profile";
-import UserDetail from "../src/pages/UserDetail";
+import UserDetail, { RelationActions } from "../src/pages/UserDetail";
 import { ChatEntry, ChatList, ChatRoom, MessageRow } from "../src/pages/Chat";
 import { PhotoGrid } from "../src/components/profile/photo-grid";
 import { ProfileCard } from "../src/components/deck/profile-card";
@@ -131,6 +131,29 @@ console.log("\n=== 2. 关键组件渲染 ===");
   );
   check("配对文案说人话（不是「匹配成功」）", html.includes("你们互相喜欢"));
   check("有去聊天入口", html.includes("去打个招呼"));
+}
+
+// 他人主页的操作条：已经配对/喜欢/跳过的人不该再看到「喜欢」按钮
+{
+  console.log("\n[主页操作条]");
+  const noop = () => {};
+  const fresh = renderToString(<RelationActions busy={false} onLike={noop} onPass={noop} onChat={noop} />);
+  check("没打过交道：显示喜欢与跳过", fresh.includes("喜欢") && fresh.includes("跳过"));
+
+  const liked = renderToString(
+    <RelationActions rel={{ liked: true, passed: false, matched: false }} busy={false} onLike={noop} onPass={noop} onChat={noop} />
+  );
+  check("已喜欢：不再是可点的喜欢按钮", liked.includes("已喜欢，等 TA 回应") && !liked.includes(">喜欢<"));
+
+  const matched = renderToString(
+    <RelationActions rel={{ liked: true, passed: false, matched: true }} busy={false} onLike={noop} onPass={noop} onChat={noop} />
+  );
+  check("已配对：只留「去聊天」", matched.includes("你们已经配对") && matched.includes("去聊天") && !matched.includes("跳过"));
+
+  const passed = renderToString(
+    <RelationActions rel={{ liked: false, passed: true, matched: false }} busy={false} onLike={noop} onPass={noop} onChat={noop} />
+  );
+  check("已跳过：标出来而不是又给一次按钮", passed.includes("你之前跳过了") && !passed.includes(">喜欢<"));
 }
 
 // 聊天：消息行要能看出「谁发的」——左右各挂一张头像

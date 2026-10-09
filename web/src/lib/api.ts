@@ -182,6 +182,8 @@ export interface Profile {
   userId: number;
   nickname: string;
   gender: number | null;
+  /** 只看别人的主页时才有：我是否已经喜欢/跳过/配对了 TA */
+  relation?: Relation;
   age: number;
   heightCm: number;
   weightKg?: number;
@@ -272,6 +274,13 @@ export interface Message {
   status: string;
   createdAt: string;
   clientMsgId?: string;
+}
+
+/** 我与 TA 的关系（看别人主页时后端会带） */
+export interface Relation {
+  liked: boolean;
+  passed: boolean;
+  matched: boolean;
 }
 
 export interface Photo {

@@ -91,6 +91,17 @@ type ProfileView struct {
 	Photos []PhotoView `json:"photos,omitempty"`
 
 	Preference *PreferenceView `json:"preference,omitempty"`
+
+	// 我与 TA 的关系（只在看别人时填充）。
+	// 没有这个，前端在他人主页上只能一律显示「喜欢 / 跳过」——已经配对了还能再点
+	// 喜欢，看着像没生效（后端是幂等的，但用户不知道）。
+	Relation *RelationView `json:"relation,omitempty"`
+}
+
+type RelationView struct {
+	Liked   bool `json:"liked"`
+	Passed  bool `json:"passed"`
+	Matched bool `json:"matched"`
 }
 
 type HobbyView struct {
@@ -227,10 +238,15 @@ func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, se
 	// **头像就是这里的第一张**（用户 2026-10-09 定的口径：只维护一份照片），
 	// 所以顺序要在拿到 photos 之后再取——这样非配对用户看到的「脸」也只会是
 	// 「他有权看到的第一张」，不会通过头像字段漏出 match_only 的照片。
+	matched := false
+	if !self {
+		matched, _ = s.isMatched(ctx, viewerID, targetID)
+	}
+
 	var photos []model.UserPhoto
 	q := db.Where("user_id = ? AND audit_status = ?", targetID, model.AuditApproved)
 	if !self {
-		if matched, _ := s.isMatched(ctx, viewerID, targetID); matched {
+		if matched {
 			q = q.Where("visibility IN ?", []string{"public", "match_only"})
 		} else {
 			q = q.Where("visibility = ?", "public")
@@ -243,6 +259,24 @@ func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, se
 		for _, ph := range photos {
 			v.Photos = append(v.Photos, PhotoView{ID: ph.ID, URL: ph.URL, SortOrder: ph.SortOrder})
 		}
+	}
+
+	// 我与 TA 的关系：前端据此决定底部操作条显示「喜欢 / 跳过」还是「去聊天」
+	if !self {
+		rel := &RelationView{Matched: matched}
+		var acts []string
+		db.Model(&model.UserAction{}).
+			Where("from_user = ? AND to_user = ?", viewerID, targetID).
+			Pluck("action", &acts)
+		for _, a := range acts {
+			switch a {
+			case model.ActionLike:
+				rel.Liked = true
+			case model.ActionPass:
+				rel.Passed = true
+			}
+		}
+		v.Relation = rel
 	}
 
 	// 兴趣
