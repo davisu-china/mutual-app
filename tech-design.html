@@ -268,8 +268,8 @@
     </tr>
     <tr>
       <td><b>数据访问</b></td>
-      <td><b>sqlc + pgx</b></td>
-      <td>从我们已有的 <code>schema.sql</code> 直接生成类型安全的 Go 代码；SQL 完全可见可控，复杂查询（卡池过滤、广场检索）不会被 ORM 藏起来</td>
+      <td><b>GORM</b></td>
+      <td>Go 生态最成熟的 ORM，模型即代码、关联查询与迁移方便。<b>但复杂查询（卡池过滤、广场检索）仍用 <code>Raw()</code> 手写 SQL 兜底</b>——使用规范见 9.1</td>
     </tr>
     <tr>
       <td><b>缓存 / 计数</b></td>
@@ -283,15 +283,15 @@
     </tr>
     <tr>
       <td><b>检索</b></td>
-      <td>Elasticsearch <span class="badge b-tbd">P1</span></td>
-      <td>广场十几个筛选维度，PG 组合索引扛不住。MVP 可先用 PG，维度变多后再引入</td>
+      <td><b>PostgreSQL 原生</b></td>
+      <td>广场的多条件检索<b>全部在 PG 内完成，不引入 Elasticsearch</b>。做法：单列索引 + BitmapAnd、keyset 游标分页、trigram 模糊搜索。详见 9.2</td>
     </tr>
   </table>
 
   <div class="callout key">
     <div class="ct">两个关键选型判断</div>
-    <p><b>1. 用 sqlc 而不是 GORM。</b>我们已经有 <code>schema.sql</code>，sqlc 能直接吃这份 DDL 生成类型安全的查询代码。更重要的是：本项目的核心查询（卡池候选过滤、广场多条件检索）逻辑复杂，<b>SQL 必须可见、可调、可 explain</b>——ORM 把这些藏起来，性能出问题时很难查。</p>
-    <p><b>2. 动效不是「加个 transition」。</b>「丝滑」是个工程问题：需要乐观更新（点击瞬间就反馈，不等服务端）、布局动画（卡片自动补位）、图片预加载（下一张已经就绪）三件事一起做。只做 CSS transition 是出不来「丝滑」的，见第 6 章。</p>
+    <p><b>1. GORM 管常规 CRUD，复杂查询必须放行原始 SQL。</b>GORM 的链式 API 写普通增删改查很舒服，但本项目的核心查询——卡池候选过滤、广场多条件检索——需要<b>动态拼十几个可选条件</b>。用链式 API 拼这种查询既难读，也难 <code>EXPLAIN</code>。这类查询直接 <code>db.Raw(sql, args).Scan(&amp;out)</code> 手写，把 SQL 留在明面上。<b>GORM 完全支持这种混用，混用不是妥协，是正确用法。</b>完整使用规范见 9.1。</p>
+    <p><b>2. 检索不引入 ES，全部在 PG 内解决。</b>广场虽然十几个筛选维度，但每个维度的取值都是<b>低势基数</b>（枚举、档位、省份）——这类条件恰好是 PostgreSQL <b>BitmapAnd</b> 的强项：优化器能把多个单列索引的位图求交集，比堆一堆复合索引灵活得多，也省掉一整套 ES 的运维成本。具体手法与「什么时候该重新评估」见 9.2。</p>
   </div>
 </section>
 
@@ -310,7 +310,6 @@
     <div class="fn ok">PostgreSQL<small>主数据</small></div>
     <div class="fn gw">Redis<small>缓存/限流/在线/广播</small></div>
     <div class="fn plain">MinIO<small>照片对象</small></div>
-    <div class="fn plain">ES<small>广场检索(P1)</small></div>
   </div>
 
   <h3>2.2 后端分层</h3>
@@ -318,7 +317,7 @@
     <tr><th style="width:140px">层</th><th style="width:200px">包</th><th>职责</th></tr>
     <tr><td>接入层</td><td><code>internal/handler</code></td><td>HTTP 路由、参数绑定与校验、错误码映射、鉴权中间件</td></tr>
     <tr><td>业务层</td><td><code>internal/service</code></td><td>划卡、配对、额度、聊天等业务规则。<b>所有事务边界在这一层</b></td></tr>
-    <tr><td>数据层</td><td><code>internal/repo</code></td><td>sqlc 生成的查询封装；不含业务判断</td></tr>
+    <tr><td>数据层</td><td><code>internal/repo</code></td><td>GORM 查询封装；简单查询走链式 API，复杂查询走 <code>Raw()</code>；不含业务判断</td></tr>
     <tr><td>基础设施</td><td><code>internal/infra</code></td><td>PG / Redis / MinIO / WebSocket Hub / 日志 / 配置</td></tr>
     <tr><td>领域模型</td><td><code>internal/model</code></td><td>实体与 DTO；跨层共享</td></tr>
   </table>
@@ -335,14 +334,13 @@
 ├── internal/
 │   ├── handler/                 <span class="cm"># HTTP 层</span>
 │   ├── service/                 <span class="cm"># 业务规则 + 事务</span>
-│   ├── repo/                    <span class="cm"># sqlc 查询封装</span>
-│   ├── model/                   <span class="cm"># 实体与 DTO</span>
+│   ├── repo/                    <span class="cm"># GORM 查询封装</span>
+│   ├── model/                   <span class="cm"># GORM 模型与 DTO</span>
 │   ├── middleware/              <span class="cm"># 鉴权 / 限流 / 日志 / 恢复</span>
 │   ├── ws/                      <span class="cm"># WebSocket Hub</span>
 │   └── infra/                   <span class="cm"># pg / redis / minio / config</span>
 ├── db/
-│   ├── schema.sql               <span class="cm"># ← 已有</span>
-│   ├── query/                   <span class="cm"># sqlc 输入：.sql 查询文件</span>
+│   ├── schema.sql               <span class="cm"># ← 已有（权威表结构）</span>
 │   └── migrations/              <span class="cm"># golang-migrate</span>
 ├── web/                         <span class="cm"># 前端（独立构建）</span>
 └── deploy/                      <span class="cm"># Dockerfile / compose / nginx</span></pre>
@@ -782,18 +780,18 @@
     <tr><th style="width:200px">场景</th><th>处理方式</th></tr>
     <tr>
       <td><b>扣额度（防超额）</b></td>
-      <td>条件更新，靠 affected rows 判断：<br>
-      <code>UPDATE daily_quotas SET used_like_count = used_like_count + 1<br>
-      &nbsp;&nbsp;WHERE user_id=$1 AND quota_date=$2 AND used_like_count &lt; limit_count</code><br>
-      返回 0 行 = 额度已满，回滚并返回业务错误码。<b>不要先 SELECT 再 UPDATE</b>——那样并发下一定超额</td>
+      <td>用 <code>gorm.Expr</code> 做条件更新，靠 <code>RowsAffected</code> 判断：<br>
+      <code>tx.Model(&amp;DailyQuota{}).Where("user_id=? AND quota_date=? AND used_like_count &lt; limit_count", uid, day).Update("used_like_count", gorm.Expr("used_like_count + 1"))</code><br>
+      <code>RowsAffected == 0</code> = 额度已满，回滚并返回业务错误码。<b>不要先 SELECT 再 UPDATE</b>——那样并发下一定超额</td>
     </tr>
     <tr>
       <td><b>重复 Like</b></td>
-      <td><code>user_actions</code> 有 <code>(from_user,to_user,action)</code> 唯一约束，<code>ON CONFLICT DO NOTHING</code></td>
+      <td><code>user_actions</code> 有 <code>(from_user,to_user,action)</code> 唯一约束，配合 GORM 的 <code>tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&amp;act)</code></td>
     </tr>
     <tr>
       <td><b>双方同时 Like</b></td>
-      <td><code>INSERT ... ON CONFLICT (user_a,user_b) DO NOTHING</code>，<b>以 affected rows 判断「本次是否真的配对成功」</b>，只有真正插入成功的那一次才创建会话、发配对通知。否则两边都会弹配对动画、建出两个会话</td>
+      <td>同样用 <code>clause.OnConflict{DoNothing: true}</code>，<b>以 <code>RowsAffected</code> 判断「本次是否真的配对成功」</b>，只有真正插入成功的那一次才创建会话、发配对通知。否则两边都会弹配对动画、建出两个会话<br>
+      <b>⚠️ 注意</b>：GORM 在 <code>ON CONFLICT DO NOTHING</code> 下 <code>RowsAffected</code> 的取值行为<b>必须用并发测试实测确认</b>——不同驱动版本对「冲突未插入」的计数口径可能不同。这是本项目最需要写测试的一个点</td>
     </tr>
     <tr>
       <td><b>额度重置的日期</b></td>
@@ -805,46 +803,123 @@
     </tr>
   </table>
 
-  <h3>8.3 事务边界示例（Like 全流程）</h3>
+  <h3>8.3 事务边界示例（Like 全流程 · GORM）</h3>
   <pre><span class="cm">// service/action.go —— 一个事务里做完四件事</span>
-<span class="kw">func</span> (s *ActionService) <span class="fx">Like</span>(ctx, fromID, toID <span class="kw">int64</span>, source <span class="kw">string</span>) (*Result, <span class="kw">error</span>) {
-    <span class="kw">return</span> s.tx.WithTx(ctx, <span class="kw">func</span>(q *repo.Queries) (*Result, <span class="kw">error</span>) {
+<span class="kw">func</span> (s *ActionService) <span class="fx">Like</span>(ctx context.Context, fromID, toID <span class="kw">int64</span>, source <span class="kw">string</span>) (*Result, <span class="kw">error</span>) {
+    <span class="kw">var</span> res Result
+    err := s.db.WithContext(ctx).Transaction(<span class="kw">func</span>(tx *gorm.DB) <span class="kw">error</span> {
         day := time.Now().In(shanghaiTZ).Format(<span class="st">"2006-01-02"</span>)   <span class="cm">// ← 北京时间</span>
 
-        <span class="cm">// 1. 扣额度（条件更新，0 行即失败）</span>
-        n, err := q.<span class="fx">ConsumeQuota</span>(ctx, fromID, day)
-        <span class="kw">if</span> err != <span class="kw">nil</span> { <span class="kw">return</span> <span class="kw">nil</span>, err }
-        <span class="kw">if</span> n == 0 { <span class="kw">return</span> <span class="kw">nil</span>, ErrQuotaExhausted }
+        <span class="cm">// 1. 扣额度：条件更新，靠 RowsAffected 判断，绝不先查后改</span>
+        r := tx.Model(&amp;model.DailyQuota{}).
+            Where(<span class="st">"user_id = ? AND quota_date = ? AND used_like_count &lt; limit_count"</span>, fromID, day).
+            Update(<span class="st">"used_like_count"</span>, gorm.Expr(<span class="st">"used_like_count + 1"</span>))
+        <span class="kw">if</span> r.Error != <span class="kw">nil</span> { <span class="kw">return</span> r.Error }
+        <span class="kw">if</span> r.RowsAffected == 0 { <span class="kw">return</span> ErrQuotaExhausted }
 
-        <span class="cm">// 2. 写 Like（重复则忽略）</span>
-        q.<span class="fx">UpsertAction</span>(ctx, fromID, toID, <span class="st">"like"</span>, source)
+        <span class="cm">// 2. 写 Like：唯一索引 + OnConflict DoNothing 保证幂等</span>
+        act := model.UserAction{FromUser: fromID, ToUser: toID, Action: <span class="st">"like"</span>, Source: source}
+        <span class="kw">if</span> err := tx.Clauses(clause.OnConflict{DoNothing: <span class="kw">true</span>}).Create(&amp;act).Error; err != <span class="kw">nil</span> {
+            <span class="kw">return</span> err
+        }
 
-        <span class="cm">// 3. 判配对：只有真正插入成功才算配对</span>
+        <span class="cm">// 3. 判配对：RowsAffected &gt; 0 才算本次真的配上</span>
         a, b := order(fromID, toID)          <span class="cm">// 规范化 user_a &lt; user_b</span>
-        matched := q.<span class="fx">TryCreateMatch</span>(ctx, a, b) > 0
+        m := model.MatchRecord{UserA: a, UserB: b, Status: <span class="st">"active"</span>}
+        rm := tx.Clauses(clause.OnConflict{DoNothing: <span class="kw">true</span>}).Create(&amp;m)
+        <span class="kw">if</span> rm.Error != <span class="kw">nil</span> { <span class="kw">return</span> rm.Error }
+        res.Matched = rm.RowsAffected &gt; 0
 
-        <span class="cm">// 4. 配对成功才建会话</span>
-        <span class="kw">if</span> matched { q.<span class="fx">CreateConversation</span>(ctx, a, b) }
-        <span class="kw">return</span> &amp;Result{Matched: matched}, <span class="kw">nil</span>
+        <span class="cm">// 4. 只有本次真的配上，才建会话</span>
+        <span class="kw">if</span> res.Matched {
+            conv := model.Conversation{MatchID: m.ID, UserA: a, UserB: b, Status: <span class="st">"active"</span>}
+            <span class="kw">if</span> err := tx.Create(&amp;conv).Error; err != <span class="kw">nil</span> { <span class="kw">return</span> err }
+        }
+        <span class="kw">return</span> <span class="kw">nil</span>
     })
+    <span class="kw">return</span> &amp;res, err
 }</pre>
   <p>配对成功后的事务外动作（发通知、推 WebSocket 消息）用 <b>Outbox 模式</b>：事件先落库，再由投递器异步推送，保证「不全丢、可重放」。</p>
+
+  <div class="callout warn">
+    <div class="ct">这段代码有两处必须写测试</div>
+    <p><b>① <code>RowsAffected</code> 在 <code>ON CONFLICT DO NOTHING</code> 下的行为</b>——配对是否重复创建会话，完全依赖这个判断。写一个并发测试：两个 goroutine 同时给对方 Like，断言 <code>match_records</code> 只有一条、<code>conversations</code> 也只有一条。</p>
+    <p><b>② 扣额度的并发安全</b>——启动 N 个 goroutine 同时扣减同一个用户的额度，断言最终 <code>used_like_count</code> 恰好等于限额、没有超额。<b>这两个测试比什么都有说服力</b>，因为它们覆盖的是本项目唯一会产生脏数据的地方。</p>
+  </div>
 </section>
 
 <!-- ============ 09 ============ -->
 <section>
   <h2 class="sec"><span class="num">09</span>数据存储设计</h2>
 
-  <h3>9.1 PostgreSQL</h3>
-  <p>表结构见仓库根目录的 <code>schema.sql</code>（16 张表）。这里只补充工程实现要点：</p>
+  <h3>9.1 PostgreSQL 与 GORM 使用规范</h3>
+  <p>表结构见仓库根目录的 <code>schema.sql</code>（16 张表）。<code>schema.sql</code> 是<b>权威表结构</b>——GORM 模型必须与它保持一致，方向是「模型跟随 DDL」，不是反过来。</p>
+
+  <div class="callout warn">
+    <div class="ct">GORM 的七条使用红线（踩了都很难查）</div>
+    <ol>
+      <li><b>生产环境禁用 <code>AutoMigrate</code>。</b>它会悄悄改表结构，且不删多余字段、不处理索引变更、不会回滚。所有结构变更走 <code>golang-migrate</code>，代码里的模型只是映射。</li>
+      <li><b>复杂查询用 <code>Raw()</code>，不要硬拼链式 API。</b>卡池过滤、广场检索这类动态多条件查询，用 <code>Where</code> 层层拼接既难读、也难 <code>EXPLAIN</code>。直接写原始 SQL 更清晰，GORM 的 <code>db.Raw(sql, args...).Scan(&amp;out)</code> 完全支持。</li>
+      <li><b>所有查询带 <code>WithContext(ctx)</code>。</b>否则请求超时或客户端断开时，对应的慢查询仍会挂在数据库上占连接。</li>
+      <li><b><code>Preload</code> 要节制。</b>列表页连续 Preload 多个关联会产生 N+1，或者关联表之间笛卡尔积爆炸。卡片组装建议用<b>一条聚合查询</b>一次取完，别靠 Preload 拼。</li>
+      <li><b>不要用 <code>Save()</code> 做局部更新。</b><code>Save</code> 会写全部字段，并发下会互相覆盖。用 <code>Updates(map[string]any{...})</code> 或 <code>Select()</code> 明确指定要改的列。</li>
+      <li><b><code>gorm.DeletedAt</code> 慎重使用。</b>软删除会让 GORM 在每条查询上自动加 <code>deleted_at IS NULL</code>，容易让索引失效、查询意图变模糊。本项目多数表不需要软删——该硬删就硬删，账号注销走 <code>status</code> 状态位（PRD 4.3 已定义状态机）。</li>
+      <li><b>连接池显式配置</b>：<code>sqlDB.SetMaxOpenConns(CPU 核数 × 2 + 磁盘数)</code>，并设 <code>SetConnMaxLifetime</code>（建议 30 分钟）避免僵死连接被数据库端断开后仍被复用。</li>
+    </ol>
+  </div>
+
+  <h4>其他实现要点</h4>
   <ul>
-    <li><b>迁移用 <code>golang-migrate</code></b>，禁止手改线上表结构。</li>
-    <li>连接池用 <code>pgxpool</code>，<code>max_conns</code> 按 <code>CPU 核数 × 2 + 磁盘数</code> 设，并设置 <code>MaxConnLifetime</code> 避免僵死连接。</li>
-    <li><b>所有对 <code>user_profiles</code> 的读写走同一套可见性规则</b>（PRD 第 15 章）：收入、公司、体重、养老压力这几个字段有 <code>*_public</code> 开关，<b>序列化时必须按「看的人是谁」决定是否输出</b>，不能图省事全查出来。</li>
+    <li><b>所有对 <code>user_profiles</code> 的读写走同一套可见性规则</b>（PRD 第 15 章）：收入、公司、体重、养老压力这几个字段有 <code>*_public</code> 开关，<b>序列化时必须按「看的人是谁」决定是否输出</b>，不能图省事全查出来再让前端过滤——那样敏感字段已经在网络上了。</li>
     <li>曝光统计（<code>exposure_stats</code>）用<b>异步累加</b>：请求时只写 Redis 计数器，定时任务批量落库，避免每次划卡都写一次统计表。</li>
   </ul>
 
-  <h3>9.2 Redis 用途</h3>
+  <h3>9.2 广场检索方案（在 PG 内实现，不引入 ES）</h3>
+  <p>广场有十几个可选筛选维度，看起来是「必须上搜索引擎」的场景。但实际情况是：<b>每个维度的取值都是低势基数</b>——性别 2 种、学历 5 档、收入 7 档、省份 34 个、MBTI 17 种。这类条件的检索恰好是 PostgreSQL 的强项，不需要额外引入一套中间件。</p>
+
+  <h4>核心手法</h4>
+  <table>
+    <tr><th style="width:180px">手法</th><th>说明</th></tr>
+    <tr>
+      <td><b>单列索引 + BitmapAnd</b></td>
+      <td>给每个高频筛选字段建<b>单列</b> B-tree 索引。当查询同时命中多个条件时，PG 优化器会把多个索引的位图<b>求交集</b>（BitmapAnd）。这比堆砌复合索引更好用——因为筛选条件的组合是任意的，而复合索引只能覆盖固定顺序的组合。</td>
+    </tr>
+    <tr>
+      <td><b>部分索引（Partial Index）</b></td>
+      <td>对高频且固定的过滤建条件索引。例如广场永远只展示活跃且已过审的用户，那就可以：<br><code>CREATE INDEX idx_search_active ON user_profiles (city_prov, education)<br>&nbsp;&nbsp;WHERE ...;</code><br>索引体积大幅缩小，查询更快。</td>
+    </tr>
+    <tr>
+      <td><b>keyset 游标分页</b></td>
+      <td><b>绝对不要用 <code>OFFSET</code>。</b>深分页时 PG 会把前 N 行全部扫描再丢弃，<code>OFFSET 10000</code> 就已经明显变慢。改用「上一页最后一条的排序键」当游标：<br><code>WHERE (score, id) &lt; (?, ?) ORDER BY score DESC, id DESC LIMIT 20</code></td>
+    </tr>
+    <tr>
+      <td><b>模糊搜索用 pg_trgm</b></td>
+      <td>关键词匹配昵称 / 关于我 / 兴趣介绍：<br><code>CREATE EXTENSION pg_trgm;</code><br><code>CREATE INDEX idx_search_kw ON user_profiles USING gin (about_me gin_trgm_ops);</code><br><code>gin_trgm_ops</code> 支持中文子串匹配。</td>
+    </tr>
+    <tr>
+      <td><b>计数要缓存或估算</b></td>
+      <td>「找到 328 人」这种 <code>COUNT(*)</code> 在复杂条件下很贵。建议<b>返回估算值</b>（读 <code>EXPLAIN</code> 的行数估算）或缓存 5 分钟，不做精确计数——用户并不需要精确数字。</td>
+    </tr>
+    <tr>
+      <td><b>限制维度下限</b></td>
+      <td>如果用户一个条件都不选就要「看全部」，那是全表扫描。产品上应<b>默认带一个高选择性条件</b>（如「同城」），或在无条件时走另一条按活跃度检索的路径。</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="ct">最容易踩的一个点：按「匹配分」排序走不了索引</div>
+    <p>PRD 10.2 要求广场默认按<b>匹配度</b>排序，而匹配分是<b>算出来的</b>（正向偏好 + 反向偏好 + 活跃度），索引里没有这个值，意味着每次查询都要对候选集全量算分再排序。</p>
+    <p><b>解法是先把候选集压小</b>：用可索引的条件（城市、性别、年龄区间）把候选集限制到几百人以内，再在应用层算分排序。如果筛选条件给得太宽导致候选集上万，就必须<b>限制「至少选一个高选择性维度」</b>，或对结果集设硬上限并提示用户收窄条件。<b>这个约束要写进接口设计，不能等到线上慢了才发现。</b></p>
+  </div>
+
+  <div class="callout tbd">
+    <div class="ct">什么时候该重新评估「不上 ES」这个决定</div>
+    <p>判断标准不是「维度多不多」，而是<b>实测指标</b>：用户量过百万、且广场检索 P95 持续超过 1 秒时，再考虑升级。届时<b>优先顺序</b>是：</p>
+    <p>① 物化一张只含可筛选字段的宽表并做分区 → ② 把匹配分<b>预计算</b>存进宽表（这样排序也能走索引，同时解决上面那个问题）→ ③ 仍然不够，才引入 ES。</p>
+    <p>直接跳到 ③ 是常见的过度设计——多一套中间件就多一套数据同步、一致性、运维和故障排查成本，这些成本在早期是纯负担。</p>
+  </div>
+
+  <h3>9.3 Redis 用途</h3>
   <table>
     <tr><th style="width:170px">用途</th><th style="width:190px">键设计</th><th>说明</th></tr>
     <tr><td>额度缓存</td><td><code>quota:{uid}:{date}</code></td><td><b>只做读缓存，不作为权威</b>。权威在 PG（见 8.2），Redis 用于快速渲染「今日剩余」</td></tr>
@@ -856,7 +931,7 @@
     <tr><td>设备注册计数</td><td><code>dev:{device_id}</code></td><td>PRD 4.4 的「同设备每月 3 个账号」风控</td></tr>
   </table>
 
-  <h3>9.3 MinIO 对象存储</h3>
+  <h3>9.4 MinIO 对象存储</h3>
   <table>
     <tr><th style="width:170px">Bucket</th><th style="width:150px">可见性</th><th>说明</th></tr>
     <tr><td><code>mutual-photos</code></td><td><b>私有</b></td><td>相册原图与缩略图。只通过预签名 URL 访问，<b>绝不公开读</b>——否则照片可被直接爬走</td></tr>
@@ -995,7 +1070,7 @@
     <tr><th style="width:110px">阶段</th><th style="width:80px">周期</th><th>交付</th><th style="width:170px">验收</th></tr>
     <tr>
       <td><b>M1 地基</b></td><td>1.5 周</td>
-      <td>项目骨架、设计令牌与 shadcn 主题、鉴权、PG 迁移与 sqlc 接入、MinIO 预签名上传</td>
+      <td>项目骨架、设计令牌与 shadcn 主题、鉴权、PG 迁移与 GORM 接入、MinIO 预签名上传</td>
       <td>能注册登录、能传图</td>
     </tr>
     <tr>

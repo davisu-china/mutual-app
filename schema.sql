@@ -127,7 +127,8 @@ COMMENT ON COLUMN user_profiles.income_range IS
 COMMENT ON COLUMN user_profiles.education IS
     '1=高中及以下 2=大专 3=本科 4=硕士 5=博士';
 
--- 广场检索的兜底索引（主力检索走 ES，见文件末尾说明）
+-- 广场检索索引：给每个可筛选字段建【单列】索引，由 PG 的 BitmapAnd 组合。
+-- 详见文件末尾「检索方案」说明。
 CREATE INDEX idx_prof_city      ON user_profiles (city_prov, city_city);
 CREATE INDEX idx_prof_height    ON user_profiles (height_cm);
 CREATE INDEX idx_prof_edu       ON user_profiles (education);
@@ -462,8 +463,8 @@ CREATE INDEX idx_audit_target ON audit_logs (target_type, target_id, created_at 
 -- 【划卡候选池】
 --   过滤链：异性 -> 排除自己 -> 排除已 like/pass -> 排除已配对 ->
 --           排除拉黑（双向）-> 排除未过审/封禁 -> 距离半径
---   建议：先用 ES 做粗筛（画像字段多，DB 组合索引收益低），
---        候选 id 回库做二次过滤。db 侧至少需要：
+--   做法：可索引的条件（城市/性别/年龄）先把候选集压到几百人以内，
+--        再在应用层按匹配分排序（匹配分是算出来的，走不了索引）。db 侧至少需要：
 --        idx_act_from（判断是否已操作）、idx_block_user / idx_block_blocked、
 --        idx_prof_geo（距离）。
 --
@@ -489,6 +490,50 @@ CREATE INDEX idx_audit_target ON audit_logs (target_type, target_id, created_at 
 --      要 UNION 两个方向。更规范的做法是 conversation_members 关联表，
 --      但当前是一对一会话，两列的写法更简单直接。
 --
---   3. 广场的复杂多条件检索（PRD 10.1 有十几个筛选项）不适合用数据库
---      组合索引硬扛，建议同步一份到 Elasticsearch 做检索层。
+--   3. 广场的检索【全部在 PostgreSQL 内实现，不引入 ES】。做法见下节「检索方案」。
+-- ============================================================================
+
+
+-- ============================================================================
+-- 检索方案：广场的多条件检索在 PostgreSQL 内实现（不引入 Elasticsearch）
+--
+-- 广场有十几个可选筛选维度，看似必须上搜索引擎。但每个维度的取值都是
+-- 【低势基数】——性别 2 种、学历 5 档、收入 7 档、省份 34 个、MBTI 17 种。
+-- 这类条件恰好是 PostgreSQL BitmapAnd 的强项。
+--
+-- 【一】索引策略：单列索引 + BitmapAnd
+--   给每个高频筛选字段建【单列】B-tree 索引（见上文 idx_prof_*）。
+--   查询命中多个条件时，优化器自动把多个索引的位图求交集，
+--   比堆复合索引灵活——筛选组合是任意的，复合索引只覆盖固定顺序。
+--
+--   若发现某些组合特别高频，再补【部分索引】缩小体积：
+--     CREATE INDEX idx_search_active ON user_profiles (city_prov, education)
+--       WHERE ...;   -- 例如只索引活跃且已过审的用户
+--
+-- 【二】分页：必须用 keyset 游标，禁用 OFFSET
+--   深分页时 PG 会扫描并丢弃前 N 行，OFFSET 10000 就已明显变慢。
+--     WHERE (score, id) < (?, ?) ORDER BY score DESC, id DESC LIMIT 20
+--
+-- 【三】模糊搜索：pg_trgm + GIN（支持中文子串）
+--     CREATE EXTENSION IF NOT EXISTS pg_trgm;
+--     CREATE INDEX idx_search_kw   ON user_profiles USING gin (about_me gin_trgm_ops);
+--     CREATE INDEX idx_search_nick ON users         USING gin (nickname gin_trgm_ops);
+--
+-- 【四】计数：返回估算值或缓存，不做精确 COUNT(*)
+--   「找到 328 人」读 EXPLAIN 的行数估算即可，用户不需要精确数字。
+--
+-- 【五】⚠️ 最大的一个坑：按「匹配分」排序走不了索引
+--   匹配分 = 正向偏好 + 反向偏好 + 活跃度，是算出来的，索引里没有。
+--   解法是【先把候选集压小】：用可索引的条件（城市/性别/年龄区间）把候选
+--   集限制到几百人以内，再在应用层算分排序。若条件给得太宽导致候选集上万，
+--   必须在接口层限制「至少选一个高选择性维度」，或对结果集设硬上限。
+--   这个约束要写进接口设计，不能等线上慢了才发现。
+--
+-- 【六】什么时候该重新评估
+--   判断标准是实测指标，不是「维度多不多」：用户量过百万、且广场检索
+--   P95 持续 > 1s 时再考虑升级。优先顺序：
+--     ① 物化只含可筛选字段的宽表并分区
+--     ② 把匹配分预计算进宽表（顺带解决【五】的排序问题）
+--     ③ 仍然不够，才引入 ES
+--   直接跳到 ③ 是过度设计——多一套中间件就多一套同步、一致性、运维成本。
 -- ============================================================================

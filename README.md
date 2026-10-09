@@ -51,9 +51,9 @@
 | 动效 | Motion（原 Framer Motion）—— 「丝滑」的主要来源 |
 | 数据请求 | TanStack Query（乐观更新 + 缓存 + 无限滚动） |
 | 后端 | Go 1.22+ / Gin |
-| 数据访问 | **sqlc + pgx**（直接吃 `schema.sql` 生成类型安全代码，SQL 完全可见） |
+| 数据访问 | **GORM**（复杂查询用 `Raw()` 手写 SQL 兜底，见技术方案 9.1 的七条红线） |
 | 存储 | PostgreSQL 12+ / Redis 7 / MinIO |
-| 检索 | Elasticsearch（P1，广场多条件检索） |
+| 检索 | **PostgreSQL 原生**（不引入 ES；单列索引 + BitmapAnd + keyset 分页，见技术方案 9.2） |
 
 详细方案见 [tech-design.html](tech-design.html)。
 

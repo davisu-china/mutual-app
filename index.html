@@ -907,7 +907,7 @@
   </table>
   <div class="callout">
     <div class="ct">索引与性能要点</div>
-    <p><code>user_action</code> 按 <code>(to_user, action, created_at)</code> 建索引，支撑「谁喜欢我 / 谁看过我」的快速查询；<code>(from_user, to_user)</code> 唯一索引保证 Like 幂等。<code>message</code> 按 <code>(conversation_id, seq)</code> 建索引并考虑按时间分区。<code>user_profile</code> 上的筛选字段（身高、年龄、城市、学历、收入）建议建组合索引或同步到搜索引擎（ES）以支撑广场的复杂多条件检索。</p>
+    <p><code>user_action</code> 按 <code>(to_user, action, created_at)</code> 建索引，支撑「谁喜欢我 / 谁看过我」的快速查询；<code>(from_user, to_user)</code> 唯一索引保证 Like 幂等。<code>message</code> 按 <code>(conversation_id, seq)</code> 建索引并考虑按时间分区。<code>user_profile</code> 上的筛选字段（身高、年龄、城市、学历、收入）建议建单列索引，由 PG 的 BitmapAnd 支撑广场的多条件检索——<b>本项目不引入 ES，检索全部在 PostgreSQL 内完成</b>（实现手法见技术方案 9.2）。</p>
   </div>
 </section>
 
@@ -979,7 +979,7 @@
     <tr><th style="width:250px">指标</th><th style="width:140px">目标</th><th>说明</th></tr>
     <tr><td>划卡首屏加载</td><td>P95 &lt; 800ms</td><td>卡片含图片，需 CDN 加速</td></tr>
     <tr><td>提交动作响应</td><td>P99 &lt; 300ms</td><td>滑动后需即时反馈</td></tr>
-    <tr><td>广场检索</td><td>P95 &lt; 1s</td><td>复杂多条件，建议走 ES</td></tr>
+    <tr><td>广场检索</td><td>P95 &lt; 1s</td><td>多条件检索全部在 PG 内完成（单列索引 + BitmapAnd + keyset 分页），不引入 ES</td></tr>
     <tr><td>消息投递</td><td>P99 &lt; 500ms</td><td>端到端</td></tr>
     <tr><td>图片上传</td><td>≤ 3s（10MB）</td><td>前端压缩 + 分片</td></tr>
   </table>
