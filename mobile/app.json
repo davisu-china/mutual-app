@@ -40,6 +40,13 @@
     "scheme": "mutual",
     "experiments": {
       "baseUrl": "/app"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "50d7742c-e06d-400e-ac6c-71623e3f2658"
+      }
+    },
+    "owner": "davisu"
   }
 }

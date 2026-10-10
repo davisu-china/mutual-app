@@ -28,3 +28,7 @@ dist-preview/
 # Go
 server/bin/
 *.test
+
+# 编辑器
+.idea/
+
