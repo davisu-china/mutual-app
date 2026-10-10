@@ -11,6 +11,7 @@ import Profile from "@/pages/Profile";
 import UserDetail from "@/pages/UserDetail";
 import StyleGuide from "@/pages/StyleGuide";
 import { ChatEntry, ChatList, ChatRoom } from "@/pages/Chat";
+import AdminApp from "@/admin/AdminApp";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -21,10 +22,25 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
-          <Shell />
+          <Root />
         </AuthProvider>
       </ToastProvider>
     </BrowserRouter>
+  );
+}
+
+/**
+ * 顶层分流：/admin/* 走后台，其余走交友端。
+ *
+ * **必须在登录墙之外分出去**：Shell 一进门就有登录墙和"没填完资料强制跳向导"，
+ * 而管理员可能根本没填过资料（也不需要填）。把它放在 Shell 里，后台就进不去了。
+ */
+function Root() {
+  return (
+    <Routes>
+      <Route path="/admin/*" element={<AdminApp />} />
+      <Route path="*" element={<Shell />} />
+    </Routes>
   );
 }
 

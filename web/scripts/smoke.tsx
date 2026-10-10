@@ -45,6 +45,10 @@ import { calcAge, defaultBirthdayFor, AGE_DEFAULT_BY_GENDER } from "../src/compo
 import { HEIGHT_DEFAULT_BY_GENDER, HEIGHT_QUICK_PICKS, HeightField } from "../src/components/picker/height-field";
 import { WEIGHT_DEFAULT_BY_GENDER, WEIGHT_QUICK_PICKS_BY_GENDER, WeightField } from "../src/components/picker/weight-field";
 import { loadRegions, searchRegions, shortName, PROVINCE_NAMES, fullName } from "../src/data/regions";
+import AdminDashboard from "../src/admin/Dashboard";
+import { AdminUsers, AdminUserDetail } from "../src/admin/Users";
+import { AdminConversations, AdminConversationDetail } from "../src/admin/Conversations";
+import { LineChart } from "../src/admin/charts";
 import { AuthProvider } from "../src/store/auth";
 import { ToastProvider } from "../src/components/ui/toast";
 import type { Card, Message, Photo } from "../src/lib/api";
@@ -212,7 +216,7 @@ check("闰年 2/29 在平年 2/28 未过", calcAge({ year: 2000, month: 2, day: 
 check("闰年 2/29 在平年 3/1 已过", calcAge({ year: 2000, month: 2, day: 29 }, new Date(2026, 2, 1)) === 26);
 
 async function regionChecks() {
-  console.log("\n=== 4. 行政区划与搜索 ===");
+  console.log("\n=== 6. 行政区划与搜索 ===");
   const regions = await loadRegions();
   const cityCount = regions.reduce((n, p) => n + p.cities.length, 0);
   const districtCount = regions.reduce(
@@ -506,6 +510,56 @@ async function universityChecks() {
   check("默认上限 60 条", searchSchools(list, "大学").length <= 60);
   check("兜底出口有取值", OTHER_SCHOOL.length > 0);
 }
+
+
+console.log("=== 4. 后台页面渲染 ===");
+// 后台的每一屏都会先走 useAsync，而 SSR 不执行 useEffect ⇒ 页面停在加载态。
+// 所以这一节证明的是"渲染期不炸"，图表那套算法要单独喂数据才跑得到（见下）。
+renderPage("后台概览", <AdminDashboard />, "/admin");
+renderPage("后台用户列表", <AdminUsers />, "/admin/users");
+renderPage("后台用户详情", <AdminUserDetail />, "/admin/users/16");
+renderPage("后台会话列表", <AdminConversations />, "/admin/conversations");
+renderPage("后台聊天记录", <AdminConversationDetail />, "/admin/conversations/3");
+
+console.log("\n=== 5. 后台折线图（喂真数据，这才跑得到比例尺和刻度）===");
+const days = Array.from({ length: 14 }, (_, i) => `2026-09-${String(27 + i).padStart(2, "0")}`).map((d, i) =>
+  i < 4 ? d.replace("09-", "10-").replace(/^10-2[7-9]|^10-30/, "09-" + (27 + i)) : d
+);
+// 上面只是为了凑够 14 个日期字符串；真正的顺序无关紧要，图表只按索引画
+const chartHtml = renderPage(
+  "折线图（两系列）",
+  <LineChart
+    title="划卡：喜欢 / 跳过"
+    dates={days}
+    series={[
+      { key: "like", label: "喜欢", color: "#A32E4E", values: [3, 5, 2, 8, 6, 1, 0, 4, 9, 7, 2, 3, 5, 1] },
+      { key: "pass", label: "跳过", color: "#C8862B", values: [0, 1, 0, 2, 1, 0, 0, 1, 3, 2, 0, 1, 0, 0] },
+    ]}
+  />
+);
+check("画出了折线路径", chartHtml.includes("<path"));
+check("两个系列都行末标注", chartHtml.includes("喜欢") && chartHtml.includes("跳过"));
+check("图例存在（两系列必须有）", chartHtml.includes("<span"));
+check("有表格切换（配色里那条对比度警告要求它）", chartHtml.includes("看表格"));
+check("日期只标首/中/末，不是 14 个都写", (chartHtml.match(/\d\d-\d\d/g) ?? []).length <= 4);
+
+// 边界：这三种情况最容易算出 NaN 或者除零
+const oneDay = renderPage(
+  "折线图（只有一天）",
+  <LineChart title="x" dates={["2026-10-10"]} series={[{ key: "a", label: "A", color: "#A32E4E", values: [3] }]} />
+);
+check("单日不产生 NaN", !!oneDay && !oneDay.includes("NaN"));
+const zeros = renderPage(
+  "折线图（全 0）",
+  <LineChart title="x" dates={["2026-10-08", "2026-10-09", "2026-10-10"]} series={[{ key: "a", label: "A", color: "#A32E4E", values: [0, 0, 0] }]} />
+);
+check("全 0 不产生 NaN", !!zeros && !zeros.includes("NaN"));
+const noDates = renderPage(
+  "折线图（没有数据）",
+  <LineChart title="空数据图" dates={[]} series={[{ key: "a", label: "A", color: "#A32E4E", values: [] }]} />
+);
+// 不能断言整段 html 为空：外面还包着 Router/Provider 那几层。断言"这张图的内容一个都没渲染"
+check("没有数据时安静地不渲染", !noDates.includes("空数据图"));
 
 // 区划与院校这两段需要 await（数据是懒加载的），而构建目标不支持顶层 await，
 // 所以放到 async 函数里跑，跑完再决定退出码。

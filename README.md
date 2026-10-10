@@ -55,17 +55,44 @@ mutual-app/
 │   │   ├── handler/    HTTP 接入层（参数绑定、错误码映射）
 │   │   ├── service/    业务规则 + 事务边界
 │   │   ├── model/      GORM 模型
-│   │   ├── middleware/ 鉴权、限流、Onboarding 守卫
+│   │   ├── middleware/ 鉴权、限流、Onboarding 守卫、后台守卫（AdminGuard）
 │   │   ├── ws/         WebSocket Hub
 │   │   └── infra/      PG / Redis / MinIO
 │   └── scripts/e2e.sh  端到端测试（16 个场景 62 项断言）
 ├── web/                React 前端
 │   └── src/
 │       ├── pages/      登录 / Onboarding / 发现 / 广场 / 心动 / 聊天 / 我的
+│       ├── admin/      后台（/admin）：概览 / 用户 / 会话
 │       ├── components/ 卡片栈、配对动画、滚轮选择器、九宫格相册
 │       └── lib/api.ts  接口封装
 └── deploy/deploy.sh    一键部署（API + 前端 + nginx）
 ```
+
+## 后台（管理端）
+
+访问 `https://<域名>/admin`。用你自己的账号登录——**没有另做一套账号体系**，
+权限由数据库里的 `users.is_admin` 决定：
+
+```sql
+UPDATE users SET is_admin = true WHERE phone = '你的手机号';
+```
+
+这样做的理由：不给部署再加一个要人工同步的秘密（环境变量、独立的 admin 表都会）。
+代价是"谁能进后台"要改库——对一个内部工具来说这正好。接口全部只读
+（封禁/删号这类留给运维直接改库，免得再引入一套"后台能改什么"的权限模型）。
+
+| 页面 | 看得到什么 |
+|---|---|
+| 概览 | 用户/划卡/配对/消息的当日与累计数、四个关键比率（右滑率、**回喜率**、会话开口率、曝光转化）、近 14 天趋势 |
+| 用户 | 分页 + 昵称/手机号搜索 + 性别/状态筛选；点进去是这个人完整的资料、相册、兴趣、伴侣偏好 |
+| 用户详情 | **TA 划别人**和**别人划 TA** 两个方向的记录（可按喜欢/跳过/看过筛），以及 TA 名下的会话 |
+| 会话 | 全部会话列表；点进去是完整聊天记录（左右分栏，按 id 小的一方在左） |
+
+接口在 `/api/v1/admin/*`，全部 GET，挂在 `AdminGuard` 后面。趋势图是纯 SVG
+（没有图表库），配色**用脚本验过色盲分离度**——详见 `web/src/admin/charts.tsx` 顶部。
+
+⚠️ `users.is_admin` 这一列是后来加的：生产库是手动 `ALTER TABLE` 加的，
+新装环境用 `schema.sql`（里面已经有）。所以**升级已有环境时要补这一步**。
 
 ## 本地开发
 
