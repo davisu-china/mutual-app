@@ -124,7 +124,9 @@ export default function Login() {
       >
         <View style={styles.brandBlock}>
           <LinearGradient
-            colors={[colors.brand, colors.brandDeep]}
+            // 和 logo 的底色用同一条三段渐变（brand→brandDark→brandDeep），
+            // 否则图标和 App 里的品牌块会是两种深浅的酒红
+            colors={[colors.brand, colors.brandDark, colors.brandDeep]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.brandMark}
@@ -134,6 +136,9 @@ export default function Login() {
             <Image source={require("../assets/mark.png")} style={styles.brandLogo} contentFit="contain" />
           </LinearGradient>
           <Text style={styles.brandName}>相悦</Text>
+          {/* 名字与口号之间一道金色细线：中文排版的高级感很大程度来自这种"分层"，
+              直接两行字堆在一起会显得随意 */}
+          <View style={styles.brandRule} />
           <Text style={styles.slogan}>两情相悦，才值得开始</Text>
         </View>
 
@@ -236,8 +241,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: space(4),
   },
-  brandName: { fontSize: 34, fontWeight: "700", letterSpacing: 2, color: colors.ink },
-  slogan: { marginTop: space(2), fontSize: 14, color: colors.muted2 },
+  // letterSpacing 会在**每个字**后面留出空隙，包括最后一个——两个字看起来就整体偏左。
+  // 补一个等量的 paddingLeft 把它推回视觉中心。
+  brandName: { fontSize: 33, fontWeight: "700", letterSpacing: 8, paddingLeft: 8, color: colors.ink },
+  brandRule: { width: 26, height: 1, marginTop: space(3), backgroundColor: colors.goldLine },
+  slogan: { marginTop: space(3), fontSize: 13, letterSpacing: 1.5, paddingLeft: 1.5, color: colors.muted2 },
   switcher: {
     flexDirection: "row",
     backgroundColor: colors.lineSoft,
