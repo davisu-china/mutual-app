@@ -7,7 +7,7 @@
  *
  * 网络全部打桩：测试不该依赖线上接口是否可用。
  */
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 // 版面约定靠样式值钉住（见"卡栈"那条用例里的两处）——RNTL 看不见"谁盖住了谁"
 import { StyleSheet } from "react-native";
 
@@ -65,6 +65,7 @@ import { Empty, Skeleton } from "@/ui/feedback";
 import { ProfileCard } from "@/components/profile-card";
 import { RecommendCard } from "@/components/recommend-card";
 import { MatchOverlay } from "@/components/match-overlay";
+import { MbtiSheet } from "@/components/pickers/mbti-sheet";
 import Login from "../app/login";
 import Onboarding from "../app/onboarding";
 import Discover from "../app/(tabs)/index";
@@ -210,6 +211,46 @@ describe("页面与组件渲染", () => {
     await r.findByText("这一批看完了");
     expect(r.getByText("再看一批")).toBeTruthy();
     expect(r.getByText("去广场")).toBeTruthy();
+  });
+
+  it("MBTI 选择器：按四个维度各答一次，答完才拼出类型", () => {
+    let saved: string | null = null;
+    const r = render(
+      wrap(<MbtiSheet open value={null} onChange={(v) => (saved = v)} onClose={() => {}} />)
+    );
+
+    // 每一维三段：左字母 / 未选 / 右字母——中间那档就是 Web 版滑杆的"中间位"
+    expect(r.getAllByLabelText("未选")).toHaveLength(4);
+    expect(r.getByText("还差 4 个维度")).toBeTruthy();
+    // 没答完不给确认：半成品不该写进资料（Web 版也是答完才出现确认）
+    expect(r.queryByLabelText("确认")).toBeNull();
+
+    fireEvent.press(r.getByLabelText("E 外向"));
+    fireEvent.press(r.getByLabelText("N 直觉"));
+    fireEvent.press(r.getByLabelText("F 情感"));
+    expect(r.getByText("还差 1 个维度")).toBeTruthy();
+    expect(r.queryByLabelText("确认")).toBeNull();
+
+    fireEvent.press(r.getByLabelText("P 感知"));
+    expect(r.getByText("ENFP")).toBeTruthy();
+
+    // 点中间那档 = 把这一维撤回：确认按钮随之消失（还是半成品）
+    fireEvent.press(r.getAllByLabelText("未选")[1]);
+    expect(r.queryByLabelText("确认")).toBeNull();
+    fireEvent.press(r.getByLabelText("N 直觉"));
+
+    fireEvent.press(r.getByLabelText("确认"));
+    expect(saved).toBe("ENFP");
+  });
+
+  it("MBTI 选择器：带着已填的值打开就是答完的状态，取消不写回", () => {
+    let saved: string | null = null;
+    const r = render(
+      wrap(<MbtiSheet open value="ISTJ" onChange={(v) => (saved = v)} onClose={() => {}} />)
+    );
+    expect(r.getByText("ISTJ")).toBeTruthy();
+    fireEvent.press(r.getByLabelText("取消"));
+    expect(saved).toBeNull();
   });
 
   it("关键组件渲染出该有的东西", () => {

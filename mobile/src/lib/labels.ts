@@ -56,13 +56,7 @@ export const DINK = [
   { value: 2, label: "否" },
 ];
 
-/** 16 型。资料向导里直接选，值就是这 4 个字母 */
-export const MBTI = [
-  "INTJ", "INTP", "ENTJ", "ENTP",
-  "INFJ", "INFP", "ENFJ", "ENFP",
-  "ISTJ", "ISFJ", "ESTJ", "ESFJ",
-  "ISTP", "ISFP", "ESTP", "ESFP",
-].map((t) => ({ value: t, label: t }));
+
 
 export const YES_NO = [
   { value: true, label: "是" },

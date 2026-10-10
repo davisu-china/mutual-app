@@ -29,7 +29,6 @@ import {
   INCOME_LABEL_RANGE,
   INCOME_MAX_CHOICES,
   INCOME_MIN_CHOICES,
-  MBTI,
   PARTNER_TAGS,
   SMOKING,
   YES_NO,
@@ -37,6 +36,7 @@ import {
 import { INDUSTRIES, occupationValue } from "@/lib/data/occupation";
 import { PROVINCE_NAMES, fullName } from "@/lib/data/regions";
 import { DateSheet, NumberSheet, RangeSheet } from "@/components/pickers/wheel-sheets";
+import { MbtiSheet } from "@/components/pickers/mbti-sheet";
 import { RegionSheet } from "@/components/pickers/region-sheet";
 import { MultiChoiceSheet, OccupationSheet, UniversitySheet } from "@/components/pickers/list-sheets";
 import {
@@ -63,7 +63,7 @@ export function genderOf(d: Draft): "male" | "female" {
 
 /* ================================================================ 第一步 */
 
-type Sheet1 = "birthday" | "height" | "weight" | "hometown" | "residence" | "occupation" | "school" | null;
+type Sheet1 = "birthday" | "height" | "weight" | "hometown" | "residence" | "occupation" | "school" | "mbti" | null;
 
 export function Step1({ d, set }: { d: Draft; set: Setter }) {
   const toast = useToast();
@@ -172,7 +172,14 @@ export function Step1({ d, set }: { d: Draft; set: Setter }) {
         icon="briefcase-outline"
         onPress={() => setSheet("occupation")}
       />
-      <Choice label="MBTI" options={MBTI} value={d.mbti} columns={4} onChange={(v) => set("mbti", v)} />
+      {/* MBTI 不铺 16 个类型：按四个维度各答一次（见 mbti-sheet.tsx）。
+          放在这里是为了和身高/家乡/职业一样只占一行，别把这一屏撑长 */}
+      <FieldRow
+        label="MBTI"
+        value={d.mbti}
+        icon="sparkles-outline"
+        onPress={() => setSheet("mbti")}
+      />
       <Choice label="抽烟" options={SMOKING} value={d.smoking} onChange={(v) => set("smoking", v)} />
       <Choice label="喝酒" options={DRINKING} value={d.drinking} onChange={(v) => set("drinking", v)} />
       <Choice label="年收入" options={INCOME} value={d.incomeRange} columns={2} onChange={(v) => set("incomeRange", v)} />
@@ -251,6 +258,12 @@ export function Step1({ d, set }: { d: Draft; set: Setter }) {
         open={sheet === "school"}
         value={d.school}
         onChange={(v) => set("school", v)}
+        onClose={() => setSheet(null)}
+      />
+      <MbtiSheet
+        open={sheet === "mbti"}
+        value={d.mbti}
+        onChange={(v) => set("mbti", v)}
         onClose={() => setSheet(null)}
       />
     </View>
