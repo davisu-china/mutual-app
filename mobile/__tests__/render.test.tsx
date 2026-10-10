@@ -8,6 +8,8 @@
  * 网络全部打桩：测试不该依赖线上接口是否可用。
  */
 import { render, screen } from "@testing-library/react-native";
+// 版面约定靠样式值钉住（见"卡栈"那条用例里的两处）——RNTL 看不见"谁盖住了谁"
+import { StyleSheet } from "react-native";
 
 // 接口层整体打桩：页面挂载时会拉数据，真打网络会让测试又慢又不稳
 jest.mock("@/lib/api", () => {
@@ -170,6 +172,16 @@ describe("页面与组件渲染", () => {
       expect(r.getByText("摄影")).toBeTruthy(); // 共同兴趣，金标签
       expect(r.getByText(/写代码也写字/)).toBeTruthy();
 
+      // 两条版面约定，都是用户实机报过才发现的——渲染测试本来抓不到它们
+      // （元素都在、a11y 也在，"看不见"这件事只有人和像素能发现），
+      // 所以退而求其次：把决定可见性的那两个数钉住。
+      // ① 卡片两侧必须留边距。铺满整屏时圆角正落在屏幕边缘，看着不像一张卡。
+      const stage = r.getByTestId("deck-stage");
+      expect(StyleSheet.flatten(stage.props.style).paddingHorizontal).toBeGreaterThan(0);
+      // ② 按钮浮层必须压在卡片之上：卡片自己是 zIndex 10、飞出去那张 20，
+      //    浮层不写 zIndex 就算 0 ⇒ 被照片整块盖住。症状就叫"按钮不见了"。
+      const overlay = r.getByTestId("card-actions");
+      expect(StyleSheet.flatten(overlay.props.style).zIndex).toBeGreaterThan(10);
     } finally {
       get.mockImplementation(original);
     }
@@ -213,7 +225,11 @@ describe("页面与组件渲染", () => {
     check("推荐卡显示名字", !!rc.getByText("小晴"));
     check("推荐卡显示年龄", !!rc.getByText("24"));
     check("推荐卡显示身高城市学历职业", !!rc.getByText(/165cm · 上海市 · 本科/));
-    check("推荐卡显示自述", !!rc.getByText(/部分条件不符/));
+    // 推荐卡上**不展示**"部分条件不符"这类字样：划卡的那一刻是要不要喜欢，
+    // 在这个位置讲"哪里不合适"是反向劝退（用户明确要求去掉）
+    check("推荐卡不显示「部分条件不符」", rc.queryByText(/部分条件不符/) === null);
+    const rc2 = render(wrap(<RecommendCard card={{ ...card, aboutMe: "写代码也写字，周末在山里。" }} />));
+    check("推荐卡显示自述", !!rc2.getByText(/写代码也写字/));
     // 没有推荐理由时不硬凑：整行都不出现（而不是显示一个空的"契合点 0"）
     check("没有推荐理由时不渲染契合点那一行", rc.queryByText("契合点") === null);
 

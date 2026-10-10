@@ -44,8 +44,8 @@ export default function Recommend() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { width } = useWindowDimensions();
-  /** 卡片的实际宽度：卡片铺满屏幕，所以就是屏宽（滑动阈值按它的比例算） */
-  const cardW = width;
+  /** 卡片的实际宽度 = stage 可用宽（左右各 space(3)）——滑动阈值按它的比例算，改边距时这里要一起改 */
+  const cardW = width - space(3) * 2;
 
   const [cards, setCards] = useState<Card[] | null>(null);
   const [quota, setQuota] = useState({ used: 0, limit: 10, remain: 10 });
@@ -157,7 +157,9 @@ export default function Recommend() {
         </Pressable>
       </View>
 
-      <View style={styles.stage}>
+      {/* testID 是给渲染测试用的：下面两处版面约定（卡片两侧留边距、按钮浮层压在卡上）
+          靠肉眼看不住，都是用户实机报过一次才知道坏的 */}
+      <View style={styles.stage} testID="deck-stage">
         {cards === null ? (
           <Skeleton height={420} style={styles.skeleton} />
         ) : !top && !exiting ? (
@@ -211,7 +213,7 @@ export default function Recommend() {
               叠在卡上，行为上互不干扰。
               左边跳过、右边喜欢——和左右滑的方向一一对应。
             */}
-            <View style={styles.actionsOverlay} pointerEvents="box-none">
+            <View style={styles.actionsOverlay} pointerEvents="box-none" testID="card-actions">
               {top && !hinted ? (
                 <View style={styles.hintPill} pointerEvents="none">
                   <Text style={styles.hintText}>左滑跳过 · 右滑喜欢</Text>
@@ -407,9 +409,10 @@ const styles = StyleSheet.create({
   quotaOff: { backgroundColor: colors.lineSoft },
   quotaText: { fontSize: 12, fontWeight: "600", color: colors.brand, fontVariant: ["tabular-nums"] },
   quotaTextOff: { color: colors.muted2 },
-  // 卡片铺满：不留左右边距、不留底部空档（按钮改到卡上去了）。
-  // 照片是这一屏唯一的主角，边距每多一分它就小一分。
-  stage: { flex: 1 },
+  // 左右留 12、底部留 8。
+  // ⚠️ 试过留 0（"卡片铺满"字面意义上的全屏）——很难看：圆角正好落在屏幕边缘上，
+  // 看着不像一张卡，像整屏贴了一张图。**留一点缝，卡片才成其为卡片。**
+  stage: { flex: 1, paddingHorizontal: space(3), paddingBottom: space(2) },
   // 卡栈的定位基准：绝对定位的子元素按这一层算，才能正好等于卡片的可视区域
   deck: { flex: 1 },
   skeleton: { borderRadius: radius.card },
@@ -435,12 +438,19 @@ const styles = StyleSheet.create({
   },
   emptyActions: { flexDirection: "row", alignItems: "center", gap: space(3) },
   hintText: { fontSize: 12, color: colors.white },
-  // 按钮浮层：绝对定位在卡栈之上，但在手势之外（见 JSX 里的注释）
+  // 按钮浮层：绝对定位在卡栈之上，但在手势之外（见 JSX 里的注释）。
+  // ⚠️ **必须有 zIndex**：卡片自己是 `zIndex: 10`、飞出去那张是 20，
+  // 而同级元素不写 zIndex 时算 0 ⇒ 卡片会盖在按钮上面。症状是"按钮不见了"
+  // （其实还在，只是被照片挡住了）。这个坑只在真机上看得见。
   actionsOverlay: {
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: space(2),
+    zIndex: 30,
+    // Android 上 elevation 也参与绘制顺序，而卡片带 elevation:3、这层是 0——
+    // 只写 zIndex 不敢打包票，所以一并抬起来。背景是透明的，不会画出阴影来。
+    elevation: 12,
     alignItems: "center",
     paddingBottom: space(6),
     gap: space(3),

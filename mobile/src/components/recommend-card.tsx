@@ -83,12 +83,6 @@ export function RecommendCard({ card }: { card: Card }) {
             {card.aboutMe}
           </Text>
         ) : null}
-
-        {card.softMismatch?.length ? (
-          <Text style={styles.mismatch} numberOfLines={1}>
-            部分条件不符：{card.softMismatch.join("、")}
-          </Text>
-        ) : null}
       </LinearGradient>
     </View>
   );
@@ -154,5 +148,4 @@ const styles = StyleSheet.create({
   tagText: { color: colors.white, fontSize: 10.5, fontWeight: "500" },
 
   quote: { marginTop: space(1), color: "rgba(255,255,255,.78)", fontSize: 12.5, lineHeight: 19 },
-  mismatch: { color: colors.goldSoft, fontSize: 11.5 },
 });
