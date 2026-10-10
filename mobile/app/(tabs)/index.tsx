@@ -13,7 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, ApiError } from "@/lib/api";
-import { ProfileCard } from "@/components/profile-card";
+import { RecommendCard } from "@/components/recommend-card";
 import { MatchOverlay } from "@/components/match-overlay";
 import { Button } from "@/ui/button";
 import { Empty, Skeleton, useToast } from "@/ui/feedback";
@@ -135,6 +135,15 @@ export default function Recommend() {
     <View style={[styles.root, { paddingTop: insets.top + space(2) }]}>
       <View style={styles.header}>
         <Text style={styles.title}>推荐</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="换一批"
+          hitSlop={10}
+          onPress={() => void load()}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+        >
+          <Ionicons name="refresh" size={19} color={colors.muted} />
+        </Pressable>
         {/* 额度只在快用完（≤3）时才冒出来。平时头部就一个标题——主流划卡页都是这样，
             常驻一个「今日还可喜欢 N 人」会把界面变成记账本，这是"不够高级"的一个来源。
             规则与「心动」页一致。 */}
@@ -279,6 +288,11 @@ function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocke
 
   const pan = Gesture.Pan()
     .enabled(interactive)
+    // **只认横向拖动**：纵向要留给卡片下半部分信息区的滚动。
+    // failOffsetY 让"先上下动"的手势直接判负，交给里面的 ScrollView；
+    // 不加这两条，想滑列表就会变成拖卡片。
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-14, 14])
     .onUpdate((e) => {
       x.value = e.translationX;
       y.value = e.translationY;
@@ -343,7 +357,7 @@ function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocke
         accessibilityElementsHidden={!interactive}
         importantForAccessibility={interactive ? "auto" : "no-hide-descendants"}
       >
-        <ProfileCard card={card} />
+        <RecommendCard card={card} />
 
         <Animated.View style={[styles.stamp, styles.stampLike, likeStamp]} pointerEvents="none">
           <Text style={styles.stampLikeText}>喜欢</Text>
@@ -391,7 +405,7 @@ function FlyingCard({
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, style, styles.flying]} pointerEvents="none">
-      <ProfileCard card={card} />
+      <RecommendCard card={card} />
     </Animated.View>
   );
 }
@@ -400,6 +414,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paper },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space(5), paddingBottom: space(2) },
   title: { fontSize: 18, fontWeight: "700", letterSpacing: 0.2, color: colors.ink },
+  iconBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  iconBtnPressed: { backgroundColor: colors.lineSoft },
   quota: { flexDirection: "row", alignItems: "center", gap: space(1.5), borderRadius: radius.pill, backgroundColor: colors.brandSoft, paddingHorizontal: space(3), paddingVertical: space(1.5) },
   quotaOff: { backgroundColor: colors.lineSoft },
   quotaText: { fontSize: 12, fontWeight: "600", color: colors.brand, fontVariant: ["tabular-nums"] },

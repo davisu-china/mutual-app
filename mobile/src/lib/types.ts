@@ -38,6 +38,15 @@ export interface Card {
   completeness: number;
   /** 软条件不完全满足时的提示（PRD 7.2 要求让用户知情） */
   softMismatch?: string[];
+  /**
+   * 为什么给你看这个人。三个字段一起构成推荐卡下半部分：
+   * reasons＝TA 符合你的哪些偏好、sharedHobbies＝你们的共同兴趣、
+   * aboutMe＝TA 自己写的那段话（当成引用展示）。
+   * 都是服务端算出来的，不是前端拼的文案。
+   */
+  reasons?: string[];
+  sharedHobbies?: string[];
+  aboutMe?: string;
 }
 
 export interface Photo {

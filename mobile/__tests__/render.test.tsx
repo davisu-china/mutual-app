@@ -61,6 +61,7 @@ import { Sheet } from "@/ui/sheet";
 import { WheelPicker } from "@/ui/wheel-picker";
 import { Empty, Skeleton } from "@/ui/feedback";
 import { ProfileCard } from "@/components/profile-card";
+import { RecommendCard } from "@/components/recommend-card";
 import { MatchOverlay } from "@/components/match-overlay";
 import Login from "../app/login";
 import Onboarding from "../app/onboarding";
@@ -134,7 +135,8 @@ describe("页面与组件渲染", () => {
     const get = api.get as jest.Mock;
     const original = get.getMockImplementation();
     const deck: Card[] = [
-      card,
+      // 最上面这张带上"推荐理由"三件套，好把卡片下半部分也跑到
+      { ...card, reasons: ["身高合适", "学历达标"], sharedHobbies: ["摄影"], aboutMe: "写代码也写字，周末不是在山里就是在咖啡馆。" },
       { ...card, userId: 3, nickname: "阿雅" },
       { ...card, userId: 4, nickname: "林深" },
       { ...card, userId: 5, nickname: "多余的第四张" },
@@ -161,6 +163,13 @@ describe("页面与组件渲染", () => {
       expect(r.getByHintText("打开 TA 的主页")).toBeTruthy();
       // 额度充足时头部只有标题——常驻一个"今日还可喜欢 N 人"会把划卡页变成记账本
       expect(r.queryByText(/今日还可喜欢/)).toBeNull();
+
+      // 卡片下半部分：为什么推荐给你（这是从参考图借来的那块）
+      expect(r.getByText("契合点")).toBeTruthy();
+      expect(r.getByText("身高合适")).toBeTruthy();
+      expect(r.getByText("你们的共同兴趣")).toBeTruthy();
+      expect(r.getByText(/写代码也写字/)).toBeTruthy();
+
     } finally {
       get.mockImplementation(original);
     }
@@ -198,6 +207,13 @@ describe("页面与组件渲染", () => {
     check("卡片显示职业", !!c.getByText(/互联网\/IT · 产品经理/));
     check("卡片显示兴趣标签", !!c.getByText("摄影"));
     check("软条件不符有提示", !!c.getByText("部分条件不符"));
+
+    // 推荐卡：没有理由时不该硬凑，而是给一句说明
+    const rc = render(wrap(<RecommendCard card={card} />));
+    check("推荐卡显示名字", !!rc.getByText("小晴"));
+    check("推荐卡显示年龄", !!rc.getByText("24"));
+    check("没有推荐理由时给出说明而不是空着", !!rc.getByText(/多填几项偏好/));
+    check("推荐卡显示对方兴趣", !!rc.getByText("摄影"));
 
     const b = render(wrap(<Button label="喜欢" onPress={() => {}} />));
     check("按钮显示文案", !!b.getByText("喜欢"));
