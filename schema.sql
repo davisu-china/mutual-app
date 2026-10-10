@@ -46,6 +46,10 @@ CREATE TABLE users (
     register_ip     INET,
     last_login_at   TIMESTAMPTZ,
     onboarded_at    TIMESTAMPTZ,                     -- 走完五步的时间，NULL=未完成
+    -- 后台管理员：/admin/* 的全部接口都会校验这一位。
+    -- 用一个位而不是另建 admin 表或加环境变量——不给部署再加一个要人工同步的秘密，
+    -- 管理员直接用自己已有的账号登录（见 web/src/admin）。
+    is_admin        BOOLEAN       NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
 

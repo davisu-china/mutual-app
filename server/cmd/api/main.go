@@ -77,6 +77,7 @@ func main() {
 	discSvc := service.NewDiscoveryService(db, profileSvc, exposureSvc)
 	socialSvc := service.NewSocialService(db)
 	chatSvc := service.NewChatService(db)
+	adminSvc := service.NewAdminService(db)
 
 	// 配对成功后推送：由 ActionService 在事务提交后回调。
 	// 放在这里注入，service 层就不必知道 WebSocket 的存在。
@@ -107,6 +108,7 @@ func main() {
 		Upload:  handler.NewUploadHandler(uploadSvc),
 		Media:   handler.NewMediaHandler(uploadSvc, cfg, issuer),
 		WS:      handler.NewWSChatHandler(),
+		Admin:   handler.NewAdminHandler(adminSvc),
 	})
 
 	srv := &http.Server{

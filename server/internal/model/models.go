@@ -65,7 +65,9 @@ type User struct {
 	RegisterIP   *string    `gorm:"type:inet" json:"-"`
 	LastLoginAt  *time.Time `json:"lastLoginAt"`
 	OnboardedAt  *time.Time `json:"onboardedAt"`
-	CreatedAt    time.Time  `json:"createdAt"`
+	// 后台管理员。不对外下发（json:"-"）——它是权限位，不该出现在任何用户可见的响应里
+	IsAdmin   bool      `gorm:"not null;default:false" json:"-"`
+	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 

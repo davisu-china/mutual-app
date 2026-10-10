@@ -26,6 +26,7 @@ type Deps struct {
 	Upload  *UploadHandler
 	Media   *MediaHandler
 	WS      *WSChatHandler
+	Admin   *AdminHandler
 }
 
 // NewRouter 组装路由。
@@ -107,6 +108,20 @@ func NewRouter(d Deps) *gin.Engine {
 		// WebSocket：升级前不走 OnboardGuard（否则未完成资料的人连不上也没提示），
 		// 但连上后能推什么由服务端决定
 		authed.GET("/ws", d.WS.WS)
+
+		// 后台：只要登录 + is_admin，**不挂 OnboardGuard**——
+		// 管理员自己的资料填没填完，和能不能看后台是两件事。
+		// 全部只读（GET），写操作留给运维直接改库。
+		admin := authed.Group("/admin")
+		admin.Use(middleware.AdminGuard(d.DB))
+		{
+			admin.GET("/stats", d.Admin.Stats)
+			admin.GET("/users", d.Admin.Users)
+			admin.GET("/users/:id", d.Admin.UserDetail)
+			admin.GET("/users/:id/actions", d.Admin.UserActions)
+			admin.GET("/conversations", d.Admin.Conversations)
+			admin.GET("/conversations/:id", d.Admin.Conversation)
+		}
 
 		// 发现与互动：**必须完成 Onboarding**
 		app := authed.Group("")
