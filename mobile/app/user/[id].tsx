@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, mediaImage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Skeleton, useToast } from "@/ui/feedback";
+import { UserActionsSheet } from "@/components/user-actions";
 import { DINK_LABEL, DRINKING_LABEL, EDUCATION_LABEL, HOUSE_LABEL, INCOME_LABEL, SMOKING_LABEL } from "@/lib/labels";
 import { colors, font, radius, shadow, space } from "@/theme";
 import type { ActionResult, Profile } from "@/lib/types";
@@ -30,14 +31,20 @@ export default function UserDetail() {
   const toast = useToast();
 
   const [p, setP] = useState<Profile | null | "error">(null);
+  const [errMsg, setErrMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState(0);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [relOverride, setRelOverride] = useState<Profile["relation"]>(undefined);
 
   const load = useCallback(async () => {
     try {
       setP(await api.get<Profile>(`/users/${id}`));
-    } catch {
+    } catch (e) {
+      // 把服务端的话原样带出来。拉黑是**双向阻断**的（PublicProfile 里
+      // isBlocked 命中就报错），所以拉黑之后自己再点进来也是这条路——
+      // 只写「看不到这个人的资料」会让人以为是网络问题。
+      setErrMsg(e instanceof Error ? e.message : "");
       setP("error");
     }
   }, [id]);
@@ -74,7 +81,7 @@ export default function UserDetail() {
   if (p === "error") {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
-        <Text style={styles.errText}>看不到这个人的资料</Text>
+        <Text style={styles.errText}>{errMsg || "看不到这个人的资料"}</Text>
         <Button label="返回" variant="outline" onPress={() => nav.back()} />
       </View>
     );
@@ -110,6 +117,19 @@ export default function UserDetail() {
           <Pressable style={[styles.backBtn, { top: insets.top + space(2) }]} onPress={() => nav.back()} accessibilityLabel="返回">
             <Ionicons name="chevron-back" size={22} color={colors.white} />
           </Pressable>
+
+          {/* 举报 / 拉黑 / 解除配对都收在这里。放在对方主页而不是聊天室里，
+              是因为这一页本来就是"和这个人的关系动作"的唯一去处（喜欢/跳过/
+              去聊天也都在这一页的底部），聊天室的标题栏点一下也能到这里。 */}
+          {profile ? (
+            <Pressable
+              style={[styles.moreBtn, { top: insets.top + space(2) }]}
+              onPress={() => setActionsOpen(true)}
+              accessibilityLabel="更多操作"
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color={colors.white} />
+            </Pressable>
+          ) : null}
 
           {photos.length > 1 ? (
             <View style={styles.dots}>
@@ -194,6 +214,20 @@ export default function UserDetail() {
           </>
         )}
       </View>
+
+      {profile ? (
+        <UserActionsSheet
+          open={actionsOpen}
+          onClose={() => setActionsOpen(false)}
+          userId={profile.userId}
+          nickname={profile.nickname}
+          matched={rel?.matched}
+          // 拉黑后这一页本身也会被服务端挡掉，原地待着只会看到错误态；
+          // 解配后配对已不存在，留在页面上也没有意义。
+          onBlocked={() => nav.back()}
+          onUnmatched={() => nav.back()}
+        />
+      ) : null}
     </View>
   );
 }
@@ -225,6 +259,18 @@ const styles = StyleSheet.create({
   backBtn: {
     position: "absolute",
     left: space(4),
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(26,21,18,.35)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // 压在照片上的按钮，底色必须半透明深色——照片有可能是浅色的，
+  // 纯白图标直接放上去会看不见
+  moreBtn: {
+    position: "absolute",
+    right: space(4),
     width: 36,
     height: 36,
     borderRadius: 18,
