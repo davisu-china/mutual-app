@@ -11,6 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -128,7 +129,9 @@ export default function Login() {
             end={{ x: 1, y: 1 }}
             style={styles.brandMark}
           >
-            <Ionicons name="heart-half" size={30} color={colors.white} />
+            {/* 相悦的 logo：两个相交的圆环，交集处是香槟金。
+                资源由 scripts/gen-icons 生成（这台机器跑不了设计软件，图标是代码画的） */}
+            <Image source={require("../assets/mark.png")} style={styles.brandLogo} contentFit="contain" />
           </LinearGradient>
           <Text style={styles.brandName}>相悦</Text>
           <Text style={styles.slogan}>两情相悦，才值得开始</Text>
@@ -224,6 +227,7 @@ const styles = StyleSheet.create({
   },
   content: { paddingHorizontal: space(6), paddingBottom: space(12), flexGrow: 1, justifyContent: "center" },
   brandBlock: { alignItems: "center", marginBottom: space(10) },
+  brandLogo: { width: 44, height: 44 },
   brandMark: {
     width: 64,
     height: 64,
