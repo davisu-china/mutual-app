@@ -44,13 +44,13 @@ export default function Recommend() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { width } = useWindowDimensions();
-  /** 卡片的实际宽度 = stage 的可用宽（左右各留 space(3)）——滑动阈值按它的比例算，改边距时这里要一起改 */
-  const cardW = width - space(3) * 2;
+  /** 卡片的实际宽度：卡片铺满屏幕，所以就是屏宽（滑动阈值按它的比例算） */
+  const cardW = width;
 
   const [cards, setCards] = useState<Card[] | null>(null);
   const [quota, setQuota] = useState({ used: 0, limit: 10, remain: 10 });
   const [busy, setBusy] = useState(false);
-  const [exiting, setExiting] = useState<{ card: Card; dir: Dir; fromX: number; fromY: number } | null>(null);
+  const [exiting, setExiting] = useState<{ card: Card; dir: Dir; fromX: number } | null>(null);
   const [match, setMatch] = useState<{ nickname: string; avatar: string } | null>(null);
   /** 滑过一次就不再提示了——提示是给第一次来的人看的 */
   const [hinted, setHinted] = useState(false);
@@ -85,7 +85,7 @@ export default function Recommend() {
   const exhausted = quota.remain <= 0;
 
   const act = useCallback(
-    async (action: Dir, fromX = 0, fromY = 0) => {
+    async (action: Dir, fromX = 0) => {
       const cur = cards?.[0];
       if (!cur || busy) return;
       setBusy(true);
@@ -93,7 +93,7 @@ export default function Recommend() {
       void Haptics.impactAsync(action === "like" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
 
       // 乐观：先让它飞走
-      setExiting({ card: cur, dir: action, fromX, fromY });
+      setExiting({ card: cur, dir: action, fromX });
       const snapshot = cards ?? [];
       setCards((prev) => (prev ? prev.slice(1) : prev));
       if (action === "like") setQuota((q) => ({ ...q, used: q.used + 1, remain: Math.max(0, q.remain - 1) }));
@@ -135,17 +135,8 @@ export default function Recommend() {
     <View style={[styles.root, { paddingTop: insets.top + space(2) }]}>
       <View style={styles.header}>
         <Text style={styles.title}>推荐</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="换一批"
-          hitSlop={10}
-          onPress={() => void load()}
-          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
-        >
-          <Ionicons name="refresh" size={19} color={colors.muted} />
-        </Pressable>
         {/* 额度只在快用完（≤3）时才冒出来。平时头部就一个标题——主流划卡页都是这样，
-            常驻一个「今日还可喜欢 N 人」会把界面变成记账本，这是"不够高级"的一个来源。
+            常驻一个「今日还可喜欢 N 人」会把界面变成记账本。
             规则与「心动」页一致。 */}
         {quota.remain <= 3 ? (
           <View style={[styles.quota, exhausted && styles.quotaOff]}>
@@ -155,6 +146,15 @@ export default function Recommend() {
             </Text>
           </View>
         ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="换一批"
+          hitSlop={10}
+          onPress={() => void load()}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+        >
+          <Ionicons name="refresh" size={19} color={colors.muted} />
+        </Pressable>
       </View>
 
       <View style={styles.stage}>
@@ -188,7 +188,6 @@ export default function Recommend() {
                   card={c}
                   dir={exiting.dir}
                   fromX={exiting.fromX}
-                  fromY={exiting.fromY}
                 />
               ) : (
                 <DeckCard
@@ -204,39 +203,44 @@ export default function Recommend() {
                 />
               )
             )}
-          </View>
-        )}
-      </View>
 
-      <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, space(3)) }]}>
-        {/* 提示**浮**在卡片与按钮之间的空档里，不占布局。
-            主流的划卡页都没有独立的提示行：那一行即使内容消失了，它占的高度还在，
-            就成了卡片下面一条永远空着的带子——"留白太多"多半就是从这来的。 */}
-        {top && !hinted ? (
-          <View style={styles.hintWrap} pointerEvents="none">
-            <View style={styles.hintPill}>
-              <Text style={styles.hintText}>左滑跳过 · 右滑喜欢 · 点一下看资料</Text>
+            {/*
+              按钮浮在卡片上，但**放在手势之外**：
+              它们是普通的 Pressable，如果塞进卡片的 GestureDetector 里，
+              点一下会同时触发"按钮"和"点开资料"两件事。放在这里视觉上仍然
+              叠在卡上，行为上互不干扰。
+              左边跳过、右边喜欢——和左右滑的方向一一对应。
+            */}
+            <View style={styles.actionsOverlay} pointerEvents="box-none">
+              {top && !hinted ? (
+                <View style={styles.hintPill} pointerEvents="none">
+                  <Text style={styles.hintText}>左滑跳过 · 右滑喜欢</Text>
+                </View>
+              ) : null}
+              {/* box-none：这一行铺满整宽，如果它自己吃掉触摸，
+                  卡片下半部分就再也划不动了（按钮仍然照常响应） */}
+              <View style={styles.actionsRow} pointerEvents="box-none">
+                <Pressable
+                  accessibilityLabel="跳过"
+                  disabled={!top || busy}
+                  onPress={() => void act("pass")}
+                  style={({ pressed }) => [styles.pass, pressed && styles.pressed, (!top || busy) && styles.off]}
+                >
+                  <Ionicons name="close" size={27} color={colors.muted} />
+                </Pressable>
+
+                <Pressable
+                  accessibilityLabel="喜欢"
+                  disabled={!top || busy || exhausted}
+                  onPress={() => void act("like")}
+                  style={({ pressed }) => [styles.like, pressed && styles.pressed, (!top || busy || exhausted) && styles.off]}
+                >
+                  <Ionicons name="heart" size={33} color={colors.white} />
+                </Pressable>
+              </View>
             </View>
           </View>
-        ) : null}
-
-        <Pressable
-          accessibilityLabel="跳过"
-          disabled={!top || busy}
-          onPress={() => void act("pass")}
-          style={({ pressed }) => [styles.pass, pressed && styles.pressed, (!top || busy) && styles.off]}
-        >
-          <Ionicons name="close" size={27} color={colors.muted} />
-        </Pressable>
-
-        <Pressable
-          accessibilityLabel="喜欢"
-          disabled={!top || busy || exhausted}
-          onPress={() => void act("like")}
-          style={({ pressed }) => [styles.like, pressed && styles.pressed, (!top || busy || exhausted) && styles.off]}
-        >
-          <Ionicons name="heart" size={33} color={colors.white} />
-        </Pressable>
+        )}
       </View>
 
       <MatchOverlay
@@ -263,7 +267,7 @@ interface DeckCardProps {
   width: number;
   interactive: boolean;
   canLike: boolean;
-  onDecide: (dir: Dir, fromX: number, fromY: number) => void;
+  onDecide: (dir: Dir, fromX: number) => void;
   onBlocked: () => void;
   /** 轻点卡片 = 打开 TA 的主页（只有最上面那张会触发） */
   onOpen: (userId: number) => void;
@@ -280,33 +284,28 @@ interface DeckCardProps {
 function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocked, onOpen }: DeckCardProps) {
   const d = useSharedValue(depth);
   const x = useSharedValue(0);
-  const y = useSharedValue(0);
-
   useEffect(() => {
     d.value = withSpring(depth, SPRING);
   }, [depth, d]);
 
   const pan = Gesture.Pan()
     .enabled(interactive)
-    // **只认横向拖动**：纵向要留给卡片下半部分信息区的滚动。
-    // failOffsetY 让"先上下动"的手势直接判负，交给里面的 ScrollView；
-    // 不加这两条，想滑列表就会变成拖卡片。
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-14, 14])
+    // **别加 failOffsetY**：横向滑动时手腕是带弧线的，纵向很容易先超过十几像素，
+    // 那样手势会直接判负——表现就是"左滑有时候划不过去"（上一版就这么坏的）。
+    // 只要求横向动一点点就认，纵向位移一律忽略（卡片不做上下跟手）。
+    .activeOffsetX([-8, 8])
     .onUpdate((e) => {
       x.value = e.translationX;
-      y.value = e.translationY;
     })
     .onEnd((e) => {
       const dir = decideSwipe(x.value, e.velocityX, width);
       if (dir && !(dir === "like" && !canLike)) {
         // 不在这里做飞出去的动画：交给 FlyingCard 从当前位置接着走。
         // 否则两张卡会同时在场，或者动画接不上、出现一次可见的回弹。
-        runOnJS(onDecide)(dir, x.value, y.value);
+        runOnJS(onDecide)(dir, x.value);
         return;
       }
       x.value = withSpring(0, SPRING);
-      y.value = withSpring(0, SPRING);
       // 额度用完还右滑：弹回去并说清楚，别让它飞出去再被接口打回来
       if (dir === "like") runOnJS(onBlocked)();
     });
@@ -328,7 +327,7 @@ function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocke
   const style = useAnimatedStyle(() => ({
     transform: [
       { translateX: x.value },
-      { translateY: y.value + d.value * DEPTH_Y },
+      { translateY: d.value * DEPTH_Y },
       { scale: 1 - d.value * DEPTH_SCALE },
       { rotate: `${x.value / 40}deg` },
     ],
@@ -373,33 +372,21 @@ function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocke
 /**
  * 飞出去的那张卡。
  *
- * 起始位置由手势交接过来（fromX/fromY），所以松手那一刻不会有位移跳变；
+ * 起始位置由手势交接过来（fromX），所以松手那一刻不会有位移跳变；
  * 斜率和 DeckCard 用的是同一个 `x / 40`，角度也能接上。
  */
-function FlyingCard({
-  card,
-  dir,
-  fromX,
-  fromY,
-}: {
-  card: Card;
-  dir: Dir;
-  fromX: number;
-  fromY: number;
-}) {
+function FlyingCard({ card, dir, fromX }: { card: Card; dir: Dir; fromX: number }) {
   const { width } = useWindowDimensions();
   const x = useSharedValue(fromX);
-  const y = useSharedValue(fromY);
   const opacity = useSharedValue(1);
 
   useEffect(() => {
     x.value = withTiming(dir === "like" ? width * 1.1 : -width * 1.1, { duration: EXIT_MS });
-    y.value = withTiming(fromY - 70, { duration: EXIT_MS });
     opacity.value = withTiming(0, { duration: EXIT_MS + 60 });
-  }, [dir, width, fromY, x, y, opacity]);
+  }, [dir, width, x, opacity]);
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.value }, { translateY: y.value }, { rotate: `${x.value / 40}deg` }],
+    transform: [{ translateX: x.value }, { translateY: -60 }, { rotate: `${x.value / 40}deg` }],
     opacity: opacity.value,
   }));
 
@@ -420,9 +407,9 @@ const styles = StyleSheet.create({
   quotaOff: { backgroundColor: colors.lineSoft },
   quotaText: { fontSize: 12, fontWeight: "600", color: colors.brand, fontVariant: ["tabular-nums"] },
   quotaTextOff: { color: colors.muted2 },
-  // 左右只留 12：照片是这一屏的主角，边距一大就显小、显平。
-  // 主流划卡页都在 8–16 之间（Tinder/Bumble 约 10–12），我们原来 20 偏保守。
-  stage: { flex: 1, paddingHorizontal: space(3), paddingBottom: space(3) },
+  // 卡片铺满：不留左右边距、不留底部空档（按钮改到卡上去了）。
+  // 照片是这一屏唯一的主角，边距每多一分它就小一分。
+  stage: { flex: 1 },
   // 卡栈的定位基准：绝对定位的子元素按这一层算，才能正好等于卡片的可视区域
   deck: { flex: 1 },
   skeleton: { borderRadius: radius.card },
@@ -440,10 +427,6 @@ const styles = StyleSheet.create({
   stampPass: { right: space(4), borderColor: colors.muted2 },
   stampLikeText: { color: colors.brand, fontSize: 16, fontWeight: "800", letterSpacing: 2 },
   stampPassText: { color: colors.muted, fontSize: 16, fontWeight: "800", letterSpacing: 2 },
-  // 浮在卡片下沿与按钮之间：top 取负值 = 相对按钮行的上边往上 28，
-  // 正好是「卡片 → 空档 → 按钮」这段的中间，不挤压任何一侧。
-  // 外面这层全宽容器负责居中——绝对定位的子元素靠 alignSelf 居中在 RN 里不可靠。
-  hintWrap: { position: "absolute", top: -space(7), left: 0, right: 0, alignItems: "center" },
   hintPill: {
     borderRadius: radius.pill,
     backgroundColor: "rgba(26,21,18,.62)",
@@ -452,7 +435,24 @@ const styles = StyleSheet.create({
   },
   emptyActions: { flexDirection: "row", alignItems: "center", gap: space(3) },
   hintText: { fontSize: 12, color: colors.white },
-  actions: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space(6), paddingTop: space(4) },
+  // 按钮浮层：绝对定位在卡栈之上，但在手势之外（见 JSX 里的注释）
+  actionsOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    paddingBottom: space(6),
+    gap: space(3),
+  },
+  // 左右分开摆：位置和滑动方向一一对应（左边跳过、右边喜欢）
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    alignSelf: "stretch",
+    paddingHorizontal: space(9),
+  },
   pass: {
     width: 58,
     height: 58,

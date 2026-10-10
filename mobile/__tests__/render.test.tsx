@@ -158,16 +158,16 @@ describe("页面与组件渲染", () => {
       // 滑动是加成，按钮是兜底——屏幕阅读器用户只有按钮可用，不能少
       expect(r.getByLabelText("喜欢")).toBeTruthy();
       expect(r.getByLabelText("跳过")).toBeTruthy();
-      expect(r.getByText("左滑跳过 · 右滑喜欢 · 点一下看资料")).toBeTruthy();
+      expect(r.getByText("左滑跳过 · 右滑喜欢")).toBeTruthy();
       // 卡片本身现在可点开了，得让屏幕阅读器知道（原来只有滑动手势，卡是"死"的）
       expect(r.getByHintText("打开 TA 的主页")).toBeTruthy();
       // 额度充足时头部只有标题——常驻一个"今日还可喜欢 N 人"会把划卡页变成记账本
       expect(r.queryByText(/今日还可喜欢/)).toBeNull();
 
-      // 卡片下半部分：为什么推荐给你（这是从参考图借来的那块）
+      // 卡片上的"为什么推荐给你"（浮在照片下缘那一块）
       expect(r.getByText("契合点")).toBeTruthy();
       expect(r.getByText("身高合适")).toBeTruthy();
-      expect(r.getByText("你们的共同兴趣")).toBeTruthy();
+      expect(r.getByText("摄影")).toBeTruthy(); // 共同兴趣，金标签
       expect(r.getByText(/写代码也写字/)).toBeTruthy();
 
     } finally {
@@ -208,12 +208,14 @@ describe("页面与组件渲染", () => {
     check("卡片显示兴趣标签", !!c.getByText("摄影"));
     check("软条件不符有提示", !!c.getByText("部分条件不符"));
 
-    // 推荐卡：没有理由时不该硬凑，而是给一句说明
+    // 推荐卡：照片铺满，信息压在照片下缘
     const rc = render(wrap(<RecommendCard card={card} />));
     check("推荐卡显示名字", !!rc.getByText("小晴"));
     check("推荐卡显示年龄", !!rc.getByText("24"));
-    check("没有推荐理由时给出说明而不是空着", !!rc.getByText(/多填几项偏好/));
-    check("推荐卡显示对方兴趣", !!rc.getByText("摄影"));
+    check("推荐卡显示身高城市学历职业", !!rc.getByText(/165cm · 上海市 · 本科/));
+    check("推荐卡显示自述", !!rc.getByText(/部分条件不符/));
+    // 没有推荐理由时不硬凑：整行都不出现（而不是显示一个空的"契合点 0"）
+    check("没有推荐理由时不渲染契合点那一行", rc.queryByText("契合点") === null);
 
     const b = render(wrap(<Button label="喜欢" onPress={() => {}} />));
     check("按钮显示文案", !!b.getByText("喜欢"));
