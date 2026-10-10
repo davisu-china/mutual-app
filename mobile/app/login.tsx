@@ -123,18 +123,10 @@ export default function Login() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandBlock}>
-          <LinearGradient
-            // 和 logo 的底色用同一条三段渐变（brand→brandDark→brandDeep），
-            // 否则图标和 App 里的品牌块会是两种深浅的酒红
-            colors={[colors.brand, colors.brandDark, colors.brandDeep]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.brandMark}
-          >
-            {/* 相悦的 logo：两个相交的圆环，交集处是香槟金。
-                资源由 scripts/gen-icons 生成（这台机器跑不了设计软件，图标是代码画的） */}
-            <Image source={require("../assets/mark.png")} style={styles.brandLogo} contentFit="contain" />
-          </LinearGradient>
+          {/* 图形直接落在纸面上，不套色块。两个原因：这一版的取向是减法（不堆材质），
+              而且 mark.png 是"酒红图形 + 透明底"，套上酒红色块反而看不见。
+              资源由 scripts/gen-icons 生成——这台机器跑不了设计软件，图标是代码画的 */}
+          <Image source={require("../assets/mark.png")} style={styles.brandLogo} contentFit="contain" />
           <Text style={styles.brandName}>相悦</Text>
           {/* 名字与口号之间一道金色细线：中文排版的高级感很大程度来自这种"分层"，
               直接两行字堆在一起会显得随意 */}
@@ -232,15 +224,8 @@ const styles = StyleSheet.create({
   },
   content: { paddingHorizontal: space(6), paddingBottom: space(12), flexGrow: 1, justifyContent: "center" },
   brandBlock: { alignItems: "center", marginBottom: space(10) },
-  brandLogo: { width: 44, height: 44 },
-  brandMark: {
-    width: 64,
-    height: 64,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: space(4),
-  },
+  // 图形的实际墨迹只占方形画布的约 61%（宽高比 1:0.61），所以显示尺寸要比"看起来"的大
+  brandLogo: { width: 96, height: 96, marginBottom: space(4) },
   // letterSpacing 会在**每个字**后面留出空隙，包括最后一个——两个字看起来就整体偏左。
   // 补一个等量的 paddingLeft 把它推回视觉中心。
   brandName: { fontSize: 33, fontWeight: "700", letterSpacing: 8, paddingLeft: 8, color: colors.ink },
