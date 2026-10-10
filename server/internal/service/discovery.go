@@ -76,6 +76,8 @@ type Candidate struct {
 	AvatarURL    string
 	PhotoURLs    []string
 	HobbyNames   []string
+	// 自述。卡片下半部分会把它当成一段"引用"展示——比一串标签更能让人做决定
+	AboutMe string
 
 	// 近 7 天被曝光次数 + 注册时间，用于推荐公平性调控
 	RecentExposure int
@@ -111,6 +113,13 @@ type CardView struct {
 	// 灰显提示：本次推荐里有几个软条件没满足（PRD 7.2 要求让用户知情）
 	SoftMismatch []string `json:"softMismatch,omitempty"`
 	Score        float64  `json:"-"`
+
+	// 卡片下半部分的三样东西。这一屏最该回答的是"为什么给我看这个人"，
+	// 而这三个恰好分别对应：我要求对方的（理由）、我们能聊的（共同兴趣）、
+	// 以及她自己说的话（自述）。光摆字段是答不了这个问题的。
+	Reasons       []string `json:"reasons,omitempty"`
+	SharedHobbies []string `json:"sharedHobbies,omitempty"`
+	AboutMe       string   `json:"aboutMe,omitempty"`
 }
 
 // Cards 返回划卡候选。
@@ -199,7 +208,8 @@ func (s *DiscoveryService) fetchCandidates(
 		       COALESCE((SELECT SUM(es.exposed_count) FROM exposure_stats es
 		                 WHERE es.user_id = u.id
 		                   AND es.stat_date > CURRENT_DATE - ` + strconv.Itoa(exposureWindowDays) + `), 0) AS recent_exposure,
-		       u.created_at
+		       u.created_at,
+		       COALESCE(tx.about_me, '')
 		FROM users u
 		JOIN user_profiles p ON p.user_id = u.id
 		-- 头像＝相册里第一张已过审的照片（用户 2026-10-09 定的口径：只维护一份照片）。
@@ -211,6 +221,7 @@ func (s *DiscoveryService) fetchCandidates(
 		     ORDER BY ph.sort_order ASC LIMIT 1
 		) av ON true
 		LEFT JOIN partner_preferences pref ON pref.user_id = u.id
+		LEFT JOIN user_texts tx ON tx.user_id = u.id
 		WHERE u.id <> ?
 		  AND u.gender = ?
 		  AND u.status = 'active'
@@ -266,13 +277,56 @@ func (s *DiscoveryService) fetchCandidates(
 			&c.PrefSmoking, &c.PrefDrinking,
 			&c.PrefOnlyChild, &c.PrefCar, &c.PrefHouse, &c.PrefDink,
 			&c.PrefProvinces, &c.PrefTags,
-			&c.RecentExposure, &c.CreatedAt,
+			&c.RecentExposure, &c.CreatedAt, &c.AboutMe,
 		); err != nil {
 			return nil, fmt.Errorf("扫描候选行失败: %w", err)
 		}
 		out = append(out, c)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// 兴趣单独批量查一次。原来是**根本没有查**——`HobbyNames` 声明了却从没被赋值，
+	// 所以卡片上的兴趣标签一直渲染不出来（前端写的是 `(card.hobbies ?? [])`，
+	// 空数组静默地什么都不画，所以谁也没发现）。
+	if err := s.attachHobbies(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// attachHobbies 给这批候选补上兴趣名。一次查完，别在循环里逐个人查。
+func (s *DiscoveryService) attachHobbies(ctx context.Context, cs []Candidate) error {
+	if len(cs) == 0 {
+		return nil
+	}
+	ids := make([]any, 0, len(cs))
+	byID := make(map[int64]*Candidate, len(cs))
+	for i := range cs {
+		ids = append(ids, cs[i].UserID)
+		byID[cs[i].UserID] = &cs[i]
+	}
+	rows, err := s.db.WithContext(ctx).Raw(`
+		SELECT user_id, name FROM user_hobbies
+		 WHERE user_id IN (`+placeholders(len(ids))+`)
+		 ORDER BY user_id, sort_order
+	`, ids...).Rows()
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var uid int64
+		var name string
+		if err := rows.Scan(&uid, &name); err != nil {
+			return err
+		}
+		if c := byID[uid]; c != nil {
+			c.HobbyNames = append(c.HobbyNames, name)
+		}
+	}
+	return rows.Err()
 }
 
 // scoreAndRank 在应用层算分并排序。
@@ -290,7 +344,7 @@ func (s *DiscoveryService) scoreAndRank(cands []Candidate, me *Candidate, target
 	for i := range cands {
 		c := &cands[i]
 
-		fwd, fwdMiss := forwardScore(me, c)
+		fwd, fwdHits, fwdMiss := forwardScore(me, c)
 		rev, _ := reverseScore(c, me)
 
 		score := fwd*0.6 + rev*0.4
@@ -325,8 +379,11 @@ func (s *DiscoveryService) scoreAndRank(cands []Candidate, me *Candidate, target
 			AvatarURL:    c.AvatarURL,
 			Hobbies:      c.HobbyNames,
 			Completeness: c.Completeness,
-			SoftMismatch: fwdMiss,
-			Score:        score,
+			SoftMismatch:  fwdMiss,
+			Reasons:       fwdHits,
+			SharedHobbies: sharedHobbies(me.HobbyNames, c.HobbyNames),
+			AboutMe:       c.AboutMe,
+			Score:         score,
 		}
 		if me.GeoHash != nil && c.GeoHash != nil {
 			if km, ok := distanceKm(*me.GeoHash, *c.GeoHash); ok {
@@ -344,39 +401,49 @@ func (s *DiscoveryService) scoreAndRank(cands []Candidate, me *Candidate, target
 // ---------- 打分 ----------
 
 // forwardScore 计算「我的偏好 vs TA 的画像」的匹配度，并返回未满足的软条件名。
-func forwardScore(me *Candidate, c *Candidate) (float64, []string) {
+// forwardScore 算"这个人多大程度上满足我的伴侣偏好"。
+//
+// 除了分数和未命中的项，它还回一份**命中的项**（`hits`）。这是给卡片下半部分用的：
+// 那一屏最该回答的问题是"为什么给我看这个人"，而这里恰好已经在逐项算了——
+// 不把它带出去，前端就只能干巴巴地摆一堆字段。
+//
+// ⚠️ 两套标签的用途不同、措辞也不同：`miss` 是给"部分条件不符"那行提示用的（列名词），
+// `hits` 是给标签胶囊用的（短句）。改的时候别把两边合并成一套。
+func forwardScore(me *Candidate, c *Candidate) (score float64, hits []string, miss []string) {
 	// 注意：me 的伴侣偏好存在 me 里（fetchCandidates 前已加载）
 	var total, hit float64
-	var miss []string
 
-	add := func(weight float64, ok bool, label string) {
+	add := func(weight float64, ok bool, missLabel, hitLabel string) {
 		total += weight
 		if ok {
 			hit += weight
-		} else if label != "" {
-			miss = append(miss, label)
+			if hitLabel != "" {
+				hits = append(hits, hitLabel)
+			}
+		} else if missLabel != "" {
+			miss = append(miss, missLabel)
 		}
 	}
 
 	if me.PrefHeightMax > 0 {
-		add(1.0, c.HeightCm >= me.PrefHeightMin && c.HeightCm <= me.PrefHeightMax, "身高")
+		add(1.0, c.HeightCm >= me.PrefHeightMin && c.HeightCm <= me.PrefHeightMax, "身高", "身高合适")
 	}
 	if me.PrefEducationMin > 0 {
-		add(1.0, c.Education >= me.PrefEducationMin, "学历")
+		add(1.0, c.Education >= me.PrefEducationMin, "学历", "学历达标")
 	}
 	if me.PrefIncomeMin > 0 || me.PrefIncomeMax > 0 {
-		add(1.0, incomeMatches(me.PrefIncomeMin, me.PrefIncomeMax, c.Income), "收入")
+		add(1.0, incomeMatches(me.PrefIncomeMin, me.PrefIncomeMax, c.Income), "收入", "收入合适")
 	}
 	if me.PrefSmoking > 0 {
 		ok := me.PrefSmoking == 3 || // 3=无所谓
 			(me.PrefSmoking == 2 && c.Smoking == 1) || // 2=不接受，要求对方不抽
 			(me.PrefSmoking == 1) // 1=接受，都行
-		add(0.8, ok, "抽烟")
+		add(0.8, ok, "抽烟", "抽烟可接受")
 	}
 	if me.PrefDrinking > 0 {
 		ok := me.PrefDrinking == 3 || me.PrefDrinking == 1 ||
 			(me.PrefDrinking == 2 && c.Drinking == 1)
-		add(0.8, ok, "")
+		add(0.8, ok, "", "喝酒可接受")
 	}
 	if len(me.PrefProvinces) > 0 {
 		ok := false
@@ -386,25 +453,46 @@ func forwardScore(me *Candidate, c *Candidate) (float64, []string) {
 				break
 			}
 		}
-		add(0.6, ok, "家乡")
+		add(0.6, ok, "家乡", "家乡合适")
 	}
 	if me.PrefDink > 0 {
 		ok := (me.PrefDink == 1 && c.IsDink == 1) || (me.PrefDink == 2 && c.IsDink != 1)
-		add(1.2, ok, "丁克") // 丁克分歧对关系影响大，权重最高
+		add(1.2, ok, "丁克", "丁克一致") // 丁克分歧对关系影响大，权重最高
 	}
 	if me.PrefHouse > 0 {
 		ok := me.PrefHouse == 2 || (me.PrefHouse == 1 && c.HasHouse == 2)
-		add(0.7, ok, "房产")
+		add(0.7, ok, "房产", "有房")
 	}
 	if me.PrefCar > 0 {
 		ok := me.PrefCar == 2 || (me.PrefCar == 1 && c.HasCar)
-		add(0.5, ok, "")
+		add(0.5, ok, "", "有车")
 	}
 
 	if total == 0 {
-		return 1.0, nil
+		return 1.0, hits, miss
 	}
-	return hit / total, miss
+	return hit / total, hits, miss
+}
+
+// sharedHobbies 两个人的共同兴趣。
+//
+// 为什么值得单独拎出来：偏好是"我要求对方怎样"，兴趣是"我们能聊什么"——
+// 后者对"要不要打招呼"的影响更大，但它原先完全没有出现在卡片上。
+func sharedHobbies(mine, theirs []string) []string {
+	if len(mine) == 0 || len(theirs) == 0 {
+		return nil
+	}
+	set := make(map[string]bool, len(mine))
+	for _, h := range mine {
+		set[h] = true
+	}
+	var out []string
+	for _, h := range theirs {
+		if set[h] {
+			out = append(out, h)
+		}
+	}
+	return out
 }
 
 // reverseScore 计算「TA 的偏好 vs 我的画像」——双向都合适的人应该排更前面。
@@ -644,10 +732,12 @@ func (s *DiscoveryService) loadSelf(ctx context.Context, uid int64) (*Candidate,
 		       COALESCE(pref.smoking_accept,0), COALESCE(pref.drinking_accept,0),
 		       COALESCE(pref.only_child_accept,0), COALESCE(pref.car_prefer,0),
 		       COALESCE(pref.house_prefer,0), COALESCE(pref.dink_accept,0),
-		       COALESCE(pref.hometown_provinces,'{}'), COALESCE(pref.tags,'{}')
+		       COALESCE(pref.hometown_provinces,'{}'), COALESCE(pref.tags,'{}'),
+		       COALESCE(tx.about_me, '')
 		FROM users u
 		JOIN user_profiles p ON p.user_id = u.id
 		LEFT JOIN partner_preferences pref ON pref.user_id = u.id
+		LEFT JOIN user_texts tx ON tx.user_id = u.id
 		WHERE u.id = ?
 	`, uid).Row().Scan(
 		&me.UserID, &me.Nickname, &me.Gender, &me.Age,
@@ -659,12 +749,28 @@ func (s *DiscoveryService) loadSelf(ctx context.Context, uid int64) (*Candidate,
 		&me.PrefIncomeMin, &me.PrefIncomeMax, &me.PrefEducationMin,
 		&me.PrefSmoking, &me.PrefDrinking,
 		&me.PrefOnlyChild, &me.PrefCar, &me.PrefHouse, &me.PrefDink,
-		&me.PrefProvinces, &me.PrefTags,
+		&me.PrefProvinces, &me.PrefTags, &me.AboutMe,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return &me, nil
+
+	// 自己的兴趣：算"共同兴趣"要用（loadSelf 的这条 SQL 已经很宽了，
+	// 兴趣是一对多，塞进去会把行乘开，所以单独查）
+	rows, err := s.db.WithContext(ctx).
+		Raw(`SELECT name FROM user_hobbies WHERE user_id = ? ORDER BY sort_order`, uid).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		me.HobbyNames = append(me.HobbyNames, n)
+	}
+	return &me, rows.Err()
 }
 
 func min(a, b int) int {
