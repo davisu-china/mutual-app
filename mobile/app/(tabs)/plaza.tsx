@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,17 +10,12 @@ import { Sheet } from "@/ui/sheet";
 import { Chip } from "@/ui/chip";
 import { Empty, Skeleton, useToast } from "@/ui/feedback";
 import { colors, font, radius, shadow, space } from "@/theme";
+import { PROVINCE_NAMES, shortName } from "@/lib/data/regions";
+import { plazaQuery, toggleProvince, type PlazaFilter } from "@/lib/plaza";
 import type { Card } from "@/lib/types";
 
-interface Filter {
-  ageMin?: number;
-  ageMax?: number;
-  heightMin?: number;
-  heightMax?: number;
-  education?: number;
-  incomeMin?: number;
-  incomeMax?: number;
-}
+/** 筛选弹层最多占屏高这么多，超出的部分滚动——不加这个，34 个省标签会把面板顶出屏幕 */
+const FILTER_MAX_H = Math.round(Dimensions.get("window").height * 0.62);
 
 const AGE_BUCKETS: { label: string; min?: number; max?: number }[] = [
   { label: "不限" },
@@ -59,47 +54,63 @@ const INCOME_MIN = [
 /**
  * 恋爱广场。
  *
- * 筛选只留**能显著缩小范围**的条件：年龄、身高、学历、收入。
- * 性别默认就是异性（后端硬过滤），所以没有必要再放一个筛选项；
- * 省份多选留到后面做（需要一张省份列表 + 多选弹层），先不做半成品。
+ * 筛选只留**能显著缩小范围**的条件：年龄、身高、学历、收入、省份（多选）。
+ * 性别默认就是异性（后端硬过滤），所以没有必要再放一个筛选项。
+ *
+ * 分页是 **keyset 游标**（后端按 u.id 翻页，`nextCursor = 0` 表示到底了），
+ * 不是 OFFSET——深分页时 OFFSET 会让 PG 扫掉并丢弃前 N 行。所以这里只需要
+ * 拿着上一页的游标继续要，追加即可；换筛选条件时游标归零、整列表重取。
  */
 export default function Plaza() {
   const nav = useRouter();
   const insets = useSafeAreaInsets();
   const toast = useToast();
 
-  const [f, setF] = useState<Filter>({});
+  const [f, setF] = useState<PlazaFilter>({});
   const [open, setOpen] = useState(false);
   const [cards, setCards] = useState<Card[] | null>(null);
+  /** 下一页的游标；0 = 没有更多了 */
+  const [cursor, setCursor] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const qs = (() => {
-    const p = new URLSearchParams();
-    Object.entries(f).forEach(([k, v]) => {
-      if (v !== undefined) p.set(k, String(v));
-    });
-    return p.toString();
-  })();
+  const qs = plazaQuery(f);
 
-  const search = useCallback(async () => {
-    setCards(null);
-    try {
-      const r = await api.get<{ cards: Card[] }>(`/plaza?${qs}`);
-      setCards(r.cards ?? []);
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "检索失败", "error");
-      setCards([]);
-    }
-  }, [qs, toast]);
+  /**
+   * 取一页。`next === 0` 是「从头来」（换筛选条件、首次进入），会清空列表；
+   * 非 0 是「加载更多」，把新的一页接到后面。
+   */
+  const search = useCallback(
+    async (next = 0) => {
+      if (next) setLoadingMore(true);
+      else setCards(null);
+      try {
+        const r = await api.get<{ cards: Card[]; nextCursor?: number }>(
+          `/plaza?${qs}${next ? `&cursor=${next}` : ""}`
+        );
+        setCards((prev) => (next ? [...(prev ?? []), ...(r.cards ?? [])] : r.cards ?? []));
+        setCursor(r.nextCursor ?? 0);
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "检索失败", "error");
+        // 加载更多失败时保留已有结果，别把用户已经看到的清掉
+        setCards((prev) => (next ? prev : []));
+      } finally {
+        setLoadingMore(false);
+      }
+    },
+    [qs, toast]
+  );
 
+  // qs 变了就整列表重取（search 的依赖里有 qs，所以换筛选会自然重置游标）
   useEffect(() => {
-    void search();
+    void search(0);
   }, [search]);
 
   const activeCount =
     (f.ageMin !== undefined || f.ageMax !== undefined ? 1 : 0) +
     (f.heightMin !== undefined || f.heightMax !== undefined ? 1 : 0) +
     (f.education !== undefined ? 1 : 0) +
-    (f.incomeMin !== undefined ? 1 : 0);
+    (f.incomeMin !== undefined ? 1 : 0) +
+    (f.provinces?.length ? 1 : 0);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + space(3) }]}>
@@ -149,12 +160,22 @@ export default function Plaza() {
               </View>
             </Pressable>
           )}
+          // 用按钮而不是 onEndReached 自动续：游标到底时按钮消失，
+          // 用户能看出"没有了"；自动续则会在快速滑动时连着打好几页
+          ListFooterComponent={
+            cursor > 0 ? (
+              <View style={styles.moreWrap}>
+                <Button label="加载更多" variant="outline" loading={loadingMore} onPress={() => void search(cursor)} />
+              </View>
+            ) : null
+          }
         />
       )}
 
       {/* 筛选：底部弹层，只有能显著缩小范围的几项 */}
       <Sheet open={open} onClose={() => setOpen(false)} title="筛选" confirmText="完成" onConfirm={() => setOpen(false)}>
-        <View style={styles.filterBody}>
+        {/* 内容比面板高时必须能滚：省份一格就有 34 个标签 */}
+        <ScrollView style={{ maxHeight: FILTER_MAX_H }} contentContainerStyle={styles.filterBody} showsVerticalScrollIndicator={false}>
           <FilterGroup label="年龄" icon="calendar-outline">
             {AGE_BUCKETS.map((b) => {
               const on = f.ageMin === b.min && f.ageMax === b.max;
@@ -195,8 +216,23 @@ export default function Plaza() {
             ))}
           </FilterGroup>
 
+          <FilterGroup
+            label={f.provinces?.length ? `省份 · 已选 ${f.provinces.length}` : "省份"}
+            icon="location-outline"
+          >
+            {PROVINCE_NAMES.map((name) => (
+              <Chip
+                key={name}
+                // 显示用简称（浙江），存的是全名（浙江省）——后端按 city_prov 精确匹配
+                label={shortName(name)}
+                on={!!f.provinces?.includes(name)}
+                onPress={() => setF(toggleProvince(f, name))}
+              />
+            ))}
+          </FilterGroup>
+
           <Button label="清除全部筛选" variant="ghost" block onPress={() => setF({})} />
-        </View>
+        </ScrollView>
       </Sheet>
     </View>
   );
@@ -243,6 +279,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: space(3), padding: space(5) },
   cell: { width: "47.5%", borderRadius: radius.card, overflow: "hidden", ...shadow.card },
   filterBody: { paddingHorizontal: space(5), paddingTop: space(2), paddingBottom: space(4) },
+  moreWrap: { paddingTop: space(2), paddingBottom: space(6), alignItems: "center" },
   groupHead: { flexDirection: "row", alignItems: "center", gap: space(1.5), marginBottom: space(2.5) },
   groupLabel: { fontSize: 13, color: colors.muted2 },
   groupBody: { flexDirection: "row", flexWrap: "wrap", gap: space(2) },

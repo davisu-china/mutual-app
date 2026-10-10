@@ -186,6 +186,7 @@ export default function Recommend() {
                   canLike={!exhausted}
                   onDecide={act}
                   onBlocked={onBlocked}
+                  onOpen={(uid) => nav.push(`/user/${uid}`)}
                 />
               )
             )}
@@ -196,7 +197,7 @@ export default function Recommend() {
       {/* 这块高度常驻：提示在第一次滑卡后消失，如果连着容器一起收掉，
           底部按钮会当场往下跳一格——偏偏就在用户刚滑完、正盯着那儿的时候 */}
       <View style={styles.hint} pointerEvents="none">
-        {top && !hinted ? <Text style={styles.hintText}>左滑跳过 · 右滑喜欢</Text> : null}
+        {top && !hinted ? <Text style={styles.hintText}>左滑跳过 · 右滑喜欢 · 点一下看资料</Text> : null}
       </View>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, space(4)) }]}>
@@ -245,6 +246,8 @@ interface DeckCardProps {
   canLike: boolean;
   onDecide: (dir: Dir, fromX: number, fromY: number) => void;
   onBlocked: () => void;
+  /** 轻点卡片 = 打开 TA 的主页（只有最上面那张会触发） */
+  onOpen: (userId: number) => void;
 }
 
 /**
@@ -255,7 +258,7 @@ interface DeckCardProps {
  * （React 按 key 复用实例，所以 shift 之后同一个组件只是换了 depth 这个 prop，
  * 动画才能接上。）
  */
-function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocked }: DeckCardProps) {
+function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocked, onOpen }: DeckCardProps) {
   const d = useSharedValue(depth);
   const x = useSharedValue(0);
   const y = useSharedValue(0);
@@ -284,6 +287,20 @@ function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocke
       if (dir === "like") runOnJS(onBlocked)();
     });
 
+  /**
+   * 轻点 = 看资料。和拖拽用 `Race` 组合：谁先成立谁生效——
+   * 手指移动超过阈值时 Pan 先激活（Tap 随之取消），原地抬手时才是 Tap。
+   * 普通的 `Exclusive` 在这里不适用：它让 Pan 有绝对优先权，而 Pan 在
+   * "没移动" 的情况下要等手指抬起才失败，Tap 会白白多等一拍。
+   */
+  const tap = Gesture.Tap()
+    .enabled(interactive)
+    .onEnd((_e, success) => {
+      if (success) runOnJS(onOpen)(card.userId);
+    });
+
+  const gesture = Gesture.Race(tap, pan);
+
   const style = useAnimatedStyle(() => ({
     transform: [
       { translateX: x.value },
@@ -307,10 +324,12 @@ function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocke
   });
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <Animated.View
         style={[StyleSheet.absoluteFill, style, { zIndex: 10 - depth }]}
         pointerEvents={interactive ? "auto" : "none"}
+        accessibilityRole={interactive ? "button" : undefined}
+        accessibilityHint={interactive ? "打开 TA 的主页" : undefined}
         accessibilityElementsHidden={!interactive}
         importantForAccessibility={interactive ? "auto" : "no-hide-descendants"}
       >

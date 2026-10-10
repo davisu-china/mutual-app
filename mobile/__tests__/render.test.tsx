@@ -156,7 +156,9 @@ describe("页面与组件渲染", () => {
       // 滑动是加成，按钮是兜底——屏幕阅读器用户只有按钮可用，不能少
       expect(r.getByLabelText("喜欢")).toBeTruthy();
       expect(r.getByLabelText("跳过")).toBeTruthy();
-      expect(r.getByText("左滑跳过 · 右滑喜欢")).toBeTruthy();
+      expect(r.getByText("左滑跳过 · 右滑喜欢 · 点一下看资料")).toBeTruthy();
+      // 卡片本身现在可点开了，得让屏幕阅读器知道（原来只有滑动手势，卡是"死"的）
+      expect(r.getByHintText("打开 TA 的主页")).toBeTruthy();
       expect(r.getByText(/今日还可喜欢 10 人/)).toBeTruthy();
     } finally {
       get.mockImplementation(original);
