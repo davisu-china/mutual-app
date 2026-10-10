@@ -18,6 +18,8 @@ var (
 	ErrCannotActSelf  = errors.New("不能对自己操作")
 	ErrTargetInvalid  = errors.New("对方账号不可用")
 	ErrBlocked        = errors.New("无法与该用户互动")
+	ErrMatchNotFound  = errors.New("配对不存在")
+	ErrNotMatchOwner  = errors.New("无权操作该配对")
 )
 
 // MatchHook 在配对成功时被调用（事务提交后）。
@@ -314,10 +316,10 @@ func (s *ActionService) Unmatch(ctx context.Context, uid, matchID int64) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var m model.MatchRecord
 		if err := tx.First(&m, matchID).Error; err != nil {
-			return errors.New("配对不存在")
+			return ErrMatchNotFound
 		}
 		if m.UserA != uid && m.UserB != uid {
-			return errors.New("无权操作该配对")
+			return ErrNotMatchOwner
 		}
 
 		now := time.Now()

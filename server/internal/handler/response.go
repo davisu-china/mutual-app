@@ -51,6 +51,10 @@ func mapErr(c *gin.Context, err error) {
 		fail(c, http.StatusBadRequest, "UNDERAGE", err.Error())
 	case errors.Is(err, service.ErrDeviceLimit):
 		fail(c, http.StatusForbidden, "DEVICE_LIMIT", err.Error())
+	case errors.Is(err, service.ErrAccountBanned):
+		fail(c, http.StatusForbidden, "ACCOUNT_BANNED", err.Error())
+	case errors.Is(err, service.ErrAccountDeleted):
+		fail(c, http.StatusForbidden, "ACCOUNT_DELETED", err.Error())
 
 	case errors.Is(err, service.ErrCannotActSelf):
 		fail(c, http.StatusBadRequest, "CANNOT_ACT_SELF", err.Error())
@@ -58,11 +62,19 @@ func mapErr(c *gin.Context, err error) {
 		fail(c, http.StatusNotFound, "TARGET_INVALID", err.Error())
 	case errors.Is(err, service.ErrBlocked):
 		fail(c, http.StatusForbidden, "BLOCKED", err.Error())
+	case errors.Is(err, service.ErrProfileHidden):
+		fail(c, http.StatusForbidden, "PROFILE_HIDDEN", err.Error())
+	case errors.Is(err, service.ErrNotMatchOwner):
+		fail(c, http.StatusForbidden, "NOT_MATCH_OWNER", err.Error())
+	case errors.Is(err, service.ErrMatchNotFound):
+		fail(c, http.StatusNotFound, "MATCH_NOT_FOUND", err.Error())
 
 	case errors.Is(err, service.ErrPhotoLimit):
 		fail(c, http.StatusBadRequest, "PHOTO_LIMIT", err.Error())
 	case errors.Is(err, service.ErrPhotoLastOne):
 		fail(c, http.StatusBadRequest, "PHOTO_LAST_ONE", err.Error())
+	case errors.Is(err, service.ErrPhotoNotFound):
+		fail(c, http.StatusNotFound, "PHOTO_NOT_FOUND", err.Error())
 
 	case errors.Is(err, service.ErrNotInConversation):
 		fail(c, http.StatusForbidden, "NOT_IN_CONVERSATION", err.Error())

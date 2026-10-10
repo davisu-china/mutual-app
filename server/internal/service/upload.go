@@ -19,6 +19,7 @@ var (
 	ErrPhotoLimit      = errors.New("相册已满 9 张")
 	ErrPhotoLastOne    = errors.New("至少保留一张照片")
 	ErrBadOrderPayload = errors.New("排序数据不合法")
+	ErrPhotoNotFound   = errors.New("照片不存在")
 )
 
 const (
@@ -150,7 +151,7 @@ func (s *UploadService) DeletePhoto(ctx context.Context, uid, photoID int64) err
 
 		var p model.UserPhoto
 		if err := tx.Where("id = ? AND user_id = ?", photoID, uid).First(&p).Error; err != nil {
-			return errors.New("照片不存在")
+			return ErrPhotoNotFound
 		}
 		if err := tx.Delete(&model.UserPhoto{}, p.ID).Error; err != nil {
 			return err
@@ -183,7 +184,7 @@ func (s *UploadService) ReorderPhotos(ctx context.Context, uid int64, orderedIDs
 			return err
 		}
 		if len(existing) != len(orderedIDs) {
-			return errors.New("排序列表与现有照片数量不一致")
+			return invalidInput("排序列表与现有照片数量不一致")
 		}
 
 		owned := map[int64]bool{}
@@ -192,7 +193,7 @@ func (s *UploadService) ReorderPhotos(ctx context.Context, uid int64, orderedIDs
 		}
 		for _, id := range orderedIDs {
 			if !owned[id] {
-				return errors.New("排序列表包含不属于你的照片")
+				return invalidInput("排序列表包含不属于你的照片")
 			}
 		}
 
@@ -209,7 +210,7 @@ func (s *UploadService) ReorderPhotos(ctx context.Context, uid int64, orderedIDs
 
 func (s *UploadService) SetPhotoVisibility(ctx context.Context, uid, photoID int64, visibility string) error {
 	if visibility != "public" && visibility != "match_only" {
-		return errors.New("可见性取值不合法")
+		return invalidInput("可见性取值不合法")
 	}
 	return s.db.WithContext(ctx).Model(&model.UserPhoto{}).
 		Where("id = ? AND user_id = ?", photoID, uid).

@@ -16,12 +16,16 @@ import (
 )
 
 var (
-	ErrPhoneTaken      = errors.New("该手机号已注册")
-	ErrBadCredentials  = errors.New("手机号或密码不正确")
-	ErrWeakPassword    = errors.New("密码强度不足")
-	ErrInvalidPhone    = errors.New("手机号格式不正确")
-	ErrUnderage        = errors.New("未满 18 周岁")
-	ErrDeviceLimit     = errors.New("该设备注册的账号数已达上限")
+	ErrPhoneTaken     = errors.New("该手机号已注册")
+	ErrBadCredentials = errors.New("手机号或密码不正确")
+	ErrWeakPassword   = errors.New("密码强度不足")
+	ErrInvalidPhone   = errors.New("手机号格式不正确")
+	ErrUnderage       = errors.New("未满 18 周岁")
+	ErrDeviceLimit    = errors.New("该设备注册的账号数已达上限")
+	// 这两个原来写成裸 errors.New，被 mapErr 兜底成 500「服务暂时不可用」——
+	// 被封禁的用户会以为 App 坏了，而不是知道该找客服。
+	ErrAccountBanned  = errors.New("账号已被封禁，请联系客服")
+	ErrAccountDeleted = errors.New("账号已注销")
 )
 
 // 中国大陆手机号
@@ -136,9 +140,9 @@ func (s *AuthService) Login(ctx context.Context, phone, password string) (*AuthR
 
 	switch u.Status {
 	case model.UserBanned:
-		return nil, errors.New("账号已被封禁，请联系客服")
+		return nil, ErrAccountBanned
 	case model.UserDeleted:
-		return nil, errors.New("账号已注销")
+		return nil, ErrAccountDeleted
 	}
 
 	now := time.Now()

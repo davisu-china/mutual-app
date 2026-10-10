@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -131,7 +130,7 @@ func (s *DiscoveryService) Cards(ctx context.Context, uid int64, limit int) ([]C
 	// 异性匹配（PRD 已确认只做异性）。
 	// 性别未填的用户进不到这里——OnboardGuard 已经保证五步走完，而性别是必填项。
 	if me.Gender == nil {
-		return nil, errors.New("请先选择性别")
+		return nil, invalidInput("请先选择性别")
 	}
 	// ⚠️ 这里原本两个分支都写 GenderFemale（if 是空操作），于是**女生会看到女生**：
 	// 男用户看女用户是对的，所以只有女性账号才会暴露这个问题。

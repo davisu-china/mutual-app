@@ -12,8 +12,12 @@ import (
 
 var (
 	ErrProfileIncomplete = errors.New("资料不完整")
-	ErrTooManyHobbies    = errors.New("兴趣爱好必须恰好 3 个")
-	ErrHobbyNeedsText    = errors.New("每个兴趣都需要填写介绍")
+	// 拉黑是双向阻断的：不区分"我拉黑了对方"和"对方拉黑了我"，都是看不到。
+	// 用哨兵而不是裸 errors.New —— handler 的 mapErr 只认识哨兵和 InvalidInputError，
+	// 裸 error 会被兜底成 500「服务暂时不可用」，把预期内的状态说成服务故障。
+	ErrProfileHidden  = errors.New("你们之间有拉黑关系，无法查看")
+	ErrTooManyHobbies = errors.New("兴趣爱好必须恰好 3 个")
+	ErrHobbyNeedsText = errors.New("每个兴趣都需要填写介绍")
 )
 
 const (
@@ -153,7 +157,7 @@ func (s *ProfileService) PublicProfile(ctx context.Context, viewerID, targetID i
 		return nil, err
 	}
 	if blocked {
-		return nil, errors.New("无法查看该用户")
+		return nil, ErrProfileHidden
 	}
 
 	v, err := s.build(ctx, targetID, viewerID, false)
@@ -176,7 +180,7 @@ func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, se
 		return nil, err
 	}
 	if !self && (u.Status == model.UserBanned || u.Status == model.UserDeleted) {
-		return nil, errors.New("用户不存在")
+		return nil, ErrTargetInvalid
 	}
 
 	var p model.UserProfile
