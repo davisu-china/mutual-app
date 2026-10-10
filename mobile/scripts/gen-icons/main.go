@@ -67,8 +67,9 @@ func hex(s string) color.RGBA {
 type kind int
 
 const (
-	kindRings kind = iota // 两个相扣的圆环
-	kindSplit             // 一个圆被一条细缝分成两半
+	kindRings    kind = iota // 两个相扣的圆环
+	kindSplit                // 一个圆被一条细缝分成两半
+	kindWordmark             // "相悦"字标：没有图形，字本身当图形（见 wordmark.go）
 )
 
 // theme 是"纯平涂"的：底色一个色、图形一个色，没有第三样东西。
@@ -82,8 +83,11 @@ var themes = map[string]theme{
 	// 白底酒红：最克制的一路。留白大、单色细线，是中文语境里"高雅"最稳的解法
 	// （参考定位高端的婚恋产品：浅底 + 单色 + 极简）。
 	"ivory": {bg: ivory, mark: wineDeep},
-	// 墨底白线：水墨的方向。深底在手机桌面上更稳。
+	// 墨底白字：水墨的方向。深底在手机桌面上更稳。
 	"ink": {bg: ink, mark: ivory},
+	// 酒红底象牙白：把主色当底。比墨底更有辨识度，但要小心——酒红 + 金在中文语境里
+	// 是"喜庆"的头号公式，所以这里**只用酒红一个色**，不掺金、不做渐变。
+	"wine": {bg: wineDeep, mark: ivory},
 }
 
 /* ---------------------------------------------------------------- 几何 */
@@ -109,6 +113,10 @@ func markRatio(k kind, use string) float64 {
 		kindRings: {"icon": 0.56, "adaptive": 0.50, "favicon": 0.74, "mark": 0.98},
 		// 分割的圆是正方形（直径＝图形宽），同样的视觉重量要占更小的比例
 		kindSplit: {"icon": 0.50, "adaptive": 0.45, "favicon": 0.64, "mark": 0.88},
+		// 字标是横长条（宽:高 ≈ 2:1）：横向占比按上面的观感给，纵向自然就只占三分之一。
+		// ⚠️ favicon 反而不放大：48px 上"两个字"已经是能认出来的下限，
+		// 放到 0.74 会顶到安全区边缘，缩到更小又糊。
+		kindWordmark: {"icon": 0.62, "adaptive": 0.52, "favicon": 0.78, "mark": 0.98},
 	}
 	return table[k][use]
 }
@@ -157,12 +165,19 @@ type variant struct {
 	flat bool
 }
 
-// designs 是 2×2：形体 × 底色
+// designs 是候选方案：几何形体（2×2）与字标（3 个配色）。
+//
+// 字标是 2026-10-11 加的：用户给了一张参考（"良配"——一块深色圆角方块 + 白色粗体
+// 中文 + 角上一颗小星光），要"没啥图形、就是很高级"。前两版几何图形都被评过"土"，
+// 字标这条路把图形彻底去掉，正好接上前一轮"做减法"的结论。
 var designs = []struct {
 	key  string
 	kind kind
 	th   theme
 }{
+	{"wordmark-ink", kindWordmark, themes["ink"]},
+	{"wordmark-ivory", kindWordmark, themes["ivory"]},
+	{"wordmark-wine", kindWordmark, themes["wine"]},
 	{"rings-ivory", kindRings, themes["ivory"]},
 	{"rings-ink", kindRings, themes["ink"]},
 	{"split-ivory", kindSplit, themes["ivory"]},
@@ -231,6 +246,18 @@ func sample(v variant, x, y float64) color.RGBA {
 
 	hit := false
 	switch v.kind {
+	case kindWordmark:
+		// 字标：把点换算到"墨迹盒内的归一化坐标"，再从掩膜取覆盖率。
+		// 这里必须能返回**部分覆盖**（边缘像素），否则字的边缘会有锯齿。
+		h := M / wordAspect()
+		u := (x - (cx - M/2)) / M
+		vv := (y - (cy - h/2)) / h
+		if cov := wordMask(wordMaskH).cover(u, vv); cov > 0 {
+			c := mark
+			c.A = uint8(math.Round(cov * 255))
+			return c
+		}
+		return bg
 	case kindRings:
 		R, D, W := ringsGeom(M, v.strokeMul)
 		dA := math.Hypot(x-(cx-D), y-cy)
@@ -403,6 +430,53 @@ func check() bool {
 	Rm, Dm, _ := ringsGeom(432*mv.ratio, 1.3)
 	report("单色层的环是不透明的白", sample(mv, 216-Dm-Rm, 216) == white, sample(mv, 216-Dm-Rm, 216))
 
+	// ---- 字标（相悦）----
+	//
+	// 字面本身的"像不像"没法解析式断言（那是审美，交给对照图），但**排版对不对**
+	// 可以：字是不是两个字、星光在不在右上角、笔画密度是否正常、字有没有上下颠倒。
+	fmt.Println("字标自检（wordmark-ink，icon 1024）：")
+	wv := mk("wordmark-ink", "check", 1024, true, "icon", 1, 1)
+	// 轮廓朝向：CJK 字形落在基线上方，y 向下 ⇒ 上沿是负数。抽错了方向（y 没翻）
+	// 这张图会上下颠倒，而覆盖率之类的指标**照样能过**——所以单独钉一条。
+	report("字形上沿在基线之上（y 向下 ⇒ 负）",
+		glyphInk[0].Y0 < -800 && glyphInk[1].Y0 < -800 && glyphInk[0].Y1 < 200,
+		wv.th.mark)
+
+	mkMask := wordMask(wordMaskH)
+	// 覆盖率：在墨迹盒里按网格统计（汉字笔画密度大约 1/5～1/4）
+	var inkAll, inkLeft, inkRight float64
+	const nx, ny = 200, 100
+	for i := 0; i < nx; i++ {
+		for j := 0; j < ny; j++ {
+			u, vv := (float64(i)+0.5)/nx, (float64(j)+0.5)/ny
+			c := mkMask.cover(u, vv)
+			inkAll += c
+			if u < 0.5 {
+				inkLeft += c
+			} else {
+				inkRight += c
+			}
+		}
+	}
+	inkAll /= nx * ny
+	inkLeft /= nx * ny * 0.5
+	inkRight /= nx * ny * 0.5
+	// 密度区间按**实测**给：Noto Sans SC 的 Black 字重笔画很粗，两个字在墨迹盒里的
+	// 墨占比就是 55% 上下（字腔是空的，看图确认过）。这条断言防的是"整体糊成一块"
+	// （比如填充规则错、把字腔填实）和"几乎没画上"，不是审美判断。
+	report(fmt.Sprintf("墨迹密度 %.1f%%（预期 20–65%%）", inkAll*100), inkAll > 0.20 && inkAll < 0.65, wv.th.mark)
+	report(fmt.Sprintf("左字与右字都有墨（%.0f%% / %.0f%%）", inkLeft*100, inkRight*100), inkLeft > 0.05 && inkRight > 0.05, wv.th.mark)
+
+	// 星光：落在墨迹盒最右侧、靠上。它的中心位置由排版算出来，不写死。
+	lw := wordLayout()
+	scx := lw.x1 - sparkleR
+	scy := lw.y0 + sparkleR
+	su := (scx - lw.x0) / (lw.x1 - lw.x0)
+	sv := (scy - lw.y0) / (lw.y1 - lw.y0)
+	starInk := mkMask.cover(su, sv)
+	report(fmt.Sprintf("星光中心 (%.2f, %.2f) 有墨（%.0f%%）", su, sv, starInk*100), starInk > 0.6, wv.th.mark)
+	report("星光在最右侧（探出字形之外）", su > 0.95 && mkMask.cover(0.999, sv) > 0.05, wv.th.mark)
+
 	// ---- 每个方案、每个尺寸都不能贴边（Android 自适应还要留够裁切余量）----
 	fmt.Println("留白检查（各方案 × 各尺寸）：")
 	for _, d := range designs {
@@ -436,6 +510,28 @@ func svg(size int, key string) string {
 	n := float64(size)
 	cx, cy := n/2, n/2
 	k, th := findDesign(key)
+	if k == kindWordmark {
+		// 字标：直接把同一份字形轮廓当 <path>，不做字体依赖——网页端也不需要装字体
+		M := n * markRatio(k, "icon")
+		x0, y0, w0, h0 := wordViewBox()
+		s := M / w0
+		tx, ty := cx-M/2-x0*s, cy-h0*s/2-y0*s
+		var paths strings.Builder
+		for _, p := range wordPaths() {
+			fmt.Fprintf(&paths, "    <path d=%q", p.D)
+			if p.Dx != 0 {
+				fmt.Fprintf(&paths, " transform=\"translate(%.0f 0)\"", p.Dx)
+			}
+			paths.WriteString("/>\n")
+		}
+		return fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d">
+  <title>相悦</title>
+  <rect width="%d" height="%d" fill="%s"/>
+  <g fill="%s" transform="translate(%.3f %.3f) scale(%.6f)">
+%s  </g>
+</svg>
+`, size, size, size, size, size, size, cssHex(th.bg), cssHex(th.mark), tx, ty, s, paths.String())
+	}
 	if k == kindRings {
 		M := n * markRatio(k, "icon")
 		R, D, W := ringsGeom(M, 1)
@@ -511,69 +607,119 @@ func overlay(img *image.RGBA, x, y int, key string, size int, use string, mark c
 	draw.Draw(img, image.Rect(x, y, x+size, y+size), render(v, 3), image.Point{}, draw.Over)
 }
 
-// preview 拼对照图：2×2 各出一列（大图 + 一排小尺寸），下面再放三处真实上下文。
-func preview() *image.RGBA {
-	const pad, gap = 30, 24
-	colW, big := 280, 240
-	w := pad + 4*(colW+gap) + pad
-	h := pad + big + 46 + 92 + 44 + 210 + pad
-	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	draw.Draw(img, img.Bounds(), image.NewUniform(color.RGBA{0xF7, 0xF3, 0xEE, 255}), image.Point{}, draw.Src)
-
-	put := func(v variant, x, y int) {
-		draw.Draw(img, image.Rect(x, y, x+v.size, y+v.size), render(v, 3), image.Point{}, draw.Over)
+// drawRounded 把一张方形图标按 iOS 的圆角比例贴到目标上（边缘按覆盖率抗锯齿）。
+// 对照图上要看"在手机桌面上长什么样"，所以必须带圆角——直角方块是看不出来的。
+func drawRounded(dst *image.RGBA, src *image.RGBA, x, y int, r float64) {
+	s := float64(src.Bounds().Dx())
+	blend := func(sc, dc uint8, a float64) uint8 {
+		return uint8(math.Round(float64(sc)*a + float64(dc)*(1-a)))
 	}
-
-	for i, d := range designs {
-		x := pad + i*(colW+gap)
-		put(mk(d.key, d.key, big, true, "icon", 1, 1), x, pad)
-		label(img, x, pad+big+8, d.key, 2)
-		sx := x
-		for _, s := range []int{88, 64, 44} {
-			put(mk(d.key, d.key, s, true, "icon", 1.3, 1.3), sx, pad+big+42)
-			sx += s + 12
+	for py := 0; py < int(s); py++ {
+		for px := 0; px < int(s); px++ {
+			c := src.RGBAAt(px, py)
+			dx := math.Min(float64(px), s-1-float64(px))
+			dy := math.Min(float64(py), s-1-float64(py))
+			cov := 1.0
+			if dx < r && dy < r {
+				cov = math.Max(0, math.Min(1, r-math.Hypot(r-dx, r-dy)+0.5))
+			}
+			a := float64(c.A) / 255 * cov
+			if a <= 0 {
+				continue
+			}
+			d := dst.RGBAAt(x+px, y+py)
+			dst.SetRGBA(x+px, y+py, color.RGBA{blend(c.R, d.R, a), blend(c.G, d.G, a), blend(c.B, d.B, a), 255})
 		}
-		label(img, x, pad+big+42+88+6, "88 / 64 / 44", 2)
+	}
+}
+
+// preview 拼对照图，分三段：
+//
+//  1. **桌面图标行**：所有候选按 iOS 圆角铺开——这张最关键，因为 logo 最终就是这样被看到的；
+//  2. **细节列**：字标候选各出一张大图 + 88/64/44 的小尺寸（看小尺寸还认不认得出）；
+//  3. **上下文**：Android 圆形遮罩、深色标题栏里的反白用法。
+func preview() *image.RGBA {
+	const pad, gap = 34, 26
+	const cols = 3
+	const iconRow, colW, big = 168, 300, 240
+	rows := (len(designs) + cols - 1) / cols
+	wordCount := 0
+	for _, d := range designs {
+		if d.kind == kindWordmark {
+			wordCount++
+		}
+	}
+	h := pad + rows*(iconRow+40) + 20 + big + 46 + 92 + 40 + 210 + pad
+	w := pad + cols*(colW+gap) + pad
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	// 底不用象牙白：象牙白那版的"块"会和底融在一起，看不出是个图标。
+	// 用偏灰的暖白当"桌面"，任何配色都能读出边界。
+	draw.Draw(img, img.Bounds(), image.NewUniform(color.RGBA{0xEC, 0xE7, 0xE1, 255}), image.Point{}, draw.Src)
+
+	// ---- 1. 桌面图标行 ----
+	y := pad
+	label(img, pad, y-2, "home screen:", 2)
+	y += 26
+	r := iconRow * 0.2237 // iOS 的圆角比例
+	for i, d := range designs {
+		x := pad + (i%cols)*(colW+gap)
+		yy := y + (i/cols)*(iconRow+40)
+		v := mk(d.key, d.key, iconRow, true, "icon", 1, 1)
+		drawRounded(img, render(v, 3), x, yy, r)
+		label(img, x, yy+iconRow+10, d.key, 2)
 	}
 
-	y2 := pad + big + 46 + 92 + 44
-	label(img, pad, y2-26, "in context:", 2)
-	// ① 登录页的圆角方块：底＝图形色，图案反白
-	{
-		bx, by, bs := pad, y2, 150
-		draw.Draw(img, image.Rect(bx, by, bx+bs, by+bs), image.NewUniform(wineDeep), image.Point{}, draw.Src)
-		overlay(img, bx+25, by+25, "rings-ivory", 100, "mark", ivory)
-		label(img, bx, by+bs+8, "login block (inverse)", 2)
+	// ---- 2. 字标细节列 ----
+	y2 := pad + rows*(iconRow+40) + 20
+	label(img, pad, y2-2, "wordmark detail:", 2)
+	y2 += 26
+	col := 0
+	for _, d := range designs {
+		if d.kind != kindWordmark {
+			continue
+		}
+		x := pad + col*(colW+gap)
+		draw.Draw(img, image.Rect(x, y2, x+big, y2+big), render(mk(d.key, d.key, big, true, "icon", 1, 1), 3), image.Point{}, draw.Over)
+		label(img, x, y2+big+8, d.key, 2)
+		sx := x
+		for _, sz := range []int{88, 64, 44} {
+			draw.Draw(img, image.Rect(sx, y2+big+42, sx+sz, y2+big+42+sz), render(mk(d.key, d.key, sz, true, "icon", 1.3, 1.3), 3), image.Point{}, draw.Over)
+			sx += sz + 12
+		}
+		label(img, x, y2+big+42+88+6, "88 / 64 / 44", 2)
+		col++
 	}
-	// ② Android 自适应：圆形遮罩里铺底色层 + 前景
+
+	// ---- 3. 上下文 ----
+	y3 := y2 + big + 46 + 92 + 40
+	label(img, pad, y3-2, "in context:", 2)
+	y3 += 26
+	first := designs[0].key
+	_, firstTheme := findDesign(first)
+	// Android 自适应：圆形遮罩
 	{
-		size, bx := 150, pad+200
-		cx, cy, r := bx+size/2, y2+size/2, size/2
+		size, bx := 150, pad
+		// ⚠️ 圆心必须按**相对像素**算：原来写的是 `px-cx`，而 cx 是绝对坐标，
+		// 于是这个圆一直是"画在画布外"的——标签在、圆不在，看图才发现。
+		rr := float64(size) / 2
 		for py := 0; py < size; py++ {
 			for px := 0; px < size; px++ {
-				dx, dy := px-cx, py-cy
-				if dx*dx+dy*dy <= r*r {
-					img.Set(bx+px, y2+py, themes["ivory"].bg)
+				dx, dy := float64(px)-rr, float64(py)-rr
+				if dx*dx+dy*dy <= rr*rr {
+					img.Set(bx+px, y3+py, firstTheme.bg)
 				}
 			}
 		}
-		fg := mk("rings-ivory", "fg", size, false, "adaptive", 1.15, 1)
-		draw.Draw(img, image.Rect(bx, y2, bx+size, y2+size), render(fg, 3), image.Point{}, draw.Over)
-		label(img, bx, y2+size+8, "android adaptive (circle mask)", 2)
+		fg := mk(first, "fg", size, false, "adaptive", 1.15, 1)
+		draw.Draw(img, image.Rect(bx, y3, bx+size, y3+size), render(fg, 3), image.Point{}, draw.Over)
+		label(img, bx, y3+size+8, "android adaptive", 2)
 	}
-	// ③ 深色界面（透明底图形叠在墨色上，需反白）
+	// 深色标题栏里的反白用法（登录页/启动页就是这种）
 	{
-		bx := pad + 400
-		draw.Draw(img, image.Rect(bx, y2, bx+150, y2+150), image.NewUniform(ink), image.Point{}, draw.Src)
-		overlay(img, bx, y2, "rings-ivory", 150, "mark", ivory)
-		label(img, bx, y2+150+8, "rings on ink bg", 2)
-	}
-	// ④ 另一案的同一位置，方便横向比
-	{
-		bx := pad + 600
-		draw.Draw(img, image.Rect(bx, y2, bx+150, y2+150), image.NewUniform(ink), image.Point{}, draw.Src)
-		overlay(img, bx, y2, "split-ivory", 150, "mark", ivory)
-		label(img, bx, y2+150+8, "split on ink bg", 2)
+		bx := pad + 380
+		draw.Draw(img, image.Rect(bx, y3, bx+260, y3+150), image.NewUniform(ink), image.Point{}, draw.Src)
+		overlay(img, bx+10, y3+15, first, 120, "mark", ivory)
+		label(img, bx, y3+150+8, "on ink bar (inverse)", 2)
 	}
 	return img
 }
