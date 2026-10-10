@@ -159,7 +159,23 @@ describe("页面与组件渲染", () => {
       expect(r.getByText("左滑跳过 · 右滑喜欢 · 点一下看资料")).toBeTruthy();
       // 卡片本身现在可点开了，得让屏幕阅读器知道（原来只有滑动手势，卡是"死"的）
       expect(r.getByHintText("打开 TA 的主页")).toBeTruthy();
-      expect(r.getByText(/今日还可喜欢 10 人/)).toBeTruthy();
+      // 额度充足时头部只有标题——常驻一个"今日还可喜欢 N 人"会把划卡页变成记账本
+      expect(r.queryByText(/今日还可喜欢/)).toBeNull();
+    } finally {
+      get.mockImplementation(original);
+    }
+  });
+
+  it("推荐页额度快用完时，头部才冒出提示", async () => {
+    const get = api.get as jest.Mock;
+    const original = get.getMockImplementation();
+    get.mockImplementation(async (url: string) =>
+      String(url).startsWith("/cards") ? { cards: [card], quota: { used: 8, limit: 10, remain: 2 } } : {}
+    );
+    try {
+      const r = render(wrap(<Discover />));
+      await r.findByText("小晴");
+      expect(r.getByText("今日还可喜欢 2 人")).toBeTruthy();
     } finally {
       get.mockImplementation(original);
     }

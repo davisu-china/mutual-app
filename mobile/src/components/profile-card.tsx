@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   distanceText: { color: colors.white, fontSize: 10 },
   bottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: space(4), paddingBottom: space(4), paddingTop: space(24) },
   bottomCompact: { paddingHorizontal: space(3.5), paddingBottom: space(3), paddingTop: space(16) },
-  name: { color: colors.white, fontSize: 21, fontWeight: "700", letterSpacing: 0.2 },
+  name: { color: colors.white, fontSize: 23, fontWeight: "700", letterSpacing: 0.2 },
   nameCompact: { fontSize: 17 },
   meta: { marginTop: space(1), color: "rgba(255,255,255,.86)", fontSize: 13 },
   occupationRow: { marginTop: space(1.5), flexDirection: "row", alignItems: "center", gap: space(1.5) },

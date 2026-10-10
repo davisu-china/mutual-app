@@ -44,8 +44,8 @@ export default function Recommend() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { width } = useWindowDimensions();
-  /** 卡片的实际宽度：stage 左右各留 space(5) 的边距 */
-  const cardW = width - space(5) * 2;
+  /** 卡片的实际宽度 = stage 的可用宽（左右各留 space(3)）——滑动阈值按它的比例算，改边距时这里要一起改 */
+  const cardW = width - space(3) * 2;
 
   const [cards, setCards] = useState<Card[] | null>(null);
   const [quota, setQuota] = useState({ used: 0, limit: 10, remain: 10 });
@@ -135,12 +135,17 @@ export default function Recommend() {
     <View style={[styles.root, { paddingTop: insets.top + space(2) }]}>
       <View style={styles.header}>
         <Text style={styles.title}>推荐</Text>
-        <View style={[styles.quota, exhausted && styles.quotaOff]}>
-          <Ionicons name="flame" size={13} color={exhausted ? colors.muted2 : colors.brand} />
-          <Text style={[styles.quotaText, exhausted && styles.quotaTextOff]}>
-            今日还可喜欢 {quota.remain} 人
-          </Text>
-        </View>
+        {/* 额度只在快用完（≤3）时才冒出来。平时头部就一个标题——主流划卡页都是这样，
+            常驻一个「今日还可喜欢 N 人」会把界面变成记账本，这是"不够高级"的一个来源。
+            规则与「心动」页一致。 */}
+        {quota.remain <= 3 ? (
+          <View style={[styles.quota, exhausted && styles.quotaOff]}>
+            <Ionicons name="flame" size={13} color={exhausted ? colors.muted2 : colors.brand} />
+            <Text style={[styles.quotaText, exhausted && styles.quotaTextOff]}>
+              {exhausted ? "今日额度已用完" : `今日还可喜欢 ${quota.remain} 人`}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.stage}>
@@ -194,20 +199,25 @@ export default function Recommend() {
         )}
       </View>
 
-      {/* 这块高度常驻：提示在第一次滑卡后消失，如果连着容器一起收掉，
-          底部按钮会当场往下跳一格——偏偏就在用户刚滑完、正盯着那儿的时候 */}
-      <View style={styles.hint} pointerEvents="none">
-        {top && !hinted ? <Text style={styles.hintText}>左滑跳过 · 右滑喜欢 · 点一下看资料</Text> : null}
-      </View>
+      <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, space(3)) }]}>
+        {/* 提示**浮**在卡片与按钮之间的空档里，不占布局。
+            主流的划卡页都没有独立的提示行：那一行即使内容消失了，它占的高度还在，
+            就成了卡片下面一条永远空着的带子——"留白太多"多半就是从这来的。 */}
+        {top && !hinted ? (
+          <View style={styles.hintWrap} pointerEvents="none">
+            <View style={styles.hintPill}>
+              <Text style={styles.hintText}>左滑跳过 · 右滑喜欢 · 点一下看资料</Text>
+            </View>
+          </View>
+        ) : null}
 
-      <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, space(4)) }]}>
         <Pressable
           accessibilityLabel="跳过"
           disabled={!top || busy}
           onPress={() => void act("pass")}
           style={({ pressed }) => [styles.pass, pressed && styles.pressed, (!top || busy) && styles.off]}
         >
-          <Ionicons name="close" size={26} color={colors.muted} />
+          <Ionicons name="close" size={27} color={colors.muted} />
         </Pressable>
 
         <Pressable
@@ -216,7 +226,7 @@ export default function Recommend() {
           onPress={() => void act("like")}
           style={({ pressed }) => [styles.like, pressed && styles.pressed, (!top || busy || exhausted) && styles.off]}
         >
-          <Ionicons name="heart" size={30} color={colors.white} />
+          <Ionicons name="heart" size={33} color={colors.white} />
         </Pressable>
       </View>
 
@@ -388,13 +398,15 @@ function FlyingCard({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paper },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space(5), paddingBottom: space(3) },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space(5), paddingBottom: space(2) },
   title: { fontSize: 18, fontWeight: "700", letterSpacing: 0.2, color: colors.ink },
   quota: { flexDirection: "row", alignItems: "center", gap: space(1.5), borderRadius: radius.pill, backgroundColor: colors.brandSoft, paddingHorizontal: space(3), paddingVertical: space(1.5) },
   quotaOff: { backgroundColor: colors.lineSoft },
   quotaText: { fontSize: 12, fontWeight: "600", color: colors.brand, fontVariant: ["tabular-nums"] },
   quotaTextOff: { color: colors.muted2 },
-  stage: { flex: 1, paddingHorizontal: space(5), paddingBottom: space(2), justifyContent: "center" },
+  // 左右只留 12：照片是这一屏的主角，边距一大就显小、显平。
+  // 主流划卡页都在 8–16 之间（Tinder/Bumble 约 10–12），我们原来 20 偏保守。
+  stage: { flex: 1, paddingHorizontal: space(3), paddingBottom: space(3) },
   // 卡栈的定位基准：绝对定位的子元素按这一层算，才能正好等于卡片的可视区域
   deck: { flex: 1 },
   skeleton: { borderRadius: radius.card },
@@ -412,14 +424,23 @@ const styles = StyleSheet.create({
   stampPass: { right: space(4), borderColor: colors.muted2 },
   stampLikeText: { color: colors.brand, fontSize: 16, fontWeight: "800", letterSpacing: 2 },
   stampPassText: { color: colors.muted, fontSize: 16, fontWeight: "800", letterSpacing: 2 },
-  hint: { minHeight: space(6), alignItems: "center", justifyContent: "center" },
+  // 浮在卡片下沿与按钮之间：top 取负值 = 相对按钮行的上边往上 28，
+  // 正好是「卡片 → 空档 → 按钮」这段的中间，不挤压任何一侧。
+  // 外面这层全宽容器负责居中——绝对定位的子元素靠 alignSelf 居中在 RN 里不可靠。
+  hintWrap: { position: "absolute", top: -space(7), left: 0, right: 0, alignItems: "center" },
+  hintPill: {
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(26,21,18,.62)",
+    paddingHorizontal: space(3.5),
+    paddingVertical: space(1.5),
+  },
   emptyActions: { flexDirection: "row", alignItems: "center", gap: space(3) },
-  hintText: { fontSize: 12, color: colors.muted2 },
-  actions: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space(7), paddingTop: space(4) },
+  hintText: { fontSize: 12, color: colors.white },
+  actions: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space(6), paddingTop: space(4) },
   pass: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
@@ -428,9 +449,9 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   like: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
