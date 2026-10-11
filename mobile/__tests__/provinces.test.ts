@@ -7,7 +7,7 @@
  * 所以这里不测"数组等于数组"，而是直接和自动生成的名单对。
  */
 import { PROVINCE_NAMES } from "@/lib/data/regions";
-import { PROVINCE_GROUPS, filterProvinces, selectedProvinceText } from "@/lib/provinces";
+import { PROVINCE_GROUPS, selectedProvinceText } from "@/lib/provinces";
 
 describe("省份分组", () => {
   it("覆盖全部省份，且不重不漏", () => {
@@ -27,33 +27,6 @@ describe("省份分组", () => {
       expect(g.label.trim()).not.toBe("");
       expect(g.provinces.length).toBeGreaterThan(0);
     }
-  });
-});
-
-describe("filterProvinces", () => {
-  it("空关键词原样返回所有组", () => {
-    expect(filterProvinces("")).toBe(PROVINCE_GROUPS);
-    expect(filterProvinces("   ")).toBe(PROVINCE_GROUPS);
-  });
-
-  it("简称和全名都能搜到", () => {
-    expect(filterProvinces("浙江")[0].provinces).toEqual(["浙江省"]);
-    expect(filterProvinces("浙江省")[0].provinces).toEqual(["浙江省"]);
-    expect(filterProvinces("内蒙古")[0].provinces).toEqual(["内蒙古自治区"]);
-  });
-
-  it("一个关键词命中多个省时都返回（并保留大区标签）", () => {
-    const hit = filterProvinces("南");
-    const flat = hit.flatMap((g) => g.provinces);
-    expect(flat).toContain("河南省");
-    expect(flat).toContain("湖南省");
-    expect(flat).toContain("云南省");
-    expect(flat).toContain("海南省");
-    expect(hit.every((g) => g.label)).toBe(true);
-  });
-
-  it("搜不到时返回空数组（界面据此显示「没找到」）", () => {
-    expect(filterProvinces("火星")).toEqual([]);
   });
 });
 

@@ -12,9 +12,8 @@ import { Empty, Skeleton, useToast } from "@/ui/feedback";
 import { colors, font, radius, shadow, space } from "@/theme";
 import { shortName } from "@/lib/data/regions";
 import { FieldRow } from "@/ui/field-row";
-import { Input } from "@/ui/input";
-import { filterProvinces, selectedProvinceText } from "@/lib/provinces";
-import { plazaQuery, toggleProvince, type PlazaFilter } from "@/lib/plaza";
+import { PROVINCE_GROUPS, selectedProvinceText } from "@/lib/provinces";
+import { plazaQuery, toggleProvince, type PlazaFilter, type ProvinceField } from "@/lib/plaza";
 import type { Card } from "@/lib/types";
 
 /** 筛选弹层最多占屏高这么多，超出的部分滚动——不加这个，34 个省标签会把面板顶出屏幕 */
@@ -71,10 +70,12 @@ export default function Plaza() {
 
   const [f, setF] = useState<PlazaFilter>({});
   const [open, setOpen] = useState(false);
-  /** 筛选面板有两个视图：主筛选 ↔ 省份选择。放同一个 Sheet 里换内容，
-      而不是再叠一层弹层——两个 Modal 叠着既有遮罩加重的问题，也不好返回。 */
-  const [view, setView] = useState<"main" | "province">("main");
-  const [kw, setKw] = useState("");
+  /**
+   * 筛选面板三个视图：主筛选 ↔ 选「现居地」省份 ↔ 选「家乡」省份。
+   * 放同一个 Sheet 里换内容，而不是再叠一层弹层——两个 Modal 叠着既有遮罩
+   * 加重的问题，也不好返回。两个省份栏位共用同一片省份网格，只是写回不同的字段。
+   */
+  const [view, setView] = useState<"main" | ProvinceField>("main");
   const [cards, setCards] = useState<Card[] | null>(null);
   /** 下一页的游标；0 = 没有更多了 */
   const [cursor, setCursor] = useState(0);
@@ -85,7 +86,6 @@ export default function Plaza() {
   function closeFilter() {
     setOpen(false);
     setView("main");
-    setKw("");
   }
 
   /**
@@ -123,7 +123,10 @@ export default function Plaza() {
     (f.heightMin !== undefined || f.heightMax !== undefined ? 1 : 0) +
     (f.education !== undefined ? 1 : 0) +
     (f.incomeMin !== undefined ? 1 : 0) +
-    (f.provinces?.length ? 1 : 0);
+    (f.provinces?.length ? 1 : 0) +
+    (f.hometownProvinces?.length ? 1 : 0);
+
+  const viewTitle = view === "main" ? "筛选" : view === "provinces" ? "选择现居地" : "选择家乡";
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + space(3) }]}>
@@ -135,7 +138,6 @@ export default function Plaza() {
         <Pressable
           onPress={() => {
             setView("main");
-            setKw("");
             setOpen(true);
           }}
           style={[styles.filterBtn, activeCount > 0 && styles.filterBtnOn]}
@@ -190,10 +192,10 @@ export default function Plaza() {
       )}
 
       {/* 筛选：底部弹层，只有能显著缩小范围的几项 */}
-      <Sheet open={open} onClose={closeFilter} title={view === "main" ? "筛选" : "选择省份"} confirmText="完成" onConfirm={closeFilter}>
+      <Sheet open={open} onClose={closeFilter} title={viewTitle} confirmText="完成" onConfirm={closeFilter}>
         {/* 内容比面板高时必须能滚 */}
         <ScrollView style={{ maxHeight: FILTER_MAX_H }} contentContainerStyle={styles.filterBody} showsVerticalScrollIndicator={false}>
-          {view === "province" ? (
+          {view !== "main" ? (
             <>
               <View style={styles.crumbRow}>
                 <Pressable onPress={() => setView("main")} accessibilityLabel="返回筛选" style={styles.crumbBack} hitSlop={8}>
@@ -203,30 +205,26 @@ export default function Plaza() {
                 <Text style={styles.crumbHint}>可多选，不选即不限</Text>
               </View>
 
-              <Input value={kw} onChangeText={setKw} placeholder="搜索省份，如「浙江」" autoCorrect={false} returnKeyType="search" />
-
+              {/* 不放搜索框：34 个省已经按大区收成 8 片，扫一眼就能落到某一片，
+                  再给个输入框只是多一个要先想"我该打什么"的步骤 */}
               <View style={{ marginTop: space(4) }}>
-                {filterProvinces(kw).length === 0 ? (
-                  <Text style={styles.noHit}>没有找到「{kw}」相关的省份</Text>
-                ) : (
-                  filterProvinces(kw).map((g) => (
-                    <View key={g.label} style={styles.regionGroup}>
-                      {/* 大区标签：把 34 个省份收成 8 片，扫一眼就能落到某一片 */}
-                      <Text style={styles.regionLabel}>{g.label}</Text>
-                      <View style={styles.groupBody}>
-                        {g.provinces.map((name) => (
-                          <Chip
-                            key={name}
-                            // 显示简称（浙江），存全名（浙江省）——后端按 city_prov 精确匹配
-                            label={shortName(name)}
-                            on={!!f.provinces?.includes(name)}
-                            onPress={() => setF(toggleProvince(f, name))}
-                          />
-                        ))}
-                      </View>
+                {PROVINCE_GROUPS.map((g) => (
+                  <View key={g.label} style={styles.regionGroup}>
+                    {/* 大区标签：把 34 个省份收成 8 片，扫一眼就能落到某一片 */}
+                    <Text style={styles.regionLabel}>{g.label}</Text>
+                    <View style={styles.groupBody}>
+                      {g.provinces.map((name) => (
+                        <Chip
+                          key={name}
+                          // 显示简称（浙江），存全名（浙江省）——后端按省份精确匹配
+                          label={shortName(name)}
+                          on={!!f[view]?.includes(name)}
+                          onPress={() => setF(toggleProvince(f, view, name))}
+                        />
+                      ))}
                     </View>
-                  ))
-                )}
+                  </View>
+                ))}
               </View>
             </>
           ) : (
@@ -271,12 +269,18 @@ export default function Plaza() {
               ))}
             </FilterGroup>
 
-            {/* 省份单开一页：主面板里只留一行，点进去再选 */}
+            {/* 两个省份栏位各占一行，点进去才是那一片省份网格 */}
             <FieldRow
-              label="地区"
+              label="现居地"
               value={selectedProvinceText(f.provinces)}
               icon="location-outline"
-              onPress={() => setView("province")}
+              onPress={() => setView("provinces")}
+            />
+            <FieldRow
+              label="家乡"
+              value={selectedProvinceText(f.hometownProvinces)}
+              icon="home-outline"
+              onPress={() => setView("hometownProvinces")}
             />
 
             <Button label="清除全部筛选" variant="ghost" block onPress={() => setF({})} />
@@ -334,7 +338,6 @@ const styles = StyleSheet.create({
   crumbBack: { flexDirection: "row", alignItems: "center" },
   crumbBackText: { fontSize: 14, color: colors.brand },
   crumbHint: { fontSize: 12, color: colors.muted2 },
-  noHit: { paddingVertical: space(8), textAlign: "center", fontSize: 13, color: colors.muted2 },
   regionGroup: { marginBottom: space(4) },
   regionLabel: { marginBottom: space(2), fontSize: 12, color: colors.muted2 },
   groupHead: { flexDirection: "row", alignItems: "center", gap: space(1.5), marginBottom: space(2.5) },

@@ -25,22 +25,6 @@ export const PROVINCE_GROUPS: { label: string; provinces: string[] }[] = [
   { label: "港澳台", provinces: ["香港特别行政区", "澳门特别行政区", "台湾省"] },
 ];
 
-/**
- * 按关键词过滤。匹配简称（浙江）或全名（浙江省）。
- *
- * 只认中文，不做拼音——34 个省份已经按大区分好组、一眼能扫到，
- * 搜索只是给"知道自己要找哪个省"的人省一次滚动，不值得为它引入
- * 拼音表（那要异步加载整棵区划树）。真需要时再说。
- */
-export function filterProvinces(keyword: string): { label: string; provinces: string[] }[] {
-  const k = keyword.trim();
-  if (!k) return PROVINCE_GROUPS;
-  return PROVINCE_GROUPS.map((g) => ({
-    label: g.label,
-    provinces: g.provinces.filter((p) => shortName(p).includes(k) || p.includes(k)),
-  })).filter((g) => g.provinces.length > 0);
-}
-
 /** 已选省份的展示文案：最多列三个名字，多了就只报个数 */
 export function selectedProvinceText(provinces: string[] | undefined): string {
   if (!provinces?.length) return "不限";

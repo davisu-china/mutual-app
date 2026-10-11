@@ -105,14 +105,10 @@ func (h *DiscoveryHandler) Plaza(c *gin.Context) {
 	f.AgeMax = intPtr(c.Query("ageMax"))
 	f.HeightMin = int16Ptr(c.Query("heightMin"))
 	f.HeightMax = int16Ptr(c.Query("heightMax"))
-	// 省份多选，逗号分隔（省名里不含逗号，不用转义）
-	if v := c.Query("provinces"); v != "" {
-		for _, p := range strings.Split(v, ",") {
-			if p = strings.TrimSpace(p); p != "" {
-				f.Provinces = append(f.Provinces, p)
-			}
-		}
-	}
+	// 省份多选，逗号分隔（省名里不含逗号，不用转义）。
+	// `provinces` 筛现居地、`hometownProvinces` 筛家乡——两个独立维度，可叠加
+	f.Provinces = splitCSV(c.Query("provinces"))
+	f.HometownProvinces = splitCSV(c.Query("hometownProvinces"))
 	f.IncomeMin = int16Ptr(c.Query("incomeMin"))
 	f.IncomeMax = int16Ptr(c.Query("incomeMax"))
 	if v := c.Query("keyword"); v != "" {
@@ -135,6 +131,20 @@ func (h *DiscoveryHandler) Plaza(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{"cards": cards, "nextCursor": next})
+}
+
+// splitCSV 解析逗号分隔的多选参数，空串与空白项都丢掉。
+func splitCSV(v string) []string {
+	if v == "" {
+		return nil
+	}
+	var out []string
+	for _, s := range strings.Split(v, ",") {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // LikesMe 谁喜欢我。

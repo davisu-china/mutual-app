@@ -546,10 +546,13 @@ type PlazaFilter struct {
 	AgeMax    *int
 	HeightMin *int16
 	HeightMax *int16
-	// 省份可多选（广场的筛选就是这样用的）：空表示不限
-	Provinces  []string
-	Education  []int16
-	Occupation []string
+	// 省份可多选（广场的筛选就是这样用的）：空表示不限。
+	// Provinces 是**现居地**（`city_prov`），HometownProvinces 是**家乡**（`hometown_prov`）。
+	// 两个是各自独立的维度：可以只筛现居地、只筛家乡，也可以两个叠加（交集）。
+	Provinces         []string
+	HometownProvinces []string
+	Education         []int16
+	Occupation        []string
 	// 收入按档位下标过滤（1–6 对应六档）。两个都是独立的，不设就不加这一条 SQL
 	IncomeMin *int16
 	IncomeMax *int16
@@ -624,6 +627,13 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 	if len(f.Provinces) > 0 {
 		sb.WriteString(" AND p.city_prov IN (" + placeholders(len(f.Provinces)) + ")")
 		for _, p := range f.Provinces {
+			args = append(args, p)
+		}
+	}
+	// 家乡：和现居地一样是精确匹配全名（「浙江省」），不是 LIKE
+	if len(f.HometownProvinces) > 0 {
+		sb.WriteString(" AND p.hometown_prov IN (" + placeholders(len(f.HometownProvinces)) + ")")
+		for _, p := range f.HometownProvinces {
 			args = append(args, p)
 		}
 	}
