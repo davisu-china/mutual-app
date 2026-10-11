@@ -187,6 +187,8 @@ export interface Profile {
   /** 只看别人的主页时才有：我是否已经喜欢/跳过/配对了 TA */
   relation?: Relation;
   age: number;
+  /** 生日（`YYYY-MM-DD`）。**只有本人看自己的资料时才有**——别人只给 age（PRD 15 章） */
+  birthday?: string;
   heightCm: number;
   weightKg?: number;
   hometownProvince: string;

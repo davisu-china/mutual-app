@@ -48,10 +48,14 @@ func NewProfileService(db *gorm.DB, exp *ExposureService) *ProfileService {
 type ProfileView struct {
 	UserID int64 `json:"userId"`
 
-	Nickname string     `json:"nickname"`
-	Gender   *int16     `json:"gender"`
-	Age      int        `json:"age"`
-	Birthday *time.Time `json:"-"`
+	Nickname string `json:"nickname"`
+	Gender   *int16 `json:"gender"`
+	Age      int    `json:"age"`
+	// 生日：**只在本人看自己的资料时下发**（`YYYY-MM-DD`），别人只拿得到 age——
+	// PRD 第 15 章的隐私口径说的是"不给别人看"，不是"连本人都不给"。
+	// ⚠️ 必须给本人：编辑资料要回显，否则每次进向导都得重选一次生日，
+	// 手一滑就把生日改错了（这一条踩过，见 mobile 的 backfill）。
+	Birthday string `json:"birthday,omitempty"`
 
 	HeightCm     int16   `json:"heightCm"`
 	WeightKg     *int16  `json:"weightKg,omitempty"`
@@ -177,6 +181,14 @@ func (s *ProfileService) PublicProfile(ctx context.Context, viewerID, targetID i
 	return v, nil
 }
 
+// birthdayForSelf 本人给完整日期，他人只给 age（Age 字段）。
+func birthdayForSelf(b time.Time, self bool) string {
+	if !self || b.IsZero() {
+		return ""
+	}
+	return b.Format("2006-01-02")
+}
+
 func statusForSelf(status string, self bool) string {
 	if !self {
 		return ""
@@ -216,8 +228,10 @@ func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, se
 	}
 
 	v := &ProfileView{
-		UserID:       u.ID,
-		Nickname:     u.Nickname,
+		UserID:   u.ID,
+		Nickname: u.Nickname,
+		// 只有本人能看到自己的完整生日（他人视角这里留空，只有 Age）
+		Birthday: birthdayForSelf(u.Birthday, self),
 		// 自己的资料才带账号状态：客户端要拿它显示"账号被限制"的说明
 		AccountStatus: statusForSelf(u.Status, self),
 		BanReason:     banReasonForSelf(u.BanReason, self),

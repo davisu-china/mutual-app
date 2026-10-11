@@ -100,8 +100,21 @@ function genderOf(d: Draft): "male" | "female" {
 
 /** 后端返回的是出生日期，但 Profile 不带这个字段——这里用年龄反推一个占位生日。
  *  实际上后端 /users/me 不下发生日（出于隐私），所以编辑时生日保持用户已选的草稿值。 */
-function parseBirthday(_p: unknown): Birthday | null {
-  return null;
+/**
+ * 从 `/users/me` 里取生日。
+ *
+ * 后端只对**本人**下发 `birthday`（`YYYY-MM-DD`；别人视角只有 age，PRD 第 15 章）。
+ * 曾经这里是空的（服务端完全不下发），于是"编辑资料时生日不回显、每次都要重选"。
+ * 格式不对就返回 null，让用户自己重选——**不能拿 age 编一个**，那是假数据。
+ */
+function parseBirthday(p: { birthday?: string }): Birthday | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((p.birthday ?? "").trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { year, month, day };
 }
 
 export default function Onboarding() {

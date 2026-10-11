@@ -306,11 +306,15 @@ export function hobbiesPayload(d: Draft): { hobbies: (Hobby & { sortOrder: numbe
 /**
  * `/users/me` 里我们用得到的部分。
  *
- * 注意**没有 birthday**：后端 `Profile.Birthday` 标了 `json:"-"`，出于隐私刻意
- * 不下发生日（只给 `age`）。所以中途退出再进来，生日必须重选一次——这一项无法
- * 回填，也不该拿 age 编一个（那会把假生日写进库里）。其余字段都能续上。
+ * `birthday` 是 `YYYY-MM-DD` 的字符串，**只有本人看自己的资料时才会带**——
+ * 后端对别人只下发 `age`（PRD 第 15 章的隐私口径）。曾经这里刻意不带生日，
+ * 结果是"编辑资料时生日不回显、每次都要重选"，手一滑就把生日改错了。
+ *
+ * ⚠️ **绝不能拿 age 编一个生日**填进来：那是假数据，会把它写回库里。
  */
 export interface ProfileSnapshot {
+  /** 本人专有：`YYYY-MM-DD`。格式不对就当作没有（见 parseBirthday） */
+  birthday?: string | null;
   gender?: number | null;
   heightCm?: number;
   weightKg?: number | null;
@@ -367,13 +371,31 @@ export interface ProfileSnapshot {
  *     这一步的人也会返回 false。所以只有在**第一步确实存过**时才认它们，
  *     否则会把"否"凭空写进用户的资料里。判据用身高——它是第一步的必填项。
  */
+/**
+ * 把服务端给的 `YYYY-MM-DD` 解析成草稿里的生日。
+ *
+ * 格式不对、日期不存在（2 月 30 号那种）一律返回 null——**宁可让它空着让用户重选，
+ * 也别把一个错日期填进表单**：他要是没注意就下一步，生日就被改错了。
+ */
+export function parseBirthday(v: string | null | undefined): Birthday | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((v ?? "").trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > daysInMonth(year, month)) return null;
+  return { year, month, day };
+}
+
 export function backfill(prev: Draft, p: ProfileSnapshot): Draft {
   const step0Saved = (p.heightCm ?? 0) > 0;
 
   return {
     ...prev,
     gender: p.gender ?? prev.gender,
-    // 生日不回填：后端不下发（见上面的说明），保持用户已选的草稿值
+    // 生日回填（本人专有）；服务端没给或格式不对就保留用户已选的草稿值
+    birthday: parseBirthday(p.birthday) ?? prev.birthday,
     heightCm: p.heightCm || prev.heightCm,
     weightKg: p.weightKg ?? prev.weightKg,
     hometown: p.hometownCity

@@ -18,6 +18,7 @@ import {
   daysInMonth,
   hintFor,
   hobbiesPayload,
+  parseBirthday,
   profilePayload,
   stepDone,
   stepRequest,
@@ -300,9 +301,24 @@ describe("backfill", () => {
     expect(saved.hasCar).toBe(false);
   });
 
-  it("生日不回填（后端不下发），保持用户已选的草稿值", () => {
-    const mine = { year: 1996, month: 6, day: 15 };
+  it("生日能回填（本人专有）——编辑资料时不回显的话，用户每次都要重选，手一滑就改错了", () => {
+    expect(backfill(EMPTY, { ...server, birthday: "1996-06-15" }).birthday).toEqual({
+      year: 1996,
+      month: 6,
+      day: 15,
+    });
+    // 服务端没给（旧数据 / 别人视角）就保留草稿里已经选的
+    const mine = { year: 1995, month: 3, day: 2 };
     expect(backfill({ ...EMPTY, birthday: mine }, server).birthday).toEqual(mine);
+  });
+
+  it("生日格式不对就不填，也不拿 age 编一个", () => {
+    for (const bad of ["", null, undefined, "1996-6-6", "1996/06/06", "1996-02-30", "1996-13-01", "abc"]) {
+      expect(parseBirthday(bad as string)).toBeNull();
+    }
+    // 闰年的 2 月 29 是合法的
+    expect(parseBirthday("1996-02-29")).toEqual({ year: 1996, month: 2, day: 29 });
+    expect(parseBirthday("1997-02-29")).toBeNull();
   });
 
   it("已有头像就把照片标记为已存在，不用再传一次", () => {
