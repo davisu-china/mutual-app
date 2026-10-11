@@ -104,6 +104,19 @@ src/
 - 解配需要 `matchId`，而对方主页只带回 `relation.matched`，所以点解配时会按需查一次
   `GET /matches` 再按 userId 找回来。
 
+## 账号被封禁时的表现
+
+管理员在后台封人（原因必填，见 `web/src/admin`）之后：
+
+- 后端**中间件在所有业务接口之前**就拦下来，所以 App 里每个页面都会开始报错。
+  光靠逐个 toast，用户看到的是"划不动、点不开、发不出去"的一堆怪现象。
+- 所以 `src/lib/api.ts` 认得 `ACCOUNT_BANNED` / `ACCOUNT_DISABLED`（把 `data.reason` 带出来），
+  根布局上挂的 `AccountBlockedGate` 会立刻把 **`AccountBlockedScreen` 整屏顶上来**：
+  原因原话 + "联系客服申诉" + 退出登录。
+- ⚠️ **刻意不做自动退出登录**：一退出就回登录页，理由也跟着消失了（用户永远不知道自己为什么上不去）。
+  管理员没填理由时不编一个——那一块干脆不显示。
+- 这条链路是"用户能感知到被封"的唯一通道，`__tests__/blocked.test.tsx` 钉着它。
+
 ## 服务端错误码的一个约定（踩过）
 
 `handler.mapErr` 只认识**哨兵错误**和 `InvalidInputError`，其余一律兜底成
