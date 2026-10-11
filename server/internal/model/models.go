@@ -67,6 +67,12 @@ type User struct {
 	OnboardedAt  *time.Time `json:"onboardedAt"`
 	// 后台管理员。不对外下发（json:"-"）——它是权限位，不该出现在任何用户可见的响应里
 	IsAdmin   bool      `gorm:"not null;default:false" json:"-"`
+	// 封禁：状态位还是 Status='banned'，这里存**给用户看的理由**与操作痕迹。
+	// 理由必须落库——App 要把"为什么被封"原话呈现给被封的人，只在后台留一句
+	// 等于用户永远不知道自己为什么上不去。
+	BanReason *string    `gorm:"type:text" json:"-"`
+	BannedAt  *time.Time `json:"-"`
+	BannedBy  *int64     `json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt    time.Time  `json:"updatedAt"`
 }

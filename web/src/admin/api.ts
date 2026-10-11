@@ -130,6 +130,10 @@ export interface AdminConvDetail {
 export interface AdminUserDetail {
   user: {
     id: number;
+    /** 封禁的理由与时间：状态是 banned 时才有，要展示给管理员看 */
+    banReason?: string | null;
+    bannedAt?: string | null;
+    bannedBy?: number | null;
     phone: string;
     nickname: string;
     gender: number | null;
@@ -178,4 +182,14 @@ export const adminApi = {
   conversations: (q: Record<string, string | number | undefined>) =>
     request<Paged<AdminConvRow>>(`/admin/conversations?${qs(q)}`),
   conversation: (id: number) => request<AdminConvDetail>(`/admin/conversations/${id}`),
+
+  /**
+   * 封禁 / 解封。**后台里唯一会写的两个接口**（其余全是只读查询）。
+   *
+   * 理由必填：它会**原话展示给被封的用户**（App 的封禁页 + 登录时的报错），
+   * 所以别写"违规"这种两个字——用户看不懂也改不了。
+   */
+  ban: (id: number, reason: string) =>
+    request<{ status: string }>(`/admin/users/${id}/ban`, { method: "POST", body: { reason } }),
+  unban: (id: number) => request<{ status: string }>(`/admin/users/${id}/unban`, { method: "POST" }),
 };

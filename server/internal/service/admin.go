@@ -4,15 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/davisu-china/mutual-app/server/internal/model"
 )
 
 // 后台管理的数据层。
 //
-// 只读——后台不做任何写操作（除了 is_admin 位由运维直接改库），
-// 所以这里没有任何事务，全是查询。
+// **几乎只读**：只有封禁/解封会写（`BanUser` / `UnbanUser`），其余全是查询。
+// 改密码、删号之类的操作仍然留给运维直接改库。
 //
 // ⚠️ 这里的查询**没有为百万级用户做优化**：用户列表每行都带几个标量子查询
 // （照片数、发出/收到的喜欢数、配对数），全表 ORDER BY created_at。当前量级
@@ -338,6 +342,10 @@ type AdminUserHeader struct {
 	Status      string  `json:"status"`
 	Onboarded   bool    `json:"onboarded"`
 	IsAdmin     bool    `json:"isAdmin"`
+	// 封禁的理由与时间：后台要能回答"这人为什么被封、什么时候、谁封的"
+	BanReason   *string `json:"banReason"`
+	BannedAt    *string `json:"bannedAt"`
+	BannedBy    *int64  `json:"bannedBy"`
 	DeviceID    *string `json:"deviceId"`
 	RegisterIP  *string `json:"registerIp"`
 	CreatedAt   string  `json:"createdAt"`
@@ -436,12 +444,14 @@ func (s *AdminService) Detail(ctx context.Context, id int64) (*AdminUserDetail, 
 		       u.status, u.onboarded_at IS NOT NULL, u.is_admin,
 		       u.device_id, u.register_ip::text,
 		       to_char(u.created_at, 'YYYY-MM-DD HH24:MI'),
-		       to_char(u.last_login_at, 'YYYY-MM-DD HH24:MI')
+		       to_char(u.last_login_at, 'YYYY-MM-DD HH24:MI'),
+		       u.ban_reason, to_char(u.banned_at, 'YYYY-MM-DD HH24:MI'), u.banned_by
 		  FROM users u WHERE u.id = ?
 	`, id).Row().Scan(
 		&out.User.ID, &out.User.Phone, &out.User.Nickname, &out.User.Gender, &out.User.Age,
 		&out.User.Status, &out.User.Onboarded, &out.User.IsAdmin,
 		&out.User.DeviceID, &out.User.RegisterIP, &out.User.CreatedAt, &out.User.LastLoginAt,
+		&out.User.BanReason, &out.User.BannedAt, &out.User.BannedBy,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrTargetInvalid
@@ -812,4 +822,97 @@ func normPage(page, size int) (int, int) {
 		size = 100
 	}
 	return page, size
+}
+
+// ---------- 封禁 / 解封 ----------
+
+// 封禁理由的长度区间。
+//
+// **必须填**：这条理由会原话呈现给被封的用户（App 的封禁页），
+// 是"为什么上不去"的唯一解释来源。留空等于让人莫名其妙被挡在门外。
+// 上限 200 也是给用户看的——一屏能读完。
+const (
+	banReasonMin = 4
+	banReasonMax = 200
+)
+
+// BanUser 封禁一个账号，并记下给用户看的理由。
+//
+// 写两处：
+//   - `users` 行上（status/ban_reason/banned_at/banned_by）——App 和登录接口读的就是它；
+//   - `audit_logs`（谁、什么时候、为什么）——后台的历史记录，将来加了别的动作也走这张表。
+//
+// 封禁生效面：卡池与广场（`status='active'` 过滤）、点开主页（PublicProfile）、
+// 他的图（MediaReadable，含头像）、所有业务接口（中间件的 403 带理由）。
+func (s *AdminService) BanUser(ctx context.Context, adminID, id int64, reason string) error {
+	reason = strings.TrimSpace(reason)
+	if n := len([]rune(reason)); n < banReasonMin || n > banReasonMax {
+		return invalidInput("封禁原因需要 %d–%d 个字（它会原样展示给用户）", banReasonMin, banReasonMax)
+	}
+
+	var u model.User
+	if err := s.db.WithContext(ctx).Select("id", "status", "is_admin").First(&u, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTargetInvalid
+		}
+		return err
+	}
+	// 别把自己人封了：管理员账号被封之后连后台都进不去，只能改库救回来
+	if u.IsAdmin {
+		return invalidInput("不能封禁管理员账号")
+	}
+	if u.Status == model.UserDeleted {
+		return invalidInput("账号已注销，无需封禁")
+	}
+
+	now := time.Now()
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("id = ?", id).Updates(map[string]any{
+			"status":     model.UserBanned,
+			"ban_reason": reason,
+			"banned_at":  now,
+			"banned_by":  adminID,
+			"updated_at": now,
+		}).Error; err != nil {
+			return err
+		}
+		op := strconv.FormatInt(adminID, 10)
+		return tx.Create(&model.AuditLog{
+			TargetType: "user", TargetID: id, Action: "ban", Reason: &reason, Operator: &op,
+		}).Error
+	})
+}
+
+// UnbanUser 解封：状态回到 active，并清掉封禁痕迹。
+//
+// 理由同样记进 audit_logs（谁解的），但 users 行上不留——它已经不是封禁状态了，
+// 留着会让"当前为什么被封"这种查询读出脏数据。
+func (s *AdminService) UnbanUser(ctx context.Context, adminID, id int64) error {
+	var u model.User
+	if err := s.db.WithContext(ctx).Select("id", "status").First(&u, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTargetInvalid
+		}
+		return err
+	}
+	if u.Status != model.UserBanned {
+		return invalidInput("这个账号当前不是封禁状态")
+	}
+
+	now := time.Now()
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("id = ?", id).Updates(map[string]any{
+			"status":     model.UserActive,
+			"ban_reason": nil,
+			"banned_at":  nil,
+			"banned_by":  nil,
+			"updated_at": now,
+		}).Error; err != nil {
+			return err
+		}
+		op := strconv.FormatInt(adminID, 10)
+		return tx.Create(&model.AuditLog{
+			TargetType: "user", TargetID: id, Action: "unban", Operator: &op,
+		}).Error
+	})
 }

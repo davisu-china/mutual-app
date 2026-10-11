@@ -69,6 +69,17 @@ func (s *UploadService) MediaReadable(ctx context.Context, viewer int64, key str
 	if !ok {
 		return false, nil
 	}
+	// 账号被封禁 / 注销后，**他名下的所有图一律不可读**，头像也不例外。
+	// 封禁的由头通常就是"资料或相册有问题"——图还能被别人看到等于没封。
+	// 本人除外：他自己打开自己的图不该变成裂图（他没有浏览入口，但别制造怪状态）。
+	if viewer != owner {
+		var u model.User
+		err := s.db.WithContext(ctx).Select("id", "status").First(&u, owner).Error
+		if err == nil && (u.Status == model.UserBanned || u.Status == model.UserDeleted) {
+			return false, nil
+		}
+	}
+
 	if prefix == "avatars" {
 		return true, nil
 	}

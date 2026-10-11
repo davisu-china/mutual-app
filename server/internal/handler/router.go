@@ -111,7 +111,8 @@ func NewRouter(d Deps) *gin.Engine {
 
 		// 后台：只要登录 + is_admin，**不挂 OnboardGuard**——
 		// 管理员自己的资料填没填完，和能不能看后台是两件事。
-		// 全部只读（GET），写操作留给运维直接改库。
+		// 只有封禁/解封会写（原因必填、写进 audit_logs），其余都是只读。
+		// 删号这类破坏性操作仍然留给运维直接改库。
 		admin := authed.Group("/admin")
 		admin.Use(middleware.AdminGuard(d.DB))
 		{
@@ -119,6 +120,9 @@ func NewRouter(d Deps) *gin.Engine {
 			admin.GET("/users", d.Admin.Users)
 			admin.GET("/users/:id", d.Admin.UserDetail)
 			admin.GET("/users/:id/actions", d.Admin.UserActions)
+			// 封禁：body {"reason": "..."}——理由会原话展示给被封的用户
+			admin.POST("/users/:id/ban", d.Admin.BanUser)
+			admin.POST("/users/:id/unban", d.Admin.UnbanUser)
 			admin.GET("/conversations", d.Admin.Conversations)
 			admin.GET("/conversations/:id", d.Admin.Conversation)
 		}

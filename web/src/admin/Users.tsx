@@ -147,10 +147,10 @@ export function AdminUserDetail() {
   if (loading) return <Loading />;
   if (error || !data) return <ErrorNote msg={error ?? "取不到这个人"} onRetry={reload} />;
 
-  return <UserDetailBody d={data} />;
+  return <UserDetailBody d={data} onChanged={reload} />;
 }
 
-function UserDetailBody({ d }: { d: AdminUserDetail }) {
+function UserDetailBody({ d, onChanged }: { d: AdminUserDetail; onChanged: () => void }) {
   const [direction, setDirection] = useState<"sent" | "received">("sent");
   const u = d.user;
 
@@ -179,6 +179,8 @@ function UserDetailBody({ d }: { d: AdminUserDetail }) {
           </div>
         </div>
       </Card>
+
+      <BanPanel user={u} onChanged={onChanged} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="发出的喜欢 / 跳过" value={`${d.counts.likesSent} / ${d.counts.passesSent}`} sub={`看过主页 ${d.counts.visitsSent} 次`} />
@@ -482,3 +484,100 @@ function UserConversations({ userId }: { userId: number }) {
   );
 }
 
+
+/**
+ * 账号处置：封禁 / 解封。**后台里唯一会写入的地方**。
+ *
+ * 两个刻意的设计：
+ *   - **理由必填**，而且文案里明说"会原样展示给用户"——不让管理员以为这只是给自己看的备注；
+ *   - 封禁后把理由和时间**显示回后台**，否则过两天没人记得为什么封的（audit_logs 里有，
+ *     但翻库才看得到的东西等于没有）。
+ */
+function BanPanel({ user, onChanged }: { user: AdminUserDetail["user"]; onChanged: () => void }) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  const banned = user.status === "banned";
+  const canBan = !banned && !user.isAdmin && user.status !== "deleted";
+
+  async function run(fn: () => Promise<unknown>, okText: string) {
+    setBusy(true);
+    setErr("");
+    setMsg("");
+    try {
+      await fn();
+      setMsg(okText);
+      setReason("");
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "操作失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (banned) {
+    return (
+      <Card title="账号处置">
+        <div className="space-y-2 text-[13px]">
+          <p className="rounded-field bg-brand-soft px-3 py-2 text-brand-dark">
+            该账号已被封禁{user.bannedAt ? `（${user.bannedAt}）` : ""}
+          </p>
+          <p className="text-ink-2">
+            封禁原因：<span className="text-ink">{user.banReason ?? "（未填写）"}</span>
+          </p>
+          <p className="text-[12px] text-muted-2">封禁期间：他不出现在任何人的推荐和广场里，主页和相册（含头像）都不可访问。</p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void run(() => adminApi.unban(user.id), "已解封")}
+            className="rounded-field border border-line px-3 py-1.5 text-[13px] text-ink hover:border-brand/40 disabled:opacity-50"
+          >
+            解除封禁
+          </button>
+        </div>
+        {msg ? <p className="mt-2 text-[12.5px] text-brand">{msg}</p> : null}
+        {err ? <ErrorNote msg={err} /> : null}
+      </Card>
+    );
+  }
+
+  if (!canBan) return null;
+
+  return (
+    <Card title="账号处置">
+      <div className="space-y-2">
+        <p className="text-[12.5px] leading-relaxed text-muted-2">
+          资料或相册有问题时封禁。<span className="text-ink">原因会原样展示给用户</span>
+          （他打开 App 时看到的提示），所以请写清楚问题是什么、怎么才能恢复。
+        </p>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          maxLength={200}
+          placeholder="例如：头像与本人不符，请更换后联系客服"
+          className="w-full rounded-field border border-line bg-surface px-3 py-2 text-[13px] outline-none focus:border-brand/50"
+        />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            disabled={busy || reason.trim().length < 4}
+            onClick={() => {
+              if (!confirm(`确认封禁「${user.nickname}」？封禁后他无法登录和使用 App，用户会看到你填的原因。`)) return;
+              void run(() => adminApi.ban(user.id, reason.trim()), "已封禁");
+            }}
+            className="rounded-field bg-brand px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-40"
+          >
+            封禁账号
+          </button>
+          <span className="text-[12px] text-muted-2">{reason.trim().length}/200，至少 4 个字</span>
+        </div>
+        {msg ? <p className="text-[12.5px] text-brand">{msg}</p> : null}
+        {err ? <ErrorNote msg={err} /> : null}
+      </div>
+    </Card>
+  );
+}

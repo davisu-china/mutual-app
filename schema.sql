@@ -50,6 +50,12 @@ CREATE TABLE users (
     -- 用一个位而不是另建 admin 表或加环境变量——不给部署再加一个要人工同步的秘密，
     -- 管理员直接用自己已有的账号登录（见 web/src/admin）。
     is_admin        BOOLEAN       NOT NULL DEFAULT false,
+    -- 封禁：状态位在 status='banned'，这里存**给用户看的理由**与操作痕迹。
+    -- 理由必须落库：App 要把「为什么被封」原话呈现给用户（2026-10-11 的需求），
+    -- 只在后台日志里留一句等于用户永远不知道自己为什么上不去。
+    ban_reason      TEXT,
+    banned_at       TIMESTAMPTZ,
+    banned_by       BIGINT,                          -- 操作的管理员 id；解封后清空
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
 
@@ -143,14 +149,14 @@ CREATE INDEX idx_prof_geo       ON user_profiles (geo_hash);
 
 
 -- ---------------------------------------------------------------------------
--- 3. 兴趣（每用户恰好 3 条，且每条必须有文字介绍）
+-- 3. 兴趣（每用户恰好 3 条；介绍**选填**，2026-10-11 起）
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE user_hobbies (
     id          BIGSERIAL    PRIMARY KEY,
     user_id     BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name        VARCHAR(32)  NOT NULL,
-    description VARCHAR(500) NOT NULL,               -- 10-200 字，必填
+    description VARCHAR(500) NOT NULL DEFAULT '',    -- 选填；有写的话 200 字以内（服务端校验）
     sort_order  SMALLINT     NOT NULL,               -- 1/2/3
 
     CONSTRAINT uq_hobby_order UNIQUE (user_id, sort_order),

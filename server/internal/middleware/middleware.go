@@ -55,7 +55,7 @@ func OnboardGuard(db *gorm.DB) gin.HandlerFunc {
 		uid := UserID(c)
 		var u model.User
 		if err := db.WithContext(c.Request.Context()).
-			Select("id", "onboarded_at", "status").
+			Select("id", "onboarded_at", "status", "ban_reason").
 			First(&u, uid).Error; err != nil {
 			abort(c, http.StatusUnauthorized, "UNAUTHORIZED", "用户不存在")
 			return
@@ -63,7 +63,7 @@ func OnboardGuard(db *gorm.DB) gin.HandlerFunc {
 
 		switch u.Status {
 		case model.UserBanned:
-			abort(c, http.StatusForbidden, "ACCOUNT_BANNED", "账号已被封禁")
+			abortBanned(c, u.BanReason)
 			return
 		case model.UserDeleted:
 			abort(c, http.StatusForbidden, "ACCOUNT_DELETED", "账号已注销")
@@ -84,16 +84,36 @@ func RequireActive(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var u model.User
 		if err := db.WithContext(c.Request.Context()).
-			Select("id", "status").First(&u, UserID(c)).Error; err != nil {
+			Select("id", "status", "ban_reason").First(&u, UserID(c)).Error; err != nil {
 			abort(c, http.StatusUnauthorized, "UNAUTHORIZED", "用户不存在")
 			return
 		}
-		if u.Status == model.UserBanned || u.Status == model.UserDeleted {
-			abort(c, http.StatusForbidden, "ACCOUNT_DISABLED", "账号不可用")
+		if u.Status == model.UserBanned {
+			abortBanned(c, u.BanReason)
+			return
+		}
+		if u.Status == model.UserDeleted {
+			abort(c, http.StatusForbidden, "ACCOUNT_DISABLED", "账号已注销")
 			return
 		}
 		c.Next()
 	}
+}
+
+// abortBanned 封禁状态的统一出口：**把管理员填的理由原话带给用户**。
+//
+// message 和 data.reason 两处都给：前者让任何客户端不改造就能显示出来，
+// 后者给 App 的封禁页单独排版用。理由为空时退回通用话术——运维直接改库
+// 封的人不会填理由，那种情况下也不能给用户一个空字符串。
+func abortBanned(c *gin.Context, reason *string) {
+	msg := "账号已被封禁"
+	var data any
+	if reason != nil && strings.TrimSpace(*reason) != "" {
+		r := strings.TrimSpace(*reason)
+		msg = "账号已被封禁：" + r
+		data = gin.H{"reason": r}
+	}
+	abortData(c, http.StatusForbidden, "ACCOUNT_BANNED", msg, data)
 }
 
 // RateLimit 基于 Redis 的固定窗口限流。
@@ -155,5 +175,12 @@ func RateLimitByIP(rdb *redis.Client, key string, limit int, window time.Duratio
 
 // abort 输出统一错误体并终止。
 func abort(c *gin.Context, status int, code, msg string) {
-	c.AbortWithStatusJSON(status, gin.H{"code": code, "message": msg, "data": nil})
+	abortData(c, status, code, msg, nil)
+}
+
+// abortData 与 abort 相同，但带结构化 data。
+// 封禁要用它：理由既要写在 message 里（任何客户端不改造就能显示），
+// 也要有字段给 App 单独排版。
+func abortData(c *gin.Context, status int, code, msg string, data any) {
+	c.AbortWithStatusJSON(status, gin.H{"code": code, "message": msg, "data": data})
 }

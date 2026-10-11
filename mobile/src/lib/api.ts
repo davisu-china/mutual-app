@@ -98,6 +98,26 @@ export function setOnboardingRequiredHandler(fn: () => void) {
   onOnboardingRequired = fn;
 }
 
+/** 账号被管理员封禁 / 停用时上报的信息（`reason` 是管理员填的那句原话） */
+export interface AccountBlocked {
+  code: string;
+  message: string;
+  /** 管理员填的封禁原因。运维直接改库封的账号可能没有 */
+  reason?: string;
+}
+
+let onAccountBlocked: ((info: AccountBlocked) => void) | null = null;
+
+/**
+ * 账号被封禁/停用时通知外部（弹一张"为什么用不了"的说明页）。
+ *
+ * 这是 App 唯一能"感知到被封"的通道：封禁后中间件会在所有业务接口之前拦下来，
+ * 客户端拿到的就只有这个 403 响应体——里面带着管理员填的原因。
+ */
+export function setAccountBlockedHandler(fn: (info: AccountBlocked) => void) {
+  onAccountBlocked = fn;
+}
+
 async function doRefresh(): Promise<boolean> {
   if (!refreshToken) return false;
   try {
@@ -155,6 +175,12 @@ async function request<T>(path: string, opts: Options = {}): Promise<T> {
     }
     if (code === "ONBOARDING_REQUIRED") {
       onOnboardingRequired?.();
+    }
+    // 封禁 / 停用：立刻切到说明页。理由在 message 里（旧客户端也能直接显示），
+    // 单独取一份 data.reason 是给说明页排版用
+    if (code === "ACCOUNT_BANNED" || code === "ACCOUNT_DISABLED") {
+      const reason = (json?.data as { reason?: string } | null)?.reason ?? undefined;
+      onAccountBlocked?.({ code, message: json?.message ?? "账号不可用", reason });
     }
     throw new ApiError(code, json?.message ?? "服务暂时不可用", res.status);
   }

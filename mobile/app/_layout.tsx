@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { AccountBlockedGate } from "@/components/account-blocked";
 import { AuthProvider } from "@/lib/auth";
 import { ToastProvider } from "@/ui/feedback";
 import { colors } from "@/theme";
@@ -33,6 +34,8 @@ export default function RootLayout() {
                 animation: "slide_from_right",
               }}
             />
+            {/* 被封禁时的整屏说明：放在导航栈**之上**，因为它比当前页面更该被看到 */}
+            <AccountBlockedGate />
           </ToastProvider>
         </AuthProvider>
       </SafeAreaProvider>
