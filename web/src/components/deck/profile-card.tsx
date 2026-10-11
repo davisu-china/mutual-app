@@ -5,9 +5,11 @@ import { cn } from "@/lib/utils";
 
 /** 距离按区间展示，不给精确值——既诚实，也保护隐私（PRD 第 15 章） */
 function distanceText(km: number): string {
-  if (km <= 1) return "1 km 内";
-  if (km <= 3) return "1–3 km";
-  if (km <= 5) return "3–5 km";
+  // ⚠️ 第一档只到「5 km 内」为止，不再往下分更细的档。
+  // 距离是用**5 位 geohash**（约 4.9km 的方格）的中心点算的，比一个格子还近的距离
+  // 本来就分辨不出来——同一个格子里的人算出 0km，但两个人可能隔着四五公里。
+  // 说「1 km 内」就是在撒谎。想要更细，得把服务端的网格加密（代价是隐私粒度变细）。
+  if (km <= 5) return "5 km 内";
   if (km <= 10) return "5–10 km";
   if (km <= 50) return `${Math.round(km / 10) * 10} km 左右`;
   return "50 km 以上";
