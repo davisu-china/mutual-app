@@ -24,6 +24,19 @@ const (
 	plazaPageSize     = 20
 )
 
+// geoScope 是候选池的**地理范围**，一档比一档宽。
+//
+// 为什么要"逐级放宽"而不是写死同城：早期池子里人少，同城没人就等于给用户
+// 一张空卡——新用户第一天看到"没人"，再好的算法也留不住他。
+// 所以取不到人时依次放宽：同城 → 同省 → 全国。
+type geoScope int
+
+const (
+	scopeCity geoScope = iota
+	scopeProvince
+	scopeNationwide
+)
+
 // 曝光均衡参数（PRD 8.4）。
 //
 // 为什么必须做：完全按匹配分排序的结果是少数高吸引力用户吃掉绝大部分曝光，
@@ -126,6 +139,8 @@ type CardView struct {
 //
 // 硬过滤只有四件事：性别、账号状态、已操作过、拉黑关系。
 // 其余全是软加权——全当硬条件会让早期用户池直接归零（PRD 7.2）。
+//
+// 地理是**逐级放宽**的三档（同城 → 同省 → 全国），见 geoScope。
 func (s *DiscoveryService) Cards(ctx context.Context, uid int64, limit int) ([]CardView, error) {
 	if limit <= 0 || limit > cardBatchSize {
 		limit = cardBatchSize
@@ -148,17 +163,10 @@ func (s *DiscoveryService) Cards(ctx context.Context, uid int64, limit int) ([]C
 		targetGender = model.GenderFemale
 	}
 
-	// 逐级放宽：先用较严的条件取候选，不够再放宽，**绝不返回「今日无推荐」**
-	stages := []struct {
-		sameCity bool
-		note     string
-	}{
-		{sameCity: true},
-		{sameCity: false},
-	}
-
-	for _, st := range stages {
-		cands, err := s.fetchCandidates(ctx, uid, targetGender, me, st.sameCity, candidatePoolSize)
+	// 逐级放宽：同城 → 同省 → 全国。**前一档一个人都没有**才往下走，
+	// 所以只有"确实没人"时才会出现远距离的人（不是把远近混在一起排）
+	for _, scope := range []geoScope{scopeCity, scopeProvince, scopeNationwide} {
+		cands, err := s.fetchCandidates(ctx, uid, targetGender, me, scope, candidatePoolSize)
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +193,7 @@ func (s *DiscoveryService) Cards(ctx context.Context, uid int64, limit int) ([]C
 // 这段是**原始 SQL**，不走 GORM 链式 API——过滤条件多、又需要 EXISTS 子查询，
 // 链式 API 拼出来既难读也难 EXPLAIN（技术方案 9.1 第 2 条）。
 func (s *DiscoveryService) fetchCandidates(
-	ctx context.Context, uid int64, gender int16, me *Candidate, sameCity bool, limit int,
+	ctx context.Context, uid int64, gender int16, me *Candidate, scope geoScope, limit int,
 ) ([]Candidate, error) {
 	var sb strings.Builder
 	args := []any{uid, gender}
@@ -236,10 +244,13 @@ func (s *DiscoveryService) fetchCandidates(
 	`)
 	args = append(args, uid, uid, uid)
 
-	if sameCity && me.CityCity != "" {
+	// 用户没填城市/省份时，那一档自动退化成更宽的一档（数据上不该发生：
+	// 城市和省份都是引导的必填项；真出现时宁可放宽，也别返回空卡池）
+	switch {
+	case scope == scopeCity && me.CityCity != "":
 		sb.WriteString(" AND p.city_city = ?")
 		args = append(args, me.CityCity)
-	} else if me.CityProv != "" {
+	case scope <= scopeProvince && me.CityProv != "":
 		sb.WriteString(" AND p.city_prov = ?")
 		args = append(args, me.CityProv)
 	}
