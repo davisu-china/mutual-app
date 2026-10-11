@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"errors"
 	"time"
 
@@ -404,10 +405,13 @@ func (s *ProfileService) Update(ctx context.Context, uid int64, in UpdateProfile
 		if in.Nickname != nil || in.Gender != nil || in.Birthday != nil {
 			updates := map[string]any{}
 			if in.Nickname != nil {
-				if n := len([]rune(*in.Nickname)); n < 2 || n > 12 {
+				// 先去掉首尾空格再量长度：不然「 小明 」这种能绕过下限，
+				// 也会让卡片上多出一截看不见的空格
+				name := strings.TrimSpace(*in.Nickname)
+				if n := len([]rune(name)); n < 2 || n > 12 {
 					return invalidInput("昵称需要 2–12 个字")
 				}
-				updates["nickname"] = *in.Nickname
+				updates["nickname"] = name
 			}
 			if in.Gender != nil {
 				if *in.Gender != model.GenderMale && *in.Gender != model.GenderFemale {

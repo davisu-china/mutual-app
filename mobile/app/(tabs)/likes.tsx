@@ -7,6 +7,8 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, mediaImage } from "@/lib/api";
 import { Button } from "@/ui/button";
+import { RestrictionBanner } from "@/components/restriction";
+import { useAuth } from "@/lib/auth";
 import { Empty, Skeleton, useToast } from "@/ui/feedback";
 import { colors, font, radius, shadow, space } from "@/theme";
 import type { Interactor } from "@/lib/types";
@@ -25,6 +27,9 @@ export default function Likes() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
 
+  const { restriction } = useAuth();
+  /** 被限制的账号：这一页的两个动作都置灰（点了说明原因，而不是做一个会失败的请求） */
+  const restricted = !!restriction;
   const [tab, setTab] = useState<Tab>("likes");
   const [list, setList] = useState<Interactor[] | null>(null);
   const [quotaRemain, setQuotaRemain] = useState<number | null>(null);
@@ -54,6 +59,10 @@ export default function Likes() {
   );
 
   async function likeBack(u: Interactor) {
+    if (restricted) {
+      toast("账号被限制：暂时不能喜欢别人", "error");
+      return;
+    }
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // 乐观移除：回应了就从列表里消失，不用等请求回来
     setList((prev) => (prev ? prev.filter((x) => x.userId !== u.userId) : prev));
@@ -72,6 +81,10 @@ export default function Likes() {
   }
 
   async function pass(u: Interactor) {
+    if (restricted) {
+      toast("账号被限制：暂时不能划卡", "error");
+      return;
+    }
     setList((prev) => (prev ? prev.filter((x) => x.userId !== u.userId) : prev));
     try {
       await api.post("/actions", { toUser: u.userId, action: "pass", source: "likes_me" });
@@ -82,6 +95,9 @@ export default function Likes() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + space(3) }]}>
+      {/* 被限制时把说明摆在最上面——这一页的按钮会整片变灰，得有句话解释 */}
+      <RestrictionBanner />
+
       <View style={styles.tabs}>
         <TabBtn on={tab === "likes"} icon="heart" label="喜欢我" onPress={() => setTab("likes")} />
         <TabBtn on={tab === "visits"} icon="eye" label="看过我" onPress={() => setTab("visits")} />
@@ -139,8 +155,19 @@ export default function Likes() {
                 </Pressable>
 
                 <View style={styles.rowActions}>
-                  <Button label="跳过" variant="outline" size="sm" onPress={() => void pass(item)} />
-                  <Button label="回喜欢" size="sm" onPress={() => void likeBack(item)} />
+                  <Button
+                    label="跳过"
+                    variant="outline"
+                    size="sm"
+                    style={restricted ? styles.dimmed : undefined}
+                    onPress={() => void pass(item)}
+                  />
+                  <Button
+                    label="回喜欢"
+                    size="sm"
+                    style={restricted ? styles.dimmed : undefined}
+                    onPress={() => void likeBack(item)}
+                  />
                 </View>
               </View>
             );
@@ -191,5 +218,6 @@ const styles = StyleSheet.create({
   name: { fontSize: font.body, fontWeight: "600", color: colors.ink },
   sub: { marginTop: 2, fontSize: 12, color: colors.muted2 },
   sub2: { marginTop: 1, fontSize: 11.5, color: colors.muted2 },
+  dimmed: { opacity: 0.45 },
   rowActions: { gap: space(1.5) },
 });

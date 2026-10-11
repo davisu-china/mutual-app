@@ -15,6 +15,10 @@ export const STEPS = ["本人画像", "兴趣爱好", "关于我", "伴侣画像
 export const TEXT_MIN = 20;
 export const TEXT_MAX = 500;
 /** 每个兴趣的介绍至少这么长——太短就成了标签，没有信息量 */
+/** 昵称的字数区间。**与服务端一字不差**（`internal/service/profile.go` 里也是 2–12） */
+export const NICKNAME_MIN = 2;
+export const NICKNAME_MAX = 12;
+
 /** 兴趣介绍的**字数上限**。下限已经取消——介绍是选填（见 stepDone） */
 export const HOBBY_DESC_MAX = 200;
 /** 体重的合理区间。必填字段没有上界时，总会有人填 0 或者 999 */
@@ -58,6 +62,8 @@ export interface Hobby {
 export interface Draft {
   // 第一步：本人画像
   gender: number | null;
+  /** 昵称。注册时系统会给一个「用户XXXX」的默认值，这里让用户改成自己的 */
+  nickname: string;
   birthday: Birthday | null;
   heightCm: number | null;
   weightKg: number | null;
@@ -96,7 +102,7 @@ export interface Draft {
 }
 
 export const EMPTY: Draft = {
-  gender: null, birthday: null, heightCm: null, weightKg: null,
+  gender: null, nickname: "", birthday: null, heightCm: null, weightKg: null,
   hometown: null, residence: null, occupation: null, mbti: null,
   smoking: null, drinking: null, incomeRange: null,
   education: null, school: "", company: "",
@@ -159,11 +165,17 @@ export function weightOk(d: Draft): boolean {
 }
 
 /** 这一屏填完了吗（决定「下一步」能不能点） */
+/** 昵称：去空格之后按**字数**（不是字节）算，和后端一致 */
+export function nicknameOk(d: Draft): boolean {
+  const n = [...d.nickname.trim()].length;
+  return n >= NICKNAME_MIN && n <= NICKNAME_MAX;
+}
+
 export function stepDone(step: number, d: Draft): boolean {
   switch (step) {
     case 0:
       return (
-        d.gender !== null && d.birthday !== null && d.heightCm !== null &&
+        d.gender !== null && nicknameOk(d) && d.birthday !== null && d.heightCm !== null &&
         weightOk(d) && d.hometown !== null && d.residence !== null && d.occupation !== null &&
         d.mbti !== null && d.smoking !== null && d.drinking !== null &&
         d.incomeRange !== null && d.education !== null &&
@@ -197,6 +209,7 @@ export function hintFor(step: number, d: Draft): string {
     case 0: {
       const miss: string[] = [];
       if (d.gender === null) miss.push("性别");
+      if (!nicknameOk(d)) miss.push(`昵称（${NICKNAME_MIN}–${NICKNAME_MAX} 字）`);
       if (!d.birthday) miss.push("出生年月日");
       if (!d.heightCm) miss.push("身高");
       if (d.weightKg === null) miss.push("体重");
@@ -253,8 +266,8 @@ export function hintFor(step: number, d: Draft): string {
  * 第一步的请求体。
  *
  * 三处刻意的写法：
- *   - **不传 nickname**：这一屏不收昵称，传 `undefined` 只是为了不改动它；
- *     直接不放进对象里更清楚（JSON 序列化本来也会丢掉 undefined）。
+ *   - **昵称去空格后传**：服务端也是这么校验的（2–12 字），空着不传会保持
+ *     注册时那个「用户XXXX」的默认昵称。
  *   - **体重/年收入/公司写死 public=true**：表单里已经没有「对外公开」开关了，
  *     用户没有可选项；留一个永远为 false 的字段会让资料对别人显示成「隐藏」。
  *   - **出生日期补零**：`2026-1-5` 后端解析不了，必须是 `2026-01-05`。
@@ -262,6 +275,7 @@ export function hintFor(step: number, d: Draft): string {
 export function profilePayload(d: Draft): Record<string, unknown> {
   const b = d.birthday!;
   return {
+    nickname: d.nickname.trim(),
     gender: d.gender,
     birthday: `${b.year}-${pad2(b.month)}-${pad2(b.day)}`,
     heightCm: d.heightCm,
@@ -313,6 +327,7 @@ export function hobbiesPayload(d: Draft): { hobbies: (Hobby & { sortOrder: numbe
  * ⚠️ **绝不能拿 age 编一个生日**填进来：那是假数据，会把它写回库里。
  */
 export interface ProfileSnapshot {
+  nickname?: string | null;
   /** 本人专有：`YYYY-MM-DD`。格式不对就当作没有（见 parseBirthday） */
   birthday?: string | null;
   gender?: number | null;
@@ -393,6 +408,7 @@ export function backfill(prev: Draft, p: ProfileSnapshot): Draft {
 
   return {
     ...prev,
+    nickname: p.nickname?.trim() || prev.nickname,
     gender: p.gender ?? prev.gender,
     // 生日回填（本人专有）；服务端没给或格式不对就保留用户已选的草稿值
     birthday: parseBirthday(p.birthday) ?? prev.birthday,

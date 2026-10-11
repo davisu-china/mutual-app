@@ -231,6 +231,44 @@ describe("页面与组件渲染", () => {
     }
   });
 
+  it("被限制的账号：心动页的「回喜欢」也按不动", async () => {
+    // 用户报过"恋爱广场还能点喜欢"（其实是进对方主页那一步）——所以除了划卡页，
+    // 心动页和对方主页的喜欢入口也要一起置灰。这里验心动页这一处。
+    const get = api.get as jest.Mock;
+    const post = api.post as jest.Mock;
+    const original = get.getMockImplementation();
+    get.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.startsWith("/likes-me")) {
+        return {
+          items: [
+            { userId: 9, nickname: "阿雅", gender: 2, age: 25, heightCm: 165, cityCity: "上海市", occupation: "设计师", completeness: 90, avatarUrl: "", actedAt: "2026-10-11 10:00" },
+          ],
+        };
+      }
+      if (u === "/users/me") return { userId: 7, accountStatus: "banned", banReason: "头像与本人不符" };
+      return {};
+    });
+    const mocked = jest.requireMock("@/lib/api") as { tokens: { access: string } };
+    const hadToken = mocked.tokens.access;
+    mocked.tokens.access = "test-token";
+
+    try {
+      const r = render(wrap(<Likes />));
+      await r.findByText("阿雅");
+      // 说明摆在最上面
+      await waitFor(() => expect(r.getByText(/账号被限制/)).toBeTruthy());
+
+      post.mockClear();
+      fireEvent.press(r.getByText("回喜欢"));
+      fireEvent.press(r.getByText("跳过"));
+      expect(post).not.toHaveBeenCalled();
+    } finally {
+      get.mockImplementation(original);
+      mocked.tokens.access = hadToken;
+    }
+  });
+
   it("推荐页额度快用完时，头部才冒出提示", async () => {
     const get = api.get as jest.Mock;
     const original = get.getMockImplementation();

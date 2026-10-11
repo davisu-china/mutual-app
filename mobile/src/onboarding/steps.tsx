@@ -43,6 +43,8 @@ import { RegionSheet } from "@/components/pickers/region-sheet";
 import { MultiChoiceSheet, OccupationSheet, UniversitySheet } from "@/components/pickers/list-sheets";
 import {
   HOBBY_DESC_MAX,
+  NICKNAME_MAX,
+  NICKNAME_MIN,
   TEXT_MAX,
   TEXT_MIN,
   birthdayText,
@@ -132,6 +134,15 @@ export function Step1({ d, set }: { d: Draft; set: Setter }) {
           {d.photoPreview ? "点一下可以换一张" : "至少一张（它就是你的头像，之后可以在「我的」里加更多并调整顺序）"}
         </Text>
       </View>
+
+      {/* 昵称放在最前：它是别人在卡片上看到的第一样东西 */}
+      <Input
+        label="昵称"
+        value={d.nickname}
+        onChangeText={(v) => set("nickname", v)}
+        placeholder={`${NICKNAME_MIN}–${NICKNAME_MAX} 个字，别人在卡片上看到的就是它`}
+        maxLength={NICKNAME_MAX}
+      />
 
       <Choice label="性别" options={GENDER} value={d.gender} onChange={(v) => set("gender", v)} />
       {d.gender !== null ? <Text style={styles.note}>性别填写后不可修改，请确认无误</Text> : null}

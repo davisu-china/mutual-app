@@ -6,6 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, mediaImage } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/ui/button";
 import { Skeleton, useToast } from "@/ui/feedback";
 import { UserActionsSheet } from "@/components/user-actions";
@@ -53,12 +54,19 @@ export default function UserDetail() {
     void load();
   }, [load]);
 
+  const { restriction } = useAuth();
+  const restricted = !!restriction;
   const profile = p && p !== "error" ? p : null;
   const rel = relOverride ?? profile?.relation;
   const photos = profile?.photos?.length ? profile.photos : [];
   const fallback = mediaImage(profile?.avatarUrl ?? "");
 
   async function act(action: "like" | "pass") {
+    if (restricted) {
+      // 被限制时按钮是灰的但仍可点：点了要说明原因，而不是毫无反应
+      toast(`账号被限制：暂时不能${action === "like" ? "喜欢别人" : "划卡"}`, "error");
+      return;
+    }
     if (!profile || busy) return;
     setBusy(true);
     void Haptics.impactAsync(action === "like" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
@@ -213,8 +221,23 @@ export default function UserDetail() {
           </>
         ) : (
           <>
-            <Button label="跳过" variant="outline" size="lg" style={{ flex: 1 }} disabled={busy || !profile} onPress={() => void act("pass")} />
-            <Button label="喜欢" size="lg" style={{ flex: 1.4 }} loading={busy} disabled={!profile} onPress={() => void act("like")} />
+            {/* 被限制的账号：两个按钮变灰，但**不 disabled**——点下去会说明原因 */}
+            <Button
+              label="跳过"
+              variant="outline"
+              size="lg"
+              style={{ flex: 1, ...(restricted ? styles.dimmed : null) }}
+              disabled={!restricted && (busy || !profile)}
+              onPress={() => void act("pass")}
+            />
+            <Button
+              label="喜欢"
+              size="lg"
+              style={{ flex: 1.4, ...(restricted ? styles.dimmed : null) }}
+              loading={busy && !restricted}
+              disabled={!restricted && !profile}
+              onPress={() => void act("like")}
+            />
           </>
         )}
       </View>
@@ -314,5 +337,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
   },
+  dimmed: { opacity: 0.45 },
   relHint: { flex: 1, fontSize: 14, color: colors.muted2 },
 });

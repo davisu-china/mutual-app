@@ -31,6 +31,7 @@ function fullDraft(): Draft {
   return {
     ...EMPTY,
     gender: 1,
+    nickname: "小晴",
     birthday: { year: 1996, month: 6, day: 15 },
     heightCm: 175,
     weightKg: 70,
@@ -123,11 +124,22 @@ describe("stepDone / hintFor", () => {
     for (let s = 0; s < 5; s++) expect(stepDone(s, d)).toBe(true);
   });
 
+  it("昵称要 2–12 字（与服务端同一口径），首尾空格不算数", () => {
+    const d = fullDraft();
+    for (const bad of ["", " ", " 小 ", "一".repeat(13)]) {
+      expect(stepDone(0, { ...d, nickname: bad })).toBe(false);
+    }
+    expect(hintFor(0, { ...d, nickname: "" })).toContain("昵称");
+    expect(stepDone(0, { ...d, nickname: "小晴" })).toBe(true);
+    expect(stepDone(0, { ...d, nickname: "一".repeat(12) })).toBe(true); // 正好 12
+  });
+
   it("第一步少任何一项都过不了，并且点名是哪一项", () => {
     const d = fullDraft();
     // 逐个挖掉一项，每一次都该被拦下并指名道姓
     const cases: [keyof Draft, string][] = [
       ["gender", "性别"],
+      ["nickname", "昵称"],
       ["birthday", "出生年月日"],
       ["heightCm", "身高"],
       ["hometown", "家乡"],
@@ -139,7 +151,7 @@ describe("stepDone / hintFor", () => {
       ["photoObjectKey", "照片"],
     ];
     for (const [key, label] of cases) {
-      const broken = { ...d, [key]: key === "school" || key === "company" ? "  " : null } as Draft;
+      const broken = { ...d, [key]: key === "school" || key === "company" ? "  " : key === "nickname" ? "" : null } as Draft;
       expect(stepDone(0, broken)).toBe(false);
       expect(hintFor(0, broken)).toContain(label);
     }
@@ -208,10 +220,11 @@ describe("stepDone / hintFor", () => {
 /* ------------------------------------------------------------ 请求体形状 */
 
 describe("提交给后端的形状", () => {
-  it("第一步：不传 nickname，三个公开开关写死 true", () => {
+  it("第一步：昵称会传上去（去空格），三个公开开关写死 true", () => {
     const body = profilePayload(fullDraft());
-    // 这一屏不收昵称，传了就等于把 App 里改不了的东西一起提交上去
-    expect("nickname" in body).toBe(false);
+    expect(body.nickname).toBe("小晴");
+    // 首尾空格要去掉：服务端也是先 trim 再量长度
+    expect(profilePayload({ ...fullDraft(), nickname: "  小晴  " }).nickname).toBe("小晴");
     // 表单里已经没有「对外公开」开关了，留 false 会让资料对别人显示成「隐藏」
     expect(body.weightPublic).toBe(true);
     expect(body.incomePublic).toBe(true);
@@ -246,6 +259,7 @@ describe("提交给后端的形状", () => {
 
 describe("backfill", () => {
   const server = {
+    nickname: "小晴",
     gender: 1,
     heightCm: 175,
     weightKg: 70,
@@ -330,7 +344,7 @@ describe("backfill", () => {
   });
 
   it("回填出来的草稿能直接过第一步的校验", () => {
-    // 除了生日（回填不了）之外，其余都该到位
+    // 昵称和生日也从服务端回来了（都只对本人下发），其余字段照旧
     const d = { ...backfill(EMPTY, server), birthday: { year: 1996, month: 6, day: 15 } };
     expect(stepDone(0, d)).toBe(true);
     expect(stepDone(3, d)).toBe(true);

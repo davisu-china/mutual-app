@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Empty, ListSkeleton } from "@/components/ui/empty";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, type Interactor } from "@/lib/api";
+import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 
 type Tab = "likes" | "visits";
@@ -19,6 +20,8 @@ type Tab = "likes" | "visits";
 export default function Likes() {
   const nav = useNavigate();
   const toast = useToast();
+  const { restriction } = useAuth();
+  const restricted = !!restriction;
   const [tab, setTab] = useState<Tab>("likes");
   const [list, setList] = useState<Interactor[] | null>(null);
   const [quotaRemain, setQuotaRemain] = useState<number | null>(null);
@@ -48,6 +51,11 @@ export default function Likes() {
   }, [load]);
 
   async function likeBack(u: Interactor) {
+    if (restricted) {
+      // 按钮置灰但仍可点：说明原因，而不是发一个必定失败的请求
+      toast("账号被限制：暂时不能喜欢别人", "error");
+      return;
+    }
     try {
       const res = await api.post<{ matched: boolean; quotaRemain: number }>("/actions", {
         toUser: u.userId,
@@ -151,7 +159,11 @@ export default function Likes() {
                     <button
                       type="button"
                       onClick={() => likeBack(u)}
-                      className="rounded-full bg-gradient-to-br from-brand to-brand-dark px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition-transform active:scale-95"
+                      aria-disabled={restricted}
+                      className={cn(
+                        "rounded-full bg-gradient-to-br from-brand to-brand-dark px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition-transform active:scale-95",
+                        restricted && "opacity-45"
+                      )}
                     >
                       回喜欢
                     </button>
@@ -160,7 +172,11 @@ export default function Likes() {
                     <button
                       type="button"
                       onClick={() => likeBack(u)}
-                      className="rounded-full border border-brand px-3.5 py-1.5 text-[12.5px] font-medium text-brand transition-transform active:scale-95"
+                      aria-disabled={restricted}
+                      className={cn(
+                        "rounded-full border border-brand px-3.5 py-1.5 text-[12.5px] font-medium text-brand transition-transform active:scale-95",
+                        restricted && "opacity-45"
+                      )}
                     >
                       喜欢
                     </button>

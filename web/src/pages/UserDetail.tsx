@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ListSkeleton, Empty } from "@/components/ui/empty";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, type ActionResult, type Profile } from "@/lib/api";
+import { useAuth } from "@/store/auth";
 import {
   EDUCATION_LABEL, INCOME_LABEL, SMOKING, DRINKING, HOUSE, DINK,
 } from "@/data/options";
@@ -19,6 +20,9 @@ export default function UserDetail() {
   const nav = useNavigate();
   const toast = useToast();
   const [p, setP] = useState<Profile | null | "error">(null);
+  const { restriction } = useAuth();
+  /** 被限制的账号：这一页的两个动作都置灰（点了说明原因） */
+  const restricted = !!restriction;
   const [busy, setBusy] = useState(false);
   // p 可能是 "error" 哨兵值，取关系前先排掉
   const rel = p && p !== "error" ? p.relation : undefined;
@@ -32,6 +36,11 @@ export default function UserDetail() {
   }, [id]);
 
   async function act(action: "like" | "pass") {
+    if (restricted) {
+      // 按钮置灰但仍可点：点了要说明原因，而不是发一个必定失败的请求
+      toast(`账号被限制：暂时不能${action === "like" ? "喜欢别人" : "划卡"}`, "error");
+      return;
+    }
     if (!p || p === "error" || busy) return;
     setBusy(true);
     try {
@@ -177,7 +186,14 @@ export default function UserDetail() {
         )}
       </div>
 
-      <RelationActions rel={rel} busy={busy} onLike={() => act("like")} onPass={() => act("pass")} onChat={() => nav("/chat")} />
+      <RelationActions
+        rel={rel}
+        busy={busy}
+        restricted={restricted}
+        onLike={() => act("like")}
+        onPass={() => act("pass")}
+        onChat={() => nav("/chat")}
+      />
     </div>
   );
 }
@@ -194,12 +210,15 @@ export function RelationActions({
   onLike,
   onPass,
   onChat,
+  restricted,
 }: {
   rel?: { liked: boolean; passed: boolean; matched: boolean };
   busy: boolean;
   onLike: () => void;
   onPass: () => void;
   onChat: () => void;
+  /** 被限制的账号：两个按钮置灰（但仍可点，点了会说明原因） */
+  restricted: boolean;
 }) {
   return (
     <div className="fixed inset-x-0 bottom-0 border-t border-line-soft bg-paper/95 px-5 backdrop-blur">
@@ -227,10 +246,23 @@ export function RelationActions({
           </>
         ) : (
           <>
-            <Button variant="outline" size="lg" className="flex-1" disabled={busy} onClick={onPass}>
+            <Button
+              variant="outline"
+              size="lg"
+              className={cn("flex-1", restricted && "opacity-45")}
+              aria-disabled={restricted || busy}
+              disabled={!restricted && busy}
+              onClick={onPass}
+            >
               跳过
             </Button>
-            <Button size="lg" className="flex-[1.4]" loading={busy} onClick={onLike}>
+            <Button
+              size="lg"
+              className={cn("flex-[1.4]", restricted && "opacity-45 shadow-none")}
+              aria-disabled={restricted}
+              loading={busy && !restricted}
+              onClick={onLike}
+            >
               喜欢
             </Button>
           </>

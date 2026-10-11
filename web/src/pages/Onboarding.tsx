@@ -31,6 +31,8 @@ const STEPS = ["本人画像", "兴趣爱好", "关于我", "伴侣画像", "期
 interface Draft {
   // step 1
   gender: number | null;
+  /** 昵称：注册时系统给一个「用户XXXX」，这里让用户改成自己的（2–12 字，和服务端同口径） */
+  nickname: string;
   birthday: Birthday | null;
   heightCm: number | null;
   weightKg: number | null;
@@ -75,7 +77,7 @@ interface Draft {
 }
 
 const EMPTY: Draft = {
-  gender: null, birthday: null, heightCm: null, weightKg: null,
+  gender: null, nickname: "", birthday: null, heightCm: null, weightKg: null,
   hometown: null, residence: null, occupation: null, mbti: null,
   smoking: null, drinking: null, incomeRange: null,
   education: null, school: "", company: "",
@@ -116,6 +118,10 @@ function parseBirthday(p: { birthday?: string }): Birthday | null {
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
   return { year, month, day };
 }
+
+/** 昵称字数区间：**和服务端一字不差**（internal/service/profile.go 里也是 2–12） */
+const NICKNAME_MIN = 2;
+const NICKNAME_MAX = 12;
 
 export default function Onboarding() {
   const nav = useNavigate();
@@ -165,6 +171,7 @@ export default function Onboarding() {
         setD((prev) => ({
           ...prev,
           gender: p.gender ?? prev.gender,
+          nickname: p.nickname?.trim() || prev.nickname,
           birthday: bd ?? prev.birthday,
           heightCm: p.heightCm || null,
           weightKg: p.weightKg ?? null,
@@ -238,7 +245,8 @@ export default function Onboarding() {
     switch (step) {
       case 0:
         return (
-          d.gender !== null && d.birthday !== null && d.heightCm !== null &&
+          d.gender !== null && d.nickname.trim().length >= NICKNAME_MIN && d.nickname.trim().length <= NICKNAME_MAX &&
+          d.birthday !== null && d.heightCm !== null &&
           weightOk(d) && d.hometown !== null && d.residence !== null && d.occupation !== null &&
           d.mbti !== null && d.smoking !== null && d.drinking !== null &&
           d.incomeRange !== null && d.education !== null &&
@@ -276,7 +284,7 @@ export default function Onboarding() {
           const geo = await locationIfGranted();
           await api.patch("/users/me/profile", {
             ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
-            nickname: undefined,
+            nickname: d.nickname.trim(),
             gender: d.gender,
             birthday: `${d.birthday!.year}-${String(d.birthday!.month).padStart(2, "0")}-${String(d.birthday!.day).padStart(2, "0")}`,
             heightCm: d.heightCm,
@@ -439,6 +447,9 @@ function hintFor(step: number, d: Draft): string {
     case 0: {
       const miss: string[] = [];
       if (d.gender === null) miss.push("性别");
+      if (d.nickname.trim().length < NICKNAME_MIN || d.nickname.trim().length > NICKNAME_MAX) {
+        miss.push(`昵称（${NICKNAME_MIN}–${NICKNAME_MAX} 字）`);
+      }
       if (!d.birthday) miss.push("出生年月日");
       if (!d.heightCm) miss.push("身高");
       if (d.weightKg === null) miss.push("体重");
@@ -552,6 +563,15 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
           至少一张照片（它就是你的头像，之后可以在「我的」里加更多并调整顺序）
         </p>
       )}
+
+{/* 昵称：别人在卡片上看到的第一样东西 */}
+      <Input
+        label="昵称"
+        value={d.nickname}
+        onChange={(e) => set("nickname", e.target.value)}
+        placeholder={`${NICKNAME_MIN}–${NICKNAME_MAX} 个字，别人在卡片上看到的就是它`}
+        maxLength={NICKNAME_MAX}
+      />
 
       <Choice label="性别" options={GENDER} value={d.gender} onChange={(v) => set("gender", v)} />
       {d.gender !== null && (
