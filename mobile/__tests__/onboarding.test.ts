@@ -8,7 +8,6 @@
  */
 import {
   EMPTY,
-  HOBBY_DESC_MIN,
   MAX_AGE,
   MIN_AGE,
   TEXT_MAX,
@@ -154,14 +153,18 @@ describe("stepDone / hintFor", () => {
     expect(stepDone(0, { ...d, weightKg: 200 })).toBe(true);
   });
 
-  it("第二步：三个兴趣都要选且各写够 10 字", () => {
+  it("第二步：三个兴趣都要选，但**介绍可以不写**", () => {
     const d = fullDraft();
+    // 少选一个标签就不算填好
     expect(stepDone(1, { ...d, hobbies: d.hobbies.map((h, i) => (i === 1 ? { ...h, name: "" } : h)) })).toBe(false);
-    expect(stepDone(1, { ...d, hobbies: d.hobbies.map((h, i) => (i === 2 ? { ...h, description: "太短" } : h)) })).toBe(false);
-    // 正好卡在下限上应该算过
-    const exact = { ...d, hobbies: d.hobbies.map((h) => ({ ...h, description: "一".repeat(HOBBY_DESC_MIN) })) };
-    expect(stepDone(1, exact)).toBe(true);
-    expect(hintFor(1, { ...d, hobbies: d.hobbies.map((h, i) => (i === 2 ? { ...h, description: "太短" } : h)) })).toContain("第 3 个");
+    expect(hintFor(1, { ...d, hobbies: d.hobbies.map((h, i) => (i === 1 ? { ...h, name: "" } : h)) })).toContain("兴趣");
+
+    // 三个标签齐全、介绍全空 → 算填好（2026-10-11 起介绍是选填）
+    const blank = { ...d, hobbies: d.hobbies.map((h) => ({ ...h, description: "" })) };
+    expect(stepDone(1, blank)).toBe(true);
+    expect(hintFor(1, blank)).toBe("");
+    // 写两个字当然也行
+    expect(stepDone(1, { ...d, hobbies: d.hobbies.map((h) => ({ ...h, description: "随便写写" })) })).toBe(true);
   });
 
   it("关于我 / 期待的他：至少 20 字，且提示还差几个字", () => {

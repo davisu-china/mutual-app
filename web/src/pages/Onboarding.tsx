@@ -221,8 +221,8 @@ export default function Onboarding() {
           d.hasHouse !== null && d.isDink !== null && d.photoObjectKey !== null
         );
       case 1:
-        // 恰好 3 个，且每个都写了 10 字以上
-        return d.hobbies.every((h) => h.name && [...h.description].length >= 10);
+        // 恰好 3 个标签即可：**介绍是选填**（2026-10-11 改，只守 200 字上限）
+        return d.hobbies.every((h) => h.name && [...h.description].length <= 200);
       case 2:
         return [...d.aboutMe].length >= 20;
       case 3:
@@ -428,9 +428,9 @@ function hintFor(step: number, d: Draft): string {
       return miss.length ? `还差：${miss.join("、")}` : "";
     }
     case 1: {
-      const bad = d.hobbies.findIndex((h) => !h.name || [...h.description].length < 10);
       if (d.hobbies.some((h) => !h.name)) return "请选择 3 个兴趣爱好";
-      if (bad >= 0) return `第 ${bad + 1} 个兴趣的介绍还差一点（至少 10 字）`;
+      const over = d.hobbies.findIndex((h) => [...h.description].length > 200);
+      if (over >= 0) return `第 ${over + 1} 个兴趣的介绍最多 200 字，请精简`;
       return "";
     }
     case 2:
@@ -628,7 +628,7 @@ function Step2({
             max={200}
           />
           <p className="mt-1 text-right text-[12px] text-muted-2">
-            {[...h.description].length}/200（至少 10 字）
+            {[...h.description].length}/200（选填）
           </p>
         </div>
       ))}

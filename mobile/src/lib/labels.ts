@@ -1,3 +1,5 @@
+import type { MaterialCommunityIcons } from "@expo/vector-icons";
+
 /**
  * 枚举与文案 —— 与 Web 版 `web/src/data/options.ts` 同一份口径。
  *
@@ -92,15 +94,101 @@ export const EDUCATION_MIN = [{ value: 0, label: "无要求" }].concat(EDUCATION
 export const PARTNER_TAGS = ["颜控", "智性恋", "身材控", "财迷", "幽默灵魂"];
 
 /** 兴趣（第一步选三个，每个再写一段话） */
-export const HOBBIES = [
-  "运动健身", "跑步", "徒步", "登山", "骑行", "游泳", "球类",
-  "音乐", "乐器", "唱歌", "livehouse",
-  "阅读", "写作", "观影", "追剧", "脱口秀",
-  "旅行", "摄影", "美食", "咖啡", "茶", "酒",
-  "游戏", "二次元", "手工", "绘画", "书法",
-  "宠物", "养花", "投资", "科技", "公益",
+/**
+ * 兴趣标签 + 各自的图标（MaterialCommunityIcons 的名字）。
+ *
+ * 图标是给"选兴趣"那一步用的：一屏六十来个标签，光看文字要一行行读，
+ * 有图标就能扫（和各家 App 的"兴趣选择"是同一套做法）。
+ *
+ * ⚠️ **值（name）是存进库的**：`user_hobbies.name`，卡片的"共同兴趣"也按它匹配。
+ * 所以**只能加不能改**——改一个词等于让已有用户的兴趣对不上。Web 端
+ * （`web/src/data/options.ts`）是同一份清单，加词两边一起加。
+ *
+ * ⚠️ 图标名必须真实存在，写错在运行时是一个空方块（不报错）。`__tests__/hobbies.test.ts`
+ * 会拿图标库的 glyphMap 逐个校验。
+ */
+/** 图标名用图标库自己的联合类型：写错一个字母 tsc 就红，而不是运行时显示空方块 */
+export type HobbyIcon = keyof typeof MaterialCommunityIcons.glyphMap;
+
+export const HOBBIES: { name: string; icon: HobbyIcon }[] = [
+  // 运动与户外
+  { name: "运动健身", icon: "dumbbell" },
+  { name: "跑步", icon: "run-fast" },
+  { name: "徒步", icon: "hiking" },
+  { name: "登山", icon: "terrain" },
+  { name: "骑行", icon: "bike" },
+  { name: "游泳", icon: "swim" },
+  { name: "瑜伽", icon: "yoga" },
+  { name: "球类", icon: "soccer-field" },
+  { name: "篮球", icon: "basketball" },
+  { name: "足球", icon: "soccer" },
+  { name: "羽毛球", icon: "badminton" },
+  { name: "网球", icon: "tennis" },
+  { name: "乒乓球", icon: "table-tennis" },
+  { name: "滑雪", icon: "ski" },
+  { name: "滑板", icon: "skateboard" },
+  { name: "拳击", icon: "boxing-glove" },
+  { name: "舞蹈", icon: "dance-ballroom" },
+  { name: "露营", icon: "tent" },
+  { name: "钓鱼", icon: "fish" },
+  { name: "城市漫步", icon: "walk" },
+  // 音乐与文艺
+  { name: "音乐", icon: "music-note" },
+  { name: "乐器", icon: "piano" },
+  { name: "唱歌", icon: "microphone" },
+  { name: "livehouse", icon: "guitar-electric" },
+  { name: "脱口秀", icon: "microphone-variant" },
+  { name: "话剧", icon: "theater" },
+  { name: "播客", icon: "podcast" },
+  { name: "阅读", icon: "book-open-page-variant" },
+  { name: "写作", icon: "fountain-pen" },
+  { name: "观影", icon: "movie-open" },
+  { name: "追剧", icon: "television-classic" },
+  { name: "绘画", icon: "palette" },
+  { name: "书法", icon: "brush" },
+  { name: "摄影", icon: "camera" },
+  // 生活与美食
+  { name: "美食", icon: "food" },
+  { name: "咖啡", icon: "coffee" },
+  { name: "茶", icon: "tea" },
+  { name: "酒", icon: "glass-wine" },
+  { name: "烘焙", icon: "cupcake" },
+  { name: "做饭", icon: "chef-hat" },
+  { name: "调酒", icon: "glass-cocktail" },
+  { name: "桌游", icon: "dice-multiple" },
+  { name: "剧本杀", icon: "drama-masks" },
+  { name: "逛街", icon: "shopping" },
+  { name: "穿搭", icon: "tshirt-crew" },
+  { name: "美妆", icon: "lipstick" },
+  { name: "手账", icon: "notebook" },
+  { name: "旅行", icon: "airplane" },
+  { name: "自驾", icon: "car" },
+  // 游戏与科技
+  { name: "游戏", icon: "gamepad-variant" },
+  { name: "二次元", icon: "ghost" },
+  { name: "编程", icon: "code-tags" },
+  { name: "科技", icon: "robot" },
+  { name: "投资", icon: "chart-line" },
+  // 手艺与自然
+  { name: "手工", icon: "scissors-cutting" },
+  { name: "宠物", icon: "paw" },
+  { name: "养花", icon: "flower" },
+  { name: "观鸟", icon: "bird" },
+  { name: "天文", icon: "star-shooting" },
+  // 人文与其他
+  { name: "外语", icon: "translate" },
+  { name: "历史", icon: "history" },
+  { name: "心理学", icon: "head-heart" },
+  { name: "公益", icon: "hand-heart" },
 ];
 
+/**
+ * 按名字取图标。**没在清单里的值也给一个中性图标**——兴趣是存库的自由文本，
+ * 老数据或以后 Web 端加了词，App 这边不该显示成一个空方块。
+ */
+export function hobbyIcon(name: string): HobbyIcon {
+  return HOBBIES.find((h) => h.name === name)?.icon ?? "tag-outline";
+}
 // ------------------------------------------------------------ 期望年收入
 //
 // 收入是**分档的类别值**，不是连续量：六档各自是一个区间（10–20 万、20–30 万…）。

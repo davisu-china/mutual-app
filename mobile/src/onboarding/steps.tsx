@@ -1,7 +1,7 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { ApiError, mediaImage } from "@/lib/api";
 import { uploadPhoto } from "@/lib/upload";
@@ -23,6 +23,7 @@ import {
   ELDERCARE,
   GENDER,
   HOBBIES,
+  hobbyIcon,
   HOUSE,
   HOUSE_PREFER,
   INCOME,
@@ -41,7 +42,6 @@ import { RegionSheet } from "@/components/pickers/region-sheet";
 import { MultiChoiceSheet, OccupationSheet, UniversitySheet } from "@/components/pickers/list-sheets";
 import {
   HOBBY_DESC_MAX,
-  HOBBY_DESC_MIN,
   TEXT_MAX,
   TEXT_MIN,
   birthdayText,
@@ -308,7 +308,9 @@ export function Step2({
     <View style={styles.step}>
       <View style={styles.head}>
         <Text style={styles.title}>你的三个兴趣爱好</Text>
-        <Text style={styles.lede}>每个都写几句具体的情况——这比标签本身更能让人认识你。</Text>
+        <Text style={styles.lede}>
+          选三个标签就够了；愿意的话再写几句具体的情况——那比标签本身更能让人认识你（选填）。
+        </Text>
       </View>
 
       {d.hobbies.map((h, i) => (
@@ -323,6 +325,9 @@ export function Step2({
               onPress={() => setPicking(i)}
               style={[styles.hobbyPick, h.name ? null : styles.hobbyPickEmpty]}
             >
+              {h.name ? (
+                <MaterialCommunityIcons name={hobbyIcon(h.name)} size={17} color={colors.brand} />
+              ) : null}
               <Text style={[styles.hobbyPickText, h.name ? null : styles.hobbyPickTextEmpty]}>
                 {h.name || "选择兴趣"}
               </Text>
@@ -332,10 +337,9 @@ export function Step2({
           <Textarea
             value={h.description}
             onChangeText={(v) => setDesc(i, v)}
-            placeholder="比如：去年一个人去了川西，跑了 1200 公里，最喜欢在海拔 4000 米的垭口发呆"
+            placeholder="选填。比如：去年一个人去了川西，跑了 1200 公里，最喜欢在海拔 4000 米的垭口发呆"
             rows={3}
             max={HOBBY_DESC_MAX}
-            minHint={HOBBY_DESC_MIN}
           />
         </View>
       ))}
@@ -366,24 +370,36 @@ function HobbySheet({
 }) {
   return (
     <Sheet open={open} onClose={onClose} title="选择兴趣">
-      <View style={styles.hobbyWrap}>
-        {HOBBIES.map((name) => {
+      {/* 六十多个标签一屏放不下，得能滚。弹层的拖拽手势只挂在把手和标题栏上
+          （见 ui/sheet），所以这里的 ScrollView 不会被抢手势 */}
+      <ScrollView
+        style={styles.hobbyScroll}
+        contentContainerStyle={styles.hobbyWrap}
+        showsVerticalScrollIndicator={false}
+      >
+        {HOBBIES.map(({ name, icon }) => {
           // 已经用在别的格子上的兴趣置灰——三个兴趣写成同一个没有意义
           const taken = used.has(name);
           return (
             <Pressable
               key={name}
               accessibilityRole="button"
+              accessibilityLabel={name}
               accessibilityState={{ disabled: taken }}
               disabled={taken}
               onPress={() => onPick(name)}
               style={[styles.hobbyChip, taken && styles.hobbyChipOff]}
             >
+              <MaterialCommunityIcons
+                name={icon}
+                size={15}
+                color={taken ? colors.muted2 : colors.brand}
+              />
               <Text style={[styles.hobbyChipText, taken && styles.hobbyChipTextOff]}>{name}</Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
     </Sheet>
   );
 }
@@ -632,7 +648,18 @@ const styles = StyleSheet.create({
   hobbyPickTextEmpty: { color: colors.muted2 },
 
   hobbyWrap: { flexDirection: "row", flexWrap: "wrap", gap: space(2), paddingHorizontal: space(5), paddingBottom: space(2) },
-  hobbyChip: { paddingHorizontal: space(3.5), paddingVertical: space(2), borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line },
+  // 上限给 44%（而不是撑满）：弹层是"选完就走"的东西，别把整屏吃掉
+  hobbyScroll: { maxHeight: Dimensions.get("window").height * 0.44 },
+  hobbyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space(1.5),
+    paddingHorizontal: space(3.5),
+    paddingVertical: space(2),
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
   hobbyChipOff: { borderColor: colors.lineSoft, opacity: 0.4 },
   hobbyChipText: { fontSize: 14, color: colors.ink },
   hobbyChipTextOff: { color: colors.muted2 },

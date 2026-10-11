@@ -39,14 +39,24 @@ func TestIntegrationOnboardingErrorsAreUserFacing(t *testing.T) {
 		t.Fatal("面向用户的错误消息不能为空")
 	}
 
-	// 2) 兴趣介绍太短：消息要指明是哪一条、差多少字数
-	err = svc.SetHobbies(ctx, u.ID, []HobbyView{
-		{Name: "阅读", Description: "太短", SortOrder: 1},
+	// 2) 介绍**可以留空**（选填），只有超长才拦：错误消息要指明是哪一条
+	ok := []HobbyView{
+		{Name: "阅读", Description: "", SortOrder: 1},
 		{Name: "摄影", Description: "周末常去拍城市街景与人像", SortOrder: 2},
-		{Name: "徒步", Description: "爬过几座千米以上的山", SortOrder: 3},
-	})
+		{Name: "徒步", Description: "", SortOrder: 3},
+	}
+	if err := svc.SetHobbies(ctx, u.ID, ok); err != nil {
+		t.Fatalf("不写介绍也该能存下去（介绍是选填），实际 %v", err)
+	}
+
+	long := []HobbyView{
+		{Name: "阅读", Description: strings.Repeat("一", 201), SortOrder: 1},
+		{Name: "摄影", Description: "", SortOrder: 2},
+		{Name: "徒步", Description: "", SortOrder: 3},
+	}
+	err = svc.SetHobbies(ctx, u.ID, long)
 	if !errors.As(err, &inv) {
-		t.Fatalf("兴趣过短也该是 InvalidInputError，实际 %T: %v", err, err)
+		t.Fatalf("超长也该是 InvalidInputError，实际 %T: %v", err, err)
 	}
 	if !strings.HasPrefix(inv.Msg, "「阅读」") {
 		t.Fatalf("错误消息应当指明是哪一个兴趣，实际 %q", inv.Msg)

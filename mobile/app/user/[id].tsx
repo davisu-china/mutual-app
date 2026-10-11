@@ -2,14 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, mediaImage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Skeleton, useToast } from "@/ui/feedback";
 import { UserActionsSheet } from "@/components/user-actions";
-import { DINK_LABEL, DRINKING_LABEL, EDUCATION_LABEL, HOUSE_LABEL, INCOME_LABEL, SMOKING_LABEL } from "@/lib/labels";
+import { DINK_LABEL, DRINKING_LABEL, EDUCATION_LABEL, HOUSE_LABEL, INCOME_LABEL, SMOKING_LABEL, hobbyIcon } from "@/lib/labels";
 import { colors, font, radius, shadow, space } from "@/theme";
 import type { ActionResult, Profile } from "@/lib/types";
 
@@ -161,8 +161,12 @@ export default function UserDetail() {
           <Section title="兴趣爱好">
             {profile.hobbies.map((h) => (
               <View key={h.name} style={styles.hobby}>
-                <Text style={styles.hobbyName}>{h.name}</Text>
-                <Text style={styles.hobbyDesc}>{h.description}</Text>
+                <View style={styles.hobbyTitle}>
+                  <MaterialCommunityIcons name={hobbyIcon(h.name)} size={16} color={colors.brand} />
+                  <Text style={styles.hobbyName}>{h.name}</Text>
+                </View>
+                {/* 介绍是选填：没写就整段不渲染，别留一条空白 */}
+                {h.description ? <Text style={styles.hobbyDesc}>{h.description}</Text> : null}
               </View>
             ))}
           </Section>
@@ -289,6 +293,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: font.section, fontWeight: "600", letterSpacing: 0.2, color: colors.ink, marginBottom: space(3) },
   paragraph: { fontSize: 14.5, lineHeight: 24, color: colors.ink2 },
   hobby: { marginBottom: space(3) },
+  hobbyTitle: { flexDirection: "row", alignItems: "center", gap: space(1.5) },
   hobbyName: { fontSize: 14, fontWeight: "600", color: colors.ink },
   hobbyDesc: { marginTop: 2, fontSize: 13.5, lineHeight: 21, color: colors.muted },
   infoGrid: { flexDirection: "row", flexWrap: "wrap", rowGap: space(3) },

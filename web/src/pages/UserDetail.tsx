@@ -138,7 +138,10 @@ export default function UserDetail() {
                   <span className="rounded-full border border-brand-line bg-brand-soft px-3 py-1 text-[12.5px] font-medium text-brand-dark">
                     {h.name}
                   </span>
-                  <p className="mt-1.5 text-[14px] leading-relaxed text-ink-2">{h.description}</p>
+                  {/* 介绍是选填：没写就整段不渲染，别留一条空白 */}
+                  {h.description && (
+                    <p className="mt-1.5 text-[14px] leading-relaxed text-ink-2">{h.description}</p>
+                  )}
                 </div>
               ))}
             </div>

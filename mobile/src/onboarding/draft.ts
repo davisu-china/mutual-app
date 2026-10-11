@@ -15,7 +15,7 @@ export const STEPS = ["本人画像", "兴趣爱好", "关于我", "伴侣画像
 export const TEXT_MIN = 20;
 export const TEXT_MAX = 500;
 /** 每个兴趣的介绍至少这么长——太短就成了标签，没有信息量 */
-export const HOBBY_DESC_MIN = 10;
+/** 兴趣介绍的**字数上限**。下限已经取消——介绍是选填（见 stepDone） */
 export const HOBBY_DESC_MAX = 200;
 /** 体重的合理区间。必填字段没有上界时，总会有人填 0 或者 999 */
 export const WEIGHT_MIN = 30;
@@ -172,9 +172,9 @@ export function stepDone(step: number, d: Draft): boolean {
         d.hasHouse !== null && d.isDink !== null && d.photoObjectKey !== null
       );
     case 1:
-      return d.hobbies.every(
-        (h) => h.name !== "" && len(h.description) >= HOBBY_DESC_MIN && len(h.description) <= HOBBY_DESC_MAX
-      );
+      // 兴趣的**介绍是选填**（2026-10-11 改）：选满三个标签就算填好了。
+      // 上限仍要守（服务端也是这个口径），不然有人会把整篇文章贴进来。
+      return d.hobbies.every((h) => h.name !== "" && len(h.description) <= HOBBY_DESC_MAX);
     case 2:
       return len(d.aboutMe) >= TEXT_MIN && len(d.aboutMe) <= TEXT_MAX;
     case 3:
@@ -220,13 +220,9 @@ export function hintFor(step: number, d: Draft): string {
       return miss.length ? `还差：${miss.join("、")}` : "";
     }
     case 1: {
-      const over = d.hobbies.findIndex((h) => len(h.description) > HOBBY_DESC_MAX);
-      const bad = d.hobbies.findIndex((h) => h.name === "" || len(h.description) < HOBBY_DESC_MIN);
       if (d.hobbies.some((h) => h.name === "")) return "请选择 3 个兴趣爱好";
-      // 超长和不足要分开说。只说"还差 N 字"在超长时会显示"还差 0 字"，
-      // 而按钮是灰的——用户会一直点、不知道为什么点不动。
+      const over = d.hobbies.findIndex((h) => len(h.description) > HOBBY_DESC_MAX);
       if (over >= 0) return `第 ${over + 1} 个兴趣的介绍最多 ${HOBBY_DESC_MAX} 字，请精简`;
-      if (bad >= 0) return `第 ${bad + 1} 个兴趣的介绍还差一点（至少 ${HOBBY_DESC_MIN} 字）`;
       return "";
     }
     case 2:

@@ -17,15 +17,15 @@ var (
 	// 裸 error 会被兜底成 500「服务暂时不可用」，把预期内的状态说成服务故障。
 	ErrProfileHidden  = errors.New("你们之间有拉黑关系，无法查看")
 	ErrTooManyHobbies = errors.New("兴趣爱好必须恰好 3 个")
-	ErrHobbyNeedsText = errors.New("每个兴趣都需要填写介绍")
 )
 
 const (
 	MaxPhotosDefault = 9
 	aboutMeMin       = 20
 	aboutMeMax       = 500
-	hobbyTextMin     = 10
-	hobbyTextMax     = 200
+	// 兴趣介绍是**选填**（2026-10-11 改）：可以只挑标签不写字。
+	// 上限还留着——不然有人会把整篇文章塞进卡片。所以只有 hobbyTextMax。
+	hobbyTextMax = 200
 )
 
 type ProfileService struct {
@@ -492,9 +492,8 @@ func (s *ProfileService) SetHobbies(ctx context.Context, uid int64, hobbies []Ho
 			return invalidInput("兴趣不能重复")
 		}
 		seen[h.Name] = true
-		n := len([]rune(h.Description))
-		if n < hobbyTextMin || n > hobbyTextMax {
-			return invalidInput("「%s」的介绍需要 %d–%d 字", h.Name, hobbyTextMin, hobbyTextMax)
+		if n := len([]rune(h.Description)); n > hobbyTextMax {
+			return invalidInput("「%s」的介绍最多 %d 字", h.Name, hobbyTextMax)
 		}
 	}
 
@@ -628,11 +627,7 @@ func (s *ProfileService) CompleteOnboarding(ctx context.Context, uid int64) erro
 		if len(hobbies) != 3 {
 			return invalidInput("请填写恰好 3 个兴趣爱好")
 		}
-		for _, h := range hobbies {
-			if len([]rune(h.Description)) < hobbyTextMin {
-				return invalidInput("「%s」的介绍太短", h.Name)
-			}
-		}
+		// 兴趣的介绍是选填，这里不再逐条检查文字（只要求恰好 3 个标签）
 
 		var t model.UserText
 		if err := tx.First(&t, uid).Error; err != nil || t.AboutMe == nil ||
