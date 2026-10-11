@@ -136,7 +136,11 @@ func TestIntegrationDeletePhotoErrorsAreUserFacing(t *testing.T) {
 	}
 }
 
-func TestIntegrationBannedAccountLoginIsUserFacing(t *testing.T) {
+// ⚠️ 口径变过：**封禁不挡登录**（2026-10-11，用户明确"ban 不是踢"）。
+//
+// 被限制的人要能进来看到"自己为什么被限制"；只有注销是彻底进不来。
+// 这条以前断言的是"被封禁的账号登录报 ErrAccountBanned"，属于旧口径。
+func TestIntegrationLoginByAccountStatus(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()
 
@@ -146,16 +150,23 @@ func TestIntegrationBannedAccountLoginIsUserFacing(t *testing.T) {
 		t.Fatalf("生成口令哈希失败: %v", err)
 	}
 
-	// 被封禁/已注销在签发令牌之前就返回，本来不需要 issuer；但最后那条
-	// "正常账号仍然能登录" 会一路走到签发，所以给一个真的。
 	svc := NewAuthService(db, auth.NewIssuer("test-secret-for-unit-test", time.Hour, 24*time.Hour))
 
+	// 被封禁：能登录（进来看限制说明）
+	banned := seedUser(t, db, "18"+suffix+"b", model.GenderMale, 178)
+	cleanUsers(t, db, banned.ID)
+	db.Model(&model.User{}).Where("id = ?", banned.ID).
+		Updates(map[string]any{"password_hash": string(hash), "status": model.UserBanned})
+	if _, err := svc.Login(ctx, banned.Phone, "test1234"); err != nil {
+		t.Fatalf("被限制的账号应当能登录（他要能看到自己被限制的原因），实际 %v", err)
+	}
+
+	// 已注销：进不来
 	for _, tc := range []struct {
 		name   string
 		status string
 		want   error
 	}{
-		{"被封禁的账号", model.UserBanned, ErrAccountBanned},
 		{"已注销的账号", model.UserDeleted, ErrAccountDeleted},
 	} {
 		u := seedUser(t, db, "18"+suffix+tc.status[:1], model.GenderMale, 178)

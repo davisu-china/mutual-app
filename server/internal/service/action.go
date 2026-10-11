@@ -63,6 +63,10 @@ func (s *ActionService) Do(ctx context.Context, in ActionInput) (*ActionResult, 
 	}
 	switch in.Action {
 	case model.ActionLike:
+		// 封禁＝限制互动，不是踢出去：**跳过、看主页都还能做**，只有喜欢被拦
+		if err := checkRestricted(ctx, s.db, in.FromUser, "喜欢别人"); err != nil {
+			return nil, err
+		}
 		return s.doLike(ctx, in)
 	case model.ActionPass:
 		return s.doSimple(ctx, in, model.ActionPass)

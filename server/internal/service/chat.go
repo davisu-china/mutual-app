@@ -202,6 +202,10 @@ func (s *ChatService) Send(ctx context.Context, in SendInput) (*MessageView, err
 	if err := s.assertMember(ctx, in.UserID, in.ConversationID); err != nil {
 		return nil, err
 	}
+	// 封禁＝限制互动：消息还能看（历史和收信照旧），但不能发
+	if err := checkRestricted(ctx, s.db, in.UserID, "发消息"); err != nil {
+		return nil, err
+	}
 	if in.MsgType == "" {
 		in.MsgType = "text"
 	}

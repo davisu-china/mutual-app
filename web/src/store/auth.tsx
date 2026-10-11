@@ -12,6 +12,8 @@ import { api, tokenStore } from "@/lib/api";
 interface AuthState {
   userId: number | null;
   onboarded: boolean;
+  /** 账号被限制（封禁）：不影响登录，只是不能喜欢别人、不能发消息 */
+  restriction: { reason: string | null } | null;
   ready: boolean;
   login: (phone: string, password: string) => Promise<void>;
   register: (phone: string, password: string) => Promise<void>;
@@ -31,6 +33,7 @@ interface AuthResult {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<number | null>(null);
   const [onboarded, setOnboarded] = useState(false);
+  const [restriction, setRestriction] = useState<{ reason: string | null } | null>(null);
   const [ready, setReady] = useState(false);
 
   // 启动时用已有 token 探一次：token 有效但服务端重启等情况要能自愈
@@ -42,9 +45,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const me = await api.get<{ userId: number }>("/users/me");
+        const me = await api.get<{ userId: number; accountStatus?: string; banReason?: string }>("/users/me");
         if (cancelled) return;
         setUserId(me.userId);
+        // 被限制的账号照样能登录、能看东西（封禁 = 限制互动，不是踢人）——
+        // 限制说明从自己的资料里读，界面据此摆一条横幅
+        if (me.accountStatus === "banned") setRestriction({ reason: me.banReason ?? null });
         // Onboarding 状态用 /quota 探测：它挂在 OnboardGuard 后面，
         // 未完成会返回 ONBOARDING_REQUIRED。比多拉一次完整资料便宜。
         try {
@@ -92,8 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const markOnboarded = useCallback(() => setOnboarded(true), []);
 
   const value = useMemo(
-    () => ({ userId, onboarded, ready, login, register, logout, markOnboarded }),
-    [userId, onboarded, ready, login, register, logout, markOnboarded]
+    () => ({ userId, onboarded, ready, restriction, login, register, logout, markOnboarded }),
+    [userId, onboarded, ready, restriction, login, register, logout, markOnboarded]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

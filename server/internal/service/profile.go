@@ -75,6 +75,12 @@ type ProfileView struct {
 	School  *string `json:"school,omitempty"`
 	Company *string `json:"company,omitempty"`
 
+	// 账号状态与限制原因：**只在自己看自己的资料时下发**（客户端据此把
+	// "账号被限制：暂时不能喜欢别人、不能发消息"的说明摆出来）。别人看不到——
+	// 那是管理侧的信息，不该出现在公开资料里。
+	AccountStatus string  `json:"accountStatus,omitempty"`
+	BanReason     *string `json:"banReason,omitempty"`
+
 	IsOnlyChild       bool   `json:"isOnlyChild"`
 	EldercarePressure *int16 `json:"eldercarePressure,omitempty"`
 	HasCar            bool   `json:"hasCar"`
@@ -171,11 +177,25 @@ func (s *ProfileService) PublicProfile(ctx context.Context, viewerID, targetID i
 	return v, nil
 }
 
+func statusForSelf(status string, self bool) string {
+	if !self {
+		return ""
+	}
+	return status
+}
+
+func banReasonForSelf(reason *string, self bool) *string {
+	if !self {
+		return nil
+	}
+	return reason
+}
+
 func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, self bool) (*ProfileView, error) {
 	db := s.db.WithContext(ctx)
 
 	var u model.User
-	if err := db.Select("id", "nickname", "gender", "birthday", "status", "onboarded_at").
+	if err := db.Select("id", "nickname", "gender", "birthday", "status", "onboarded_at", "ban_reason").
 		First(&u, targetID).Error; err != nil {
 		return nil, err
 	}
@@ -198,6 +218,9 @@ func (s *ProfileService) build(ctx context.Context, targetID, viewerID int64, se
 	v := &ProfileView{
 		UserID:       u.ID,
 		Nickname:     u.Nickname,
+		// 自己的资料才带账号状态：客户端要拿它显示"账号被限制"的说明
+		AccountStatus: statusForSelf(u.Status, self),
+		BanReason:     banReasonForSelf(u.BanReason, self),
 		Gender:       u.Gender,
 		Age:          calcAge(u.Birthday, time.Now()),
 		HeightCm:     p.HeightCm,

@@ -33,7 +33,7 @@ func TestMapErrMapsUserFacingErrors(t *testing.T) {
 		code   string
 	}{
 		{"拉黑关系看不到资料", service.ErrProfileHidden, http.StatusForbidden, "PROFILE_HIDDEN"},
-		{"被封禁的账号登录", service.ErrAccountBanned, http.StatusForbidden, "ACCOUNT_BANNED"},
+		{"封禁期内做被限制的动作", service.ErrAccountRestricted, http.StatusForbidden, "ACCOUNT_BANNED"},
 		{"已注销的账号登录", service.ErrAccountDeleted, http.StatusForbidden, "ACCOUNT_DELETED"},
 		{"配对不存在", service.ErrMatchNotFound, http.StatusNotFound, "MATCH_NOT_FOUND"},
 		{"不是自己的配对", service.ErrNotMatchOwner, http.StatusForbidden, "NOT_MATCH_OWNER"},

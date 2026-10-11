@@ -51,7 +51,9 @@ func mapErr(c *gin.Context, err error) {
 		fail(c, http.StatusBadRequest, "UNDERAGE", err.Error())
 	case errors.Is(err, service.ErrDeviceLimit):
 		fail(c, http.StatusForbidden, "DEVICE_LIMIT", err.Error())
-	case errors.Is(err, service.ErrAccountBanned):
+	// 封禁期内做了被限制的动作（喜欢 / 发消息）：沿用 ACCOUNT_BANNED 这个码，
+	// 客户端靠它把"账号被限制"的说明顶到界面上，同时把这句话弹给用户
+	case errors.Is(err, service.ErrAccountRestricted):
 		fail(c, http.StatusForbidden, "ACCOUNT_BANNED", err.Error())
 	case errors.Is(err, service.ErrAccountDeleted):
 		fail(c, http.StatusForbidden, "ACCOUNT_DELETED", err.Error())

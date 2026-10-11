@@ -1,3 +1,4 @@
+import { RestrictionBanner } from "@/components/restriction";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -43,6 +44,9 @@ export default function ChatList() {
       <View style={styles.header}>
         <Text style={styles.title}>消息</Text>
       </View>
+
+      {/* 不能发消息的人，这一屏是第一个会撞墙的地方——把说明摆在这儿 */}
+      <RestrictionBanner />
 
       {list === null ? (
         <View style={{ padding: space(5), gap: space(3) }}>

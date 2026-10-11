@@ -33,6 +33,7 @@ jest.mock("@/lib/api", () => {
     tokens: { access: "", load: async () => {}, save: async () => {}, clear: async () => {} },
     setUnauthorizedHandler: () => {},
     setOnboardingRequiredHandler: () => {},
+    setAccountBlockedHandler: () => {},
   };
 });
 

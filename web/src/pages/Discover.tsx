@@ -3,6 +3,7 @@ import { Clock, Compass, Flame, Heart, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ProfileCard } from "@/components/deck/profile-card";
+import { RestrictionBanner } from "@/components/restriction-banner";
 import { MatchOverlay } from "@/components/deck/match-overlay";
 import { Button } from "@/components/ui/button";
 import { CardSkeleton, Empty } from "@/components/ui/empty";
@@ -147,6 +148,9 @@ export default function Discover() {
           今日还可喜欢 {quota.remain} 人
         </span>
       </header>
+
+      {/* 账号被限制时的一条说明：不是整屏锁死——他还是能看，只是不能用喜欢 */}
+      <RestrictionBanner />
 
       <main className="flex flex-1 flex-col px-5 pb-2">
         <div className="relative h-[322px]">

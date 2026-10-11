@@ -55,17 +55,16 @@ func OnboardGuard(db *gorm.DB) gin.HandlerFunc {
 		uid := UserID(c)
 		var u model.User
 		if err := db.WithContext(c.Request.Context()).
-			Select("id", "onboarded_at", "status", "ban_reason").
+			Select("id", "onboarded_at", "status").
 			First(&u, uid).Error; err != nil {
 			abort(c, http.StatusUnauthorized, "UNAUTHORIZED", "用户不存在")
 			return
 		}
 
-		switch u.Status {
-		case model.UserBanned:
-			abortBanned(c, u.BanReason)
-			return
-		case model.UserDeleted:
+		// ⚠️ 封禁**不在这里拦**。封禁的口径是"限制互动"（不能喜欢别人、不能发消息），
+		// 不是"踢出去"——被限制的人仍然可以看推荐、看消息、看自己的资料。
+		// 拦截点在具体的写操作上（见 service.checkRestricted 与 ActionService / ChatService）。
+		if u.Status == model.UserDeleted {
 			abort(c, http.StatusForbidden, "ACCOUNT_DELETED", "账号已注销")
 			return
 		}
@@ -84,12 +83,8 @@ func RequireActive(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var u model.User
 		if err := db.WithContext(c.Request.Context()).
-			Select("id", "status", "ban_reason").First(&u, UserID(c)).Error; err != nil {
+			Select("id", "status").First(&u, UserID(c)).Error; err != nil {
 			abort(c, http.StatusUnauthorized, "UNAUTHORIZED", "用户不存在")
-			return
-		}
-		if u.Status == model.UserBanned {
-			abortBanned(c, u.BanReason)
 			return
 		}
 		if u.Status == model.UserDeleted {
@@ -98,22 +93,6 @@ func RequireActive(db *gorm.DB) gin.HandlerFunc {
 		}
 		c.Next()
 	}
-}
-
-// abortBanned 封禁状态的统一出口：**把管理员填的理由原话带给用户**。
-//
-// message 和 data.reason 两处都给：前者让任何客户端不改造就能显示出来，
-// 后者给 App 的封禁页单独排版用。理由为空时退回通用话术——运维直接改库
-// 封的人不会填理由，那种情况下也不能给用户一个空字符串。
-func abortBanned(c *gin.Context, reason *string) {
-	msg := "账号已被封禁"
-	var data any
-	if reason != nil && strings.TrimSpace(*reason) != "" {
-		r := strings.TrimSpace(*reason)
-		msg = "账号已被封禁：" + r
-		data = gin.H{"reason": r}
-	}
-	abortData(c, http.StatusForbidden, "ACCOUNT_BANNED", msg, data)
 }
 
 // RateLimit 基于 Redis 的固定窗口限流。

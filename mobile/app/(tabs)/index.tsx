@@ -1,3 +1,4 @@
+import { RestrictionBanner } from "@/components/restriction";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -133,6 +134,9 @@ export default function Recommend() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + space(2) }]}>
+      {/* 账号被限制时的一条说明：不是整屏锁死——他还是能看，只是不能用喜欢 */}
+      <RestrictionBanner />
+
       <View style={styles.header}>
         <Text style={styles.title}>推荐</Text>
         {/* 额度只在快用完（≤3）时才冒出来。平时头部就一个标题——主流划卡页都是这样，

@@ -1,3 +1,4 @@
+import { RestrictionBanner } from "@/components/restriction-banner";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, MessageCircle, Send } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -34,6 +35,9 @@ export function ChatList() {
       <header className="sticky top-0 z-10 border-b border-line/70 bg-paper/85 backdrop-blur-xl px-5 py-3 backdrop-blur">
         <span className="text-[17px] font-bold text-ink">消息</span>
       </header>
+
+      {/* 不能发消息的人，这一屏是第一个会撞墙的地方 */}
+      <RestrictionBanner />
 
       <main className="mx-auto max-w-[520px]">
         {list === null ? (
