@@ -158,7 +158,8 @@ func getEnv(k, def string) string {
 }
 
 // 默认客服微信号 —— **要改就改这一行**。（部署里也可以加 SUPPORT_WECHAT 环境变量覆盖。）
-const defaultSupportWechat = ""
+// 目前是产品负责人本人的微信：注册完弹给用户，指引他直接提需求/报问题。
+const defaultSupportWechat = "DavisYou184"
 
 func getEnvInt(k string, def int) int {
 	if v := os.Getenv(k); v != "" {
