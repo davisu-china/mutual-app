@@ -12,16 +12,17 @@ import {
   searchSchools,
 } from "@/lib/data/universities";
 import type { UniProvince } from "@/lib/data/universities";
-import { provinceShort } from "@/lib/data/regions";
 
 /**
  * 三个"列表类"选择器：职业（行业→岗位）、院校、多选（期待家乡）。
  *
- * 统一用**标签网格 + 搜索**而不是长滚动列表，理由和 `region-sheet` 一样：
- * 底部弹层的拖拽手势会和列表的纵向滚动抢手势。院校有三千多所，所以它是
- * 唯一一个以搜索为主入口的——选省份那排标签只是"把省份名填进搜索框"的快捷方式，
- * 走的是同一条搜索路径（省份名本身也是可匹配字段），因此不需要给每个省
- * 单独铺一份长长的学校列表。
+ * 职业、院校都用**标签网格 + 搜索**。院校有三千多所，所以它以搜索为**唯一**入口：
+ * 曾经铺过一排"按省份找"的标签（点了把省名填进搜索框），但那本身就是一次多余的
+ * 跳转——想找浙大的人会直接打「浙大/zj」，不会先想"它在浙江"。省份名仍然能在
+ * 搜索里匹配到（`searchSchools` 会把省名当关键词），所以去掉那排标签只是**少一层**。
+ *
+ * 这里的标签是整块铺开、点一下就选中，不依赖纵向滚动（弹层的拖拽手势只挂在把手和
+ * 标题栏上，滚动本身没问题，但短列表没必要滚）。
  */
 
 /* ----------------------------------------------------------------- 职业 */
@@ -169,7 +170,7 @@ function UniversityBody({
       <Input
         value={keyword}
         onChangeText={setKeyword}
-        placeholder="搜学校，支持拼音（如 zju / 浙江）"
+        placeholder="搜学校，支持拼音（如 zj / zhejiang / 浙大）"
         autoCorrect={false}
         returnKeyType="search"
       />
@@ -197,15 +198,9 @@ function UniversityBody({
           </>
         )
       ) : (
-        <>
-          <Text style={styles.hint}>按省份找，或直接在上面搜</Text>
-          <View style={styles.wrap}>
-            {unis.map((p) => (
-              // 点省份＝把这个省名填进搜索框，复用同一条搜索路径
-              <Chip key={p.name} label={provinceShort(p.name)} on={false} onPress={() => setKeyword(p.name)} />
-            ))}
-          </View>
-        </>
+        <Text style={styles.hint}>
+          直接输入学校名搜索（支持拼音，如 zju / 浙江）。三千多所，搜比翻快。
+        </Text>
       )}
 
       <Pressable
