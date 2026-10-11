@@ -162,10 +162,7 @@ func (s *DiscoveryService) Cards(ctx context.Context, uid int64, limit int) ([]C
 	}
 	// ⚠️ 这里原本两个分支都写 GenderFemale（if 是空操作），于是**女生会看到女生**：
 	// 男用户看女用户是对的，所以只有女性账号才会暴露这个问题。
-	targetGender := int16(model.GenderMale)
-	if *me.Gender == model.GenderMale {
-		targetGender = model.GenderFemale
-	}
+	targetGender := targetGenderOf(me)
 
 	// 逐级放宽：同城 → 同省 → 全国。**前一档一个人都没有**才往下走，
 	// 所以只有"确实没人"时才会出现远距离的人（不是把远近混在一起排）
@@ -408,6 +405,18 @@ func (s *DiscoveryService) scoreAndRank(cands []Candidate, me *Candidate, target
 	return cards
 }
 
+// targetGenderOf 我该看到哪个性别：异性。性别没填时返回 0（那种账号根本进不来，
+// 有 OnboardGuard + 资料必填把着）。
+func targetGenderOf(me *Candidate) int16 {
+	if me == nil || me.Gender == nil {
+		return 0
+	}
+	if *me.Gender == model.GenderMale {
+		return model.GenderFemale
+	}
+	return model.GenderMale
+}
+
 // fillDistance 给一张卡填距离。
 //
 // 两边都有 5 位网格 → 精确到「几公里」（±2.5km，只以区间展示）；
@@ -638,6 +647,9 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 		WHERE u.id <> ?
 		  AND u.status = 'active'
 		  AND u.onboarded_at IS NOT NULL
+		  -- ⚠️ 这里是**异性**过滤：产品只做异性交友（和划卡的 fetchCandidates 同一口径）。
+		  -- 它原来漏了——广场能看到同性，用户直接看出来问的（2026-10-12）。
+		  AND u.gender = ?
 		  AND EXISTS (SELECT 1 FROM user_photos ph
 		              WHERE ph.user_id = u.id AND ph.audit_status = 'approved')
 		  AND NOT EXISTS (SELECT 1 FROM user_actions a
@@ -646,7 +658,8 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 		                  WHERE (b.user_id = ? AND b.blocked_user_id = u.id)
 		                     OR (b.user_id = u.id AND b.blocked_user_id = ?))
 	`)
-	args = append(args, uid, uid, uid)
+	// 顺序必须和上面的 ? 一一对应：自己 → 性别 → 动作子查询 → 拉黑两处
+	args = append(args, targetGenderOf(me), uid, uid, uid)
 
 	// ⚠️ 这里必须用 make_interval + 显式 ::int，不能写成 (? || ' years')::interval：
 	// 后者会因为 || 把参数推断成 text，而 Go 的 int 编不进 text 参数，

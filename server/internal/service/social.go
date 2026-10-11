@@ -38,9 +38,33 @@ type Interactor struct {
 // LikesMe 返回喜欢过我、且我尚未回应的人（PRD 11.2）。
 //
 // 排除条件：我已经 Like 过（那就已成配对，走会话）、我已经 Pass 过（不再打扰）。
+
+// targetGender 我该看到哪个性别：异性（产品只做异性交友）。
+// 性别没填返回 0 —— 那种账号连这些接口都进不来（引导必填 + OnboardGuard）。
+func (s *SocialService) targetGender(ctx context.Context, uid int64) (int16, error) {
+	var g *int16
+	if err := s.db.WithContext(ctx).Raw(`SELECT gender FROM users WHERE id = ?`, uid).Row().Scan(&g); err != nil {
+		return 0, err
+	}
+	if g == nil {
+		return 0, nil
+	}
+	if *g == model.GenderMale {
+		return model.GenderFemale, nil
+	}
+	return model.GenderMale, nil
+}
+
 func (s *SocialService) LikesMe(ctx context.Context, uid int64, limit int) ([]Interactor, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
+	}
+
+	// ⚠️ 也要过滤**异性**：产品只做异性交友。原来这里只排了自己/状态/重复动作/拉黑，
+	// 同性给我点过赞就会出现在「谁喜欢我」里（历史数据里真有，见 2026-10-12 的修复）。
+	gender, err := s.targetGender(ctx, uid)
+	if err != nil {
+		return nil, err
 	}
 
 	rows, err := s.db.WithContext(ctx).Raw(`
@@ -62,6 +86,7 @@ func (s *SocialService) LikesMe(ctx context.Context, uid int64, limit int) ([]In
 		) av ON true
 		WHERE a.to_user = ?
 		  AND a.action = 'like'
+		  AND u.gender = ?
 		  AND u.status = 'active'
 		  AND u.onboarded_at IS NOT NULL
 		  AND NOT EXISTS (
@@ -75,7 +100,7 @@ func (s *SocialService) LikesMe(ctx context.Context, uid int64, limit int) ([]In
 		  )
 		ORDER BY a.created_at DESC
 		LIMIT ?
-	`, uid, uid, uid, uid, limit).Rows()
+	`, uid, gender, uid, uid, uid, limit).Rows()
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +131,12 @@ func (s *SocialService) VisitsMe(ctx context.Context, uid int64, limit int) ([]I
 		limit = 50
 	}
 
+	// 同 LikesMe：只要异性
+	gender, err := s.targetGender(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+
 	rows, err := s.db.WithContext(ctx).Raw(`
 		SELECT u.id, u.nickname, u.gender,
 		       EXTRACT(YEAR FROM age(u.birthday))::int,
@@ -125,6 +156,8 @@ func (s *SocialService) VisitsMe(ctx context.Context, uid int64, limit int) ([]I
 		) av ON true
 		WHERE a.to_user = ?
 		  AND a.action = 'visit'
+		  -- 同样只要异性（见 LikesMe 上面的说明）
+		  AND u.gender = ?
 		  AND u.status = 'active'
 		  AND u.onboarded_at IS NOT NULL
 		  AND NOT EXISTS (
@@ -138,7 +171,7 @@ func (s *SocialService) VisitsMe(ctx context.Context, uid int64, limit int) ([]I
 		  )
 		ORDER BY a.updated_at DESC
 		LIMIT ?
-	`, uid, uid, uid, uid, limit).Rows()
+	`, uid, gender, uid, uid, uid, limit).Rows()
 	if err != nil {
 		return nil, err
 	}
