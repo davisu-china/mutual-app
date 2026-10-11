@@ -35,6 +35,14 @@
         {
           "locationWhenInUsePermission": "用来算你和推荐对象之间的大致距离。我们只保留一个约 5 公里的网格，不记录精确位置。"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": ["arm64-v8a"]
+          }
+        }
       ]
     ],
     "scheme": "mutual",

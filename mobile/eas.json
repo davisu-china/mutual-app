@@ -10,18 +10,27 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_ROUTER_DISABLE_NATIVE_TABS_MD": "1"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_ROUTER_DISABLE_NATIVE_TABS_MD": "1"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_ROUTER_DISABLE_NATIVE_TABS_MD": "1"
       }
     }
   }

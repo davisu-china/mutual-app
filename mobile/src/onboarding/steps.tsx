@@ -1,7 +1,8 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { ActivityIndicator, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as ImagePicker from "expo-image-picker";
 import { ApiError, mediaImage } from "@/lib/api";
 import { ensureLocation } from "@/lib/geo";

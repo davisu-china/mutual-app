@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, font, overlayGradient, radius, shadow, space } from "@/theme";
 import { mediaImage } from "@/lib/api";
 import type { Card } from "@/lib/types";
