@@ -1,6 +1,9 @@
 package service
 
-import "math"
+import (
+	"math"
+	"strings"
+)
 
 // geohash 字母表
 const geohashBase32 = "0123456789bcdefghjkmnpqrstuvwxyz"
@@ -78,4 +81,53 @@ func distanceKm(hashA, hashB string) (int, bool) {
 		return 0, false
 	}
 	return int(math.Round(haversineKm(lat1, lng1, lat2, lng2))), true
+}
+
+// geoHashPrecision 是**落库的位数**：5 位约 4.9km × 4.9km。
+//
+// 这个数字是隐私旋钮，不是精度旋钮——再长就能逼近住址，再短距离就没意义了。
+func geoHashPrecision() int { return 5 }
+
+// encodeGeohash 把定位编成 geohash。
+//
+// 客户端给的是经纬度，**落库的只有这个网格**：既够算「大概几公里」，
+// 又无法反推出住址（连成串也只能定位到一个几公里的方块）。PRD 第 15 章的口径。
+func encodeGeohash(lat, lng float64, precision int) string {
+	latMin, latMax := -90.0, 90.0
+	lngMin, lngMax := -180.0, 180.0
+	var b strings.Builder
+	isLng, bits, bit := true, 0, 0
+	for b.Len() < precision {
+		if isLng {
+			mid := (lngMin + lngMax) / 2
+			if lng >= mid {
+				bit = bit<<1 | 1
+				lngMin = mid
+			} else {
+				bit <<= 1
+				lngMax = mid
+			}
+		} else {
+			mid := (latMin + latMax) / 2
+			if lat >= mid {
+				bit = bit<<1 | 1
+				latMin = mid
+			} else {
+				bit <<= 1
+				latMax = mid
+			}
+		}
+		isLng = !isLng
+		if bits++; bits == 5 {
+			b.WriteByte(geohashBase32[bit])
+			bits, bit = 0, 0
+		}
+	}
+	return b.String()
+}
+
+// validLatLng 判断客户端给的定位是不是个正常的经纬度。
+// 越界的直接忽略（**不至于让整次资料保存失败**——定位拿不到不该挡着填资料）。
+func validLatLng(lat, lng float64) bool {
+	return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
 }

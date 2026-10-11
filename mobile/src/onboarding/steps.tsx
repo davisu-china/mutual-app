@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { ApiError, mediaImage } from "@/lib/api";
+import { ensureLocation } from "@/lib/geo";
 import { uploadPhoto } from "@/lib/upload";
 import { Choice } from "@/ui/chip";
 import { FieldRow } from "@/ui/field-row";
@@ -245,7 +246,12 @@ export function Step1({ d, set }: { d: Draft; set: Setter }) {
         title="现居地"
         value={d.residence}
         withDistrict
-        onChange={(v) => set("residence", v)}
+        onChange={(v) => {
+          set("residence", v);
+          // 刚说完"我住哪儿"，是唯一能自然解释"为什么用一下定位"的时机。
+          // 拿到的坐标不放草稿，保存那一步直接从 geo 的缓存里取（见 onboarding.tsx）
+          void ensureLocation();
+        }}
         onClose={() => setSheet(null)}
       />
       <OccupationSheet

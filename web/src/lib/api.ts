@@ -162,6 +162,8 @@ export interface Card {
   education: number;
   distanceKm: number;
   hasDistance: boolean;
+  /** 没有精确网格时的粗标签：同城 / 同省 / 异地 */
+  distanceLabel?: string;
   avatarUrl: string;
   photos: string[] | null;
   hobbies: string[] | null;

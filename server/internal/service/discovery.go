@@ -116,8 +116,12 @@ type CardView struct {
 	CityProv     string   `json:"cityProvince"`
 	Occupation   string   `json:"occupation"`
 	Education    int16    `json:"education"`
-	DistanceFrom int      `json:"distanceKm"`
-	HasDistance  bool     `json:"hasDistance"`
+	DistanceFrom int  `json:"distanceKm"`
+	HasDistance  bool `json:"hasDistance"`
+	// 没有精确网格时的**粗标签**：同城 / 同省 / 异地。
+	// 距离是交友产品里最影响决策的一条信息——有精确值就给区间，没有也给个粗的，
+	// 别让那一格空着（两边都还没定位时就是这个兜底）。
+	DistanceLabel string `json:"distanceLabel,omitempty"`
 	AvatarURL    string   `json:"avatarUrl"`
 	Photos       []string `json:"photos"`
 	Hobbies      []string `json:"hobbies"`
@@ -396,17 +400,39 @@ func (s *DiscoveryService) scoreAndRank(cands []Candidate, me *Candidate, target
 			AboutMe:       c.AboutMe,
 			Score:         score,
 		}
-		if me.GeoHash != nil && c.GeoHash != nil {
-			if km, ok := distanceKm(*me.GeoHash, *c.GeoHash); ok {
-				card.DistanceFrom = km
-				card.HasDistance = true
-			}
-		}
+		fillDistance(&card, me, c)
 		cards = append(cards, card)
 	}
 
 	sort.SliceStable(cards, func(i, j int) bool { return cards[i].Score > cards[j].Score })
 	return cards
+}
+
+// fillDistance 给一张卡填距离。
+//
+// 两边都有 5 位网格 → 精确到「几公里」（±2.5km，只以区间展示）；
+// 只要有一边没有（还没授权定位）→ 退一步给「同城 / 同省 / 异地」。
+// 这一格不该是空的：距离是这份产品里最影响"要不要打招呼"的信息之一。
+func fillDistance(card *CardView, me, c *Candidate) {
+	if me.GeoHash != nil && c.GeoHash != nil {
+		if km, ok := distanceKm(*me.GeoHash, *c.GeoHash); ok {
+			card.DistanceFrom = km
+			card.HasDistance = true
+			return
+		}
+	}
+	card.DistanceLabel = cityRelation(me, c)
+}
+
+// cityRelation 只按现居地比：同城 > 同省 > 异地。
+func cityRelation(me, c *Candidate) string {
+	if me.CityCity != "" && me.CityCity == c.CityCity {
+		return "同城"
+	}
+	if me.CityProv != "" && me.CityProv == c.CityProv {
+		return "同省"
+	}
+	return "异地"
 }
 
 // ---------- 打分 ----------
@@ -580,6 +606,13 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 		limit = plazaPageSize
 	}
 
+	// 广场也要算距离：以前这里一格都不填，卡上那个距离标在广场里从来不出现。
+	// 多查一次自己（一条小查询），换来"这个人离我多远"这条最影响决策的信息。
+	me, err := s.loadSelf(ctx, uid)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	var sb strings.Builder
 	args := []any{uid}
 
@@ -710,7 +743,7 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 			return nil, 0, err
 		}
 		lastID = c.UserID
-		cards = append(cards, CardView{
+		card := CardView{
 			UserID:       c.UserID,
 			Nickname:     c.Nickname,
 			Age:          c.Age,
@@ -722,7 +755,9 @@ func (s *DiscoveryService) Plaza(ctx context.Context, uid int64, f PlazaFilter, 
 			Education:    c.Education,
 			AvatarURL:    c.AvatarURL,
 			Completeness: c.Completeness,
-		})
+		}
+		fillDistance(&card, me, &c)
+		cards = append(cards, card)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, err

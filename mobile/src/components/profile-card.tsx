@@ -34,11 +34,13 @@ export function ProfileCard({ card, compact }: { card: Card; compact?: boolean }
         <LinearGradient colors={[colors.brandSoft, colors.goldSoft]} style={StyleSheet.absoluteFill} />
       )}
 
-      {/* 距离：右上角小圆标，压在照片上 */}
-      {card.hasDistance ? (
+      {/* 距离：右上角小圆标，压在照片上。精确值优先，没有就给粗标签（同城/同省/异地） */}
+      {card.hasDistance || card.distanceLabel ? (
         <View style={styles.distance}>
           <Ionicons name="location-sharp" size={10} color={colors.white} />
-          <Text style={styles.distanceText}>{distanceText(card.distanceKm)}</Text>
+          <Text style={styles.distanceText}>
+            {card.hasDistance ? distanceText(card.distanceKm) : card.distanceLabel}
+          </Text>
         </View>
       ) : null}
 

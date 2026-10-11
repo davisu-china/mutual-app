@@ -351,6 +351,11 @@ type UpdateProfileInput struct {
 	HasHouse          *int16  `json:"hasHouse"`
 	IsDink            *int16  `json:"isDink"`
 
+	// 设备定位。**只用来算一个 5 位 geohash 落库**，原始经纬度既不存也不回传
+	// （PRD 第 15 章）。没传（没授权定位 / 网页端）时保持原值不动。
+	Lat *float64 `json:"lat"`
+	Lng *float64 `json:"lng"`
+
 	WeightPublic  *bool `json:"weightPublic"`
 	IncomePublic  *bool `json:"incomePublic"`
 	CompanyPublic *bool `json:"companyPublic"`
@@ -410,7 +415,13 @@ func (s *ProfileService) Update(ctx context.Context, uid int64, in UpdateProfile
 		}
 
 		applyProfileUpdates(&p, in)
-		p.GeoHash = nil // 由现居地派生，这里留空由外部补
+		// ⚠️ 这里原来是无条件 `p.GeoHash = nil`（注释写着"由外部补"，但没有任何地方补），
+		// 于是**每次保存资料都把网格冲掉**——卡片的距离标因此从来没出现过。
+		// 现在的口径：客户端给了定位就算一个 5 位网格；没给就**保持原值**。
+		if in.Lat != nil && in.Lng != nil && validLatLng(*in.Lat, *in.Lng) {
+			h := encodeGeohash(*in.Lat, *in.Lng, geoHashPrecision())
+			p.GeoHash = &h
+		}
 
 		if p.Completeness == 0 && p.HeightCm == 0 {
 			// 首次创建

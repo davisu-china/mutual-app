@@ -38,10 +38,13 @@ export function RecommendCard({ card }: { card: Card }) {
         <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.lineSoft }]} />
       )}
 
-      {card.hasDistance ? (
+      {/* 距离这一格不该空着：两边都有定位就给「3–5 km」，否则退一步给「同城/同省/异地」 */}
+      {card.hasDistance || card.distanceLabel ? (
         <View style={styles.distance}>
           <Ionicons name="location-sharp" size={10} color={colors.white} />
-          <Text style={styles.distanceText}>{distanceText(card.distanceKm)}</Text>
+          <Text style={styles.distanceText}>
+            {card.hasDistance ? distanceText(card.distanceKm) : card.distanceLabel}
+          </Text>
         </View>
       ) : null}
 

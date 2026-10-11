@@ -37,11 +37,11 @@ export function ProfileCard({ card, compact }: { card: Card; compact?: boolean }
         <div className="absolute inset-0 bg-gradient-to-br from-brand-soft to-gold-soft" />
       )}
 
-      {/* 距离：小圆标压在右上角 */}
-      {card.hasDistance && (
+      {/* 距离：小圆标压在右上角。两边都有定位就是「3–5 km」，否则退一步给「同城/同省/异地」 */}
+      {(card.hasDistance || card.distanceLabel) && (
         <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/15 bg-ink/45 px-2.5 py-1 text-[10px] text-white backdrop-blur-md">
           <MapPin size={10} strokeWidth={2.2} aria-hidden="true" />
-          {distanceText(card.distanceKm)}
+          {card.hasDistance ? distanceText(card.distanceKm) : card.distanceLabel}
         </span>
       )}
 

@@ -167,6 +167,11 @@ describe("页面与组件渲染", () => {
       // 额度充足时头部只有标题——常驻一个"今日还可喜欢 N 人"会把划卡页变成记账本
       expect(r.queryByText(/今日还可喜欢/)).toBeNull();
 
+      // 距离：没有精确网格（还没授权定位）时退化成「同城/同省/异地」，
+      // 而不是整块消失——那一格空着等于这条信息丢了
+      const rl = render(wrap(<RecommendCard card={{ ...card, hasDistance: false, distanceLabel: "同城" }} />));
+      expect(rl.getByText("同城")).toBeTruthy();
+
       // 卡片上的"为什么推荐给你"（浮在照片下缘那一块）
       expect(r.getByText("契合点")).toBeTruthy();
       expect(r.getByText("身高合适")).toBeTruthy();

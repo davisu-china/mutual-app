@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, ApiError } from "@/lib/api";
+import { locationIfGranted } from "@/lib/geo";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/ui/feedback";
 import { Button } from "@/ui/button";
@@ -111,8 +112,15 @@ export default function Onboarding() {
     try {
       const req = stepRequest(step, d);
       if (req) {
+        // 第一步（本人画像）顺带把定位带上：服务端只留一个 5 位网格，用来算距离。
+        // **用不弹框的那个**——刚在选现居地时已经问过权限了，这里再弹一次很突兀。
+        let body = req.body;
+        if (step === 0) {
+          const geo = await locationIfGranted();
+          if (geo) body = { ...(body as Record<string, unknown>), lat: geo.lat, lng: geo.lng };
+        }
         const send = req.method === "patch" ? api.patch : req.method === "put" ? api.put : api.post;
-        await send(req.path, req.body);
+        await send(req.path, body);
       }
       if (!last) {
         setStep(step + 1);

@@ -31,6 +31,8 @@ export interface Card {
   /** 距离按区间展示，后端不给精确值 */
   distanceKm: number;
   hasDistance: boolean;
+  /** 没有精确网格时的粗标签：同城 / 同省 / 异地 */
+  distanceLabel?: string;
   /** 头像＝相册第一张已过审照片 */
   avatarUrl: string;
   photos: string[] | null;

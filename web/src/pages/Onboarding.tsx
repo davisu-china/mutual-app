@@ -17,6 +17,7 @@ import { BirthdayField, type Birthday } from "@/components/picker/birthday-field
 import { RegionField, type RegionValue } from "@/components/picker/region-field";
 import { MbtiField } from "@/components/profile/mbti-slider";
 import { api, uploadToPresigned, ApiError } from "@/lib/api";
+import { ensureLocation, locationIfGranted } from "@/lib/geo";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 import {
@@ -257,7 +258,11 @@ export default function Onboarding() {
     try {
       switch (step) {
         case 0: {
+          // 顺带把定位带上：服务端只留一个 5 位网格，用来算距离。
+          // 用不弹框的那个——选现居地时已经问过了，这里再弹一次很突兀。
+          const geo = await locationIfGranted();
           await api.patch("/users/me/profile", {
+            ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
             nickname: undefined,
             gender: d.gender,
             birthday: `${d.birthday!.year}-${String(d.birthday!.month).padStart(2, "0")}-${String(d.birthday!.day).padStart(2, "0")}`,
@@ -550,7 +555,17 @@ function Step1({ d, set }: { d: Draft; set: <K extends keyof Draft>(k: K, v: Dra
       />
 
       <RegionField label="家乡" value={d.hometown} onChange={(v) => set("hometown", v)} placeholder="请选择家乡" />
-      <RegionField label="现居地" value={d.residence} onChange={(v) => set("residence", v)} withDistrict />
+      <RegionField
+        label="现居地"
+        value={d.residence}
+        onChange={(v) => {
+          set("residence", v);
+          // 刚说完"我住哪儿"，是唯一能自然解释"为什么用一下定位"的时机。
+          // 坐标不放进草稿：保存那一步直接从 geo 的缓存里取（见 saveStep）
+          void ensureLocation();
+        }}
+        withDistrict
+      />
 
       <OccupationField label="职业" value={d.occupation ?? ""} onChange={(v) => set("occupation", v)} />
 
