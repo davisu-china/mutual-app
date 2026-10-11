@@ -6,6 +6,7 @@ import { PhotoGrid } from "@/components/profile/photo-grid";
 import { ChevronRight, Heart, Pencil, Store, type LucideIcon } from "lucide-react";
 import { fieldIcon } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/toast";
+import { SupportMenuItem, SupportSheet, useSupportWechat } from "@/components/support";
 import { api, ApiError, type Photo, type Profile as ProfileT } from "@/lib/api";
 import { useAuth } from "@/store/auth";
 import {
@@ -19,6 +20,9 @@ export default function Profile() {
   const nav = useNavigate();
   const toast = useToast();
   const { logout } = useAuth();
+  const [showSupport, setShowSupport] = useState(false);
+  /** 服务端配的客服微信号；没配就是 null，那一行整块不显示 */
+  const support = useSupportWechat();
   const [p, setP] = useState<ProfileT | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
 
@@ -132,7 +136,12 @@ export default function Profile() {
           <MenuItem icon={Pencil} onClick={() => nav("/onboarding")}>编辑资料与伴侣偏好</MenuItem>
           <MenuItem icon={Heart} onClick={() => nav("/likes")}>谁喜欢我 / 谁看过我</MenuItem>
           <MenuItem icon={Store} onClick={() => nav("/plaza")}>恋爱广场</MenuItem>
+          {support ? <SupportMenuItem onClick={() => setShowSupport(true)} /> : null}
         </div>
+
+        {support ? (
+          <SupportSheet open={showSupport} wechat={support} onClose={() => setShowSupport(false)} />
+        ) : null}
 
         <button
           type="button"

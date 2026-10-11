@@ -51,6 +51,11 @@ type Config struct {
 
 	DailyLikeLimit int
 	MaxPhotos      int
+
+	// 客服 / 产品反馈的微信号。**留空 = 客户端不显示这个入口**（宁可没有，
+	// 也别摆一个假的联系方式）。改这一行（或加 SUPPORT_WECHAT 环境变量）即可，
+	// 不用动任何客户端。
+	SupportWechat string
 	AllowOrigins   []string
 
 	// 时区：额度按这个时区的「今天」重置（PRD 8.1 定的是北京时间）
@@ -101,6 +106,7 @@ func Load() (*Config, error) {
 		AuditAutoApprove: getEnvBool("AUDIT_AUTO_APPROVE", getEnv("APP_ENV", "dev") == "dev"),
 
 		DailyLikeLimit: getEnvInt("DAILY_LIKE_LIMIT", 10),
+		SupportWechat:  getEnv("SUPPORT_WECHAT", defaultSupportWechat),
 		MaxPhotos:      getEnvInt("MAX_PHOTOS", 9),
 		AllowOrigins:   strings.Split(getEnv("ALLOW_ORIGINS", "http://localhost:5173"), ","),
 
@@ -150,6 +156,9 @@ func getEnv(k, def string) string {
 	}
 	return def
 }
+
+// 默认客服微信号 —— **要改就改这一行**。（部署里也可以加 SUPPORT_WECHAT 环境变量覆盖。）
+const defaultSupportWechat = ""
 
 func getEnvInt(k string, def int) int {
 	if v := os.Getenv(k); v != "" {

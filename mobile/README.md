@@ -104,6 +104,20 @@ src/
 - 解配需要 `matchId`，而对方主页只带回 `relation.matched`，所以点解配时会按需查一次
   `GET /matches` 再按 userId 找回来。
 
+## 「加我微信提建议」入口
+
+两个落点（`src/components/support.tsx`）：
+
+1. **注册完成后自动弹一次**（`app/onboarding.tsx` 第一屏，本机记一个"看过了"的标记）；
+2. **「我的」页常驻一行**——真正的反馈发生在用的过程中（"这里怎么点不动"），
+   那时用户不会回到注册那一屏。
+
+微信号**由服务端给**（`GET /support`，见 `server/internal/config` 的 `SupportWechat`）：
+联系方式会变，写死在客户端就得重新发版。**没配就整个入口都不显示**——宁可没有，
+也别摆一个假的微信号。改法：`config.go` 里那一行默认值（或给部署加 `SUPPORT_WECHAT` 环境变量）。
+
+弹层里是一键复制（`expo-clipboard`）+ 微信号大字可选中，`__tests__/support.test.tsx` 钉着复制这条链路。
+
 ## 账号被封禁时的表现
 
 管理员在后台封人（原因必填，见 `web/src/admin`）之后：

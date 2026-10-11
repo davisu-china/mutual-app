@@ -26,6 +26,7 @@ type Deps struct {
 	Upload  *UploadHandler
 	Media   *MediaHandler
 	WS      *WSChatHandler
+	Support *SupportHandler
 	Admin   *AdminHandler
 }
 
@@ -82,6 +83,10 @@ func NewRouter(d Deps) *gin.Engine {
 	// 顺带把读图 cookie 发下去 / 续签
 	authed.Use(middleware.MediaCookie(d.Cfg.JWTSecret, d.Cfg.MediaPathPrefix(), auth.MediaTokenTTL))
 	{
+		// 联系方式（提需求 / 反馈问题找谁）：**不挂 OnboardGuard**——
+		// 注册完第一屏就要弹给用户看，而那时候他还没填完资料
+		authed.GET("/support", d.Support.Get)
+
 		// 资料填写相关：只要登录 + 账号可用即可，**不能加 OnboardGuard**，
 		// 否则用户会被自己的守卫卡住，永远填不完
 		me := authed.Group("/users/me")

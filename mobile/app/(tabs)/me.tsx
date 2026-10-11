@@ -11,6 +11,7 @@ import { uploadPhoto } from "@/lib/upload";
 import { Button } from "@/ui/button";
 import { Sheet } from "@/ui/sheet";
 import { Skeleton, useToast } from "@/ui/feedback";
+import { SupportEntry, SupportSheet, useSupportWechat } from "@/components/support";
 import {
   DINK_LABEL,
   DRINKING_LABEL,
@@ -42,6 +43,9 @@ export default function Me() {
   const [uploading, setUploading] = useState(false);
   /** 相册里被点开的那张照片的 id（null = 菜单没开） */
   const [menuPhotoId, setMenuPhotoId] = useState<number | null>(null);
+  const [showSupport, setShowSupport] = useState(false);
+  /** 服务端配的客服微信号；没配就是 null，入口整块不显示 */
+  const support = useSupportWechat();
 
   const load = useCallback(async () => {
     try {
@@ -222,6 +226,18 @@ export default function Me() {
           <MenuItem icon="heart-outline" label="谁喜欢我 / 谁看过我" onPress={() => nav.push("/(tabs)/likes")} />
           <MenuItem icon="grid-outline" label="恋爱广场" onPress={() => nav.push("/(tabs)/plaza")} />
         </View>
+
+        {/* 提建议的常驻入口：只在服务端配了微信号时出现 */}
+        {support ? (
+          <View style={{ paddingHorizontal: space(5), marginTop: space(3) }}>
+            <SupportEntry onPress={() => setShowSupport(true)} />
+          </View>
+        ) : null}
+
+        {/* 弹层挂在页面级：注册后自动弹的那次和这里点开的是同一个 */}
+        {support ? (
+          <SupportSheet open={showSupport} wechat={support} onClose={() => setShowSupport(false)} />
+        ) : null}
 
         <View style={{ paddingHorizontal: space(5), marginTop: space(6) }}>
           <Button

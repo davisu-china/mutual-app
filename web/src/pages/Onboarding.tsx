@@ -10,6 +10,7 @@ import { IncomeRangeField } from "@/components/picker/income-range-field";
 import { UniversityField } from "@/components/picker/university-field";
 import { OccupationField } from "@/components/picker/occupation-field";
 import { useToast } from "@/components/ui/toast";
+import { SupportSheet, markSupportPromptSeen, supportPromptSeen, useSupportWechat } from "@/components/support";
 import { HeightField } from "@/components/picker/height-field";
 import { WeightField } from "@/components/picker/weight-field";
 import { BirthdayField, type Birthday } from "@/components/picker/birthday-field";
@@ -106,6 +107,17 @@ export default function Onboarding() {
   const nav = useNavigate();
   const toast = useToast();
   const { markOnboarded } = useAuth();
+
+  // 「加我微信提建议」——注册完第一屏自动弹**一次**（之后只在「我的」里常驻）。
+  // 时机放在这里：刚注册完的人最容易对产品有话说；等他真用出问题，早就不在这一屏了。
+  const support = useSupportWechat();
+  const [showSupport, setShowSupport] = useState(false);
+  useEffect(() => {
+    if (!support) return;
+    if (supportPromptSeen()) return;
+    markSupportPromptSeen();
+    setShowSupport(true);
+  }, [support]);
 
   const [step, setStep] = useState(0);
   const [d, setD] = useState<Draft>(() => {
@@ -387,6 +399,10 @@ export default function Onboarding() {
           </Button>
         </div>
       </footer>
+
+      {support ? (
+        <SupportSheet open={showSupport} wechat={support} onClose={() => setShowSupport(false)} />
+      ) : null}
     </div>
   );
 }

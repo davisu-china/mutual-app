@@ -26,6 +26,12 @@ import {
   type ProfileSnapshot,
 } from "@/onboarding/draft";
 import { Step1, Step2, Step3, Step4, Step5 } from "@/onboarding/steps";
+import {
+  SupportSheet,
+  markSupportPromptSeen,
+  supportPromptSeen,
+  useSupportWechat,
+} from "@/components/support";
 
 /**
  * 资料向导（五步）。
@@ -46,6 +52,24 @@ export default function Onboarding() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { markOnboarded } = useAuth();
+
+  // 「加我微信提建议」——注册完第一屏自动弹**一次**（之后只在「我的」里常驻）。
+  // 时机放在这里：刚注册完的人是唯一一批"还没用就想说点什么"的用户，
+  // 而等他真用出问题的时候，早就不在注册这一屏了。
+  const support = useSupportWechat();
+  const [showSupport, setShowSupport] = useState(false);
+  useEffect(() => {
+    if (!support) return;
+    let alive = true;
+    void (async () => {
+      if (await supportPromptSeen()) return;
+      await markSupportPromptSeen();
+      if (alive) setShowSupport(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [support]);
 
   const [step, setStep] = useState(0);
   const [d, setD] = useState<Draft>(EMPTY);
@@ -160,6 +184,11 @@ export default function Onboarding() {
           block
         />
       </View>
+
+      {/* 注册完第一屏自动弹一次（只在服务端配了微信号、且本机没看过时） */}
+      {support ? (
+        <SupportSheet open={showSupport} wechat={support} onClose={() => setShowSupport(false)} />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }

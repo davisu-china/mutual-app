@@ -108,6 +108,7 @@ func main() {
 		Upload:  handler.NewUploadHandler(uploadSvc),
 		Media:   handler.NewMediaHandler(uploadSvc, cfg, issuer),
 		WS:      handler.NewWSChatHandler(),
+		Support: handler.NewSupportHandler(cfg),
 		Admin:   handler.NewAdminHandler(adminSvc),
 	})
 
