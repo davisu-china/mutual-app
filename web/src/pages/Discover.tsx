@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CardSkeleton, Empty } from "@/components/ui/empty";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, type ActionResult, type Card } from "@/lib/api";
+import { useAuth } from "@/store/auth";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const BATCH = 10;
 export default function Discover() {
   const nav = useNavigate();
   const toast = useToast();
+  const { restriction } = useAuth();
 
   const [cards, setCards] = useState<Card[] | null>(null);
   const [quota, setQuota] = useState({ used: 0, limit: 10, remain: 10 });
@@ -64,9 +66,15 @@ export default function Discover() {
   }, [cards]);
 
   const top = cards?.[0];
+  /** 账号被限制：这一屏只剩"看"——按钮和快捷键都不干活（点下去说明原因） */
+  const restricted = !!restriction;
 
   const act = useCallback(
     async (action: "like" | "pass") => {
+      if (restricted) {
+        toast(`账号被限制：暂时不能${action === "like" ? "喜欢别人" : "划卡"}`, "error");
+        return;
+      }
       if (!top || busy) return;
 
       // 乐观更新：先让卡片飞走、额度先扣，请求在后台跑。
@@ -123,7 +131,7 @@ export default function Discover() {
   // 键盘操作：← 跳过、→ 喜欢。按钮方案的天然优势，顺手就做了。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (matchInfo) return;
+      if (matchInfo || restricted) return;
       if (e.key === "ArrowLeft") void act("pass");
       if (e.key === "ArrowRight") void act("like");
     };
@@ -217,12 +225,14 @@ export default function Discover() {
           <button
             type="button"
             aria-label="跳过"
-            disabled={!top || busy}
+            aria-disabled={restricted || !top || busy}
+            disabled={!restricted && (!top || busy)}
             onClick={() => act("pass")}
             className={cn(
               "flex h-14 w-14 items-center justify-center rounded-full border border-line bg-surface",
               "text-muted shadow-sm transition-all duration-150",
               "active:scale-95 disabled:opacity-40",
+              restricted && "opacity-40",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             )}
           >
@@ -232,13 +242,15 @@ export default function Discover() {
           <button
             type="button"
             aria-label="喜欢"
-            disabled={!top || busy || exhausted}
+            aria-disabled={restricted || !top || busy || exhausted}
+            disabled={!restricted && (!top || busy || exhausted)}
             onClick={() => act("like")}
             className={cn(
               "flex h-16 w-16 items-center justify-center rounded-full text-white",
               "bg-gradient-to-br from-brand to-brand-dark",
               "shadow-[0_6px_18px_rgba(163,46,78,.34)] transition-all duration-150",
               "active:scale-95 disabled:opacity-40 disabled:shadow-none",
+              restricted && "opacity-40 shadow-none",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
             )}
           >

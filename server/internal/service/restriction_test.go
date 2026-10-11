@@ -13,9 +13,11 @@ import (
 
 // 封禁 = **限制互动**，不是"踢出去"（2026-10-11 用户明确的口径）。
 //
-// 所以这条用例是**成对**的：能做的（看推荐、跳过）与不能做的（喜欢别人、发消息）
-// 各钉一遍。最容易犯的错是"顺手把整号拦了"——那正是上一版的做法，
-// 表现是封禁用户连推荐页都打不开。
+// 所以这条用例是**成对**的：**能看的**（推荐、历史消息、自己的资料）与
+// **不能操作的**（划卡＝喜欢/跳过、发消息）各钉一遍。
+//
+// ⚠️ 两边都犯过：先是"顺手把整号拦了"（表现是封禁用户连推荐页都打不开），
+// 后来又只拦了 like、把跳过留着（用户反馈"还是可以左滑右滑"）。
 func TestIntegrationBanRestrictsInteractionsOnly(t *testing.T) {
 	db := testDB(t)
 	ctx := context.Background()
@@ -54,17 +56,18 @@ func TestIntegrationBanRestrictsInteractionsOnly(t *testing.T) {
 
 	// ---------- 还能做的 ----------
 
-	// ① 看推荐：卡池照常（只是他自己不会出现在别人的池子里）
+	// ① 看推荐：卡池照常（只是他自己不会出现在别人的池子里）——"能看、不能操作"
 	if _, err := disc.Cards(ctx, me.ID, cardBatchSize); err != nil {
 		t.Errorf("被限制的账号仍然应当能看推荐，实际 %v", err)
 	}
 
-	// ② 跳过：不该被牵连（限制的是"喜欢"，不是"用"）
-	if _, err := actionSvc.Do(ctx, ActionInput{FromUser: me.ID, ToUser: fresh.ID, Action: model.ActionPass, Source: model.SourceCard}); err != nil {
-		t.Errorf("跳过不该被封禁影响，实际 %v", err)
+	// ② 跳过：**也拦**（被限制就不该再划卡；"看"不受影响）
+	_, err := actionSvc.Do(ctx, ActionInput{FromUser: me.ID, ToUser: fresh.ID, Action: model.ActionPass, Source: model.SourceCard})
+	if !errors.Is(err, ErrAccountRestricted) {
+		t.Errorf("被限制的账号不该还能跳过，实际 %T: %v", err, err)
 	}
 
-	// ③ 看会话历史：能看
+	// ③ 看会话历史：能看（历史消息也是"看"）
 	if _, err := chatSvc.Messages(ctx, me.ID, convID, 0, 20); err != nil {
 		t.Errorf("被限制的账号仍然应当能看历史消息，实际 %v", err)
 	}

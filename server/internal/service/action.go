@@ -69,6 +69,12 @@ func (s *ActionService) Do(ctx context.Context, in ActionInput) (*ActionResult, 
 		}
 		return s.doLike(ctx, in)
 	case model.ActionPass:
+		// 跳过也一起拦：被限制就不该再划卡（用户口径："直接禁止这些操作"）。
+		// ⚠️ 上一版只拦了 like、把跳过留着——那是我的判断，被用户推翻了。
+		// "看"不受影响：广场、对方主页照常能浏览。
+		if err := checkRestricted(ctx, s.db, in.FromUser, "划卡"); err != nil {
+			return nil, err
+		}
 		return s.doSimple(ctx, in, model.ActionPass)
 	case model.ActionVisit:
 		return s.doVisit(ctx, in)

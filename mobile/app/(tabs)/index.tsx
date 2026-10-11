@@ -14,6 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { RecommendCard } from "@/components/recommend-card";
 import { MatchOverlay } from "@/components/match-overlay";
 import { Button } from "@/ui/button";
@@ -44,6 +45,14 @@ export default function Recommend() {
   const nav = useRouter();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const { restriction } = useAuth();
+  /**
+   * 账号被限制（封禁）时，这一屏**只剩看**：不能左右滑、不能喜欢、不能跳过。
+   *
+   * ⚠️ 上一版只拦了"喜欢"，跳过还留着——用户反馈"还是可以左滑右滑、点击喜欢"，
+   * 口径是**被限制就不该能划卡**（服务端也一起拦，见 service.checkRestricted）。
+   */
+  const restricted = !!restriction;
   const { width } = useWindowDimensions();
   /** 卡片的实际宽度 = stage 可用宽（左右各 space(3)）——滑动阈值按它的比例算，改边距时这里要一起改 */
   const cardW = width - space(3) * 2;
@@ -85,8 +94,25 @@ export default function Recommend() {
 
   const exhausted = quota.remain <= 0;
 
+  /**
+   * 被限制时点了划卡相关的东西：**不做，但一定要说清楚为什么**。
+   * 按钮照样能按（按下去弹这句），比"按了没反应"好得多——后者会让人以为 App 坏了。
+   */
+  const onRestricted = useCallback(
+    (what: string) => {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      toast(`账号被限制：暂时不能${what}`, "error");
+    },
+    [toast]
+  );
+
   const act = useCallback(
     async (action: Dir, fromX = 0) => {
+      if (restricted) {
+        // 按钮和手势都已经关了；这里是最后一道（比如额度/快捷键之类的旁路）
+        onRestricted("划卡");
+        return;
+      }
       const cur = cards?.[0];
       if (!cur || busy) return;
       setBusy(true);
@@ -118,7 +144,7 @@ export default function Recommend() {
         setBusy(false);
       }
     },
-    [cards, busy, toast, load]
+    [cards, busy, toast, load, restricted, onRestricted]
   );
 
   /** 额度用完还右滑：卡片弹回去并说清楚，不要让它飞出去再被 API 打回来 */
@@ -202,6 +228,7 @@ export default function Recommend() {
                   depth={i}
                   width={cardW}
                   interactive={i === 0}
+                  restricted={restricted}
                   canLike={!exhausted}
                   onDecide={act}
                   onBlocked={onBlocked}
@@ -218,7 +245,7 @@ export default function Recommend() {
               左边跳过、右边喜欢——和左右滑的方向一一对应。
             */}
             <View style={styles.actionsOverlay} pointerEvents="box-none" testID="card-actions">
-              {top && !hinted ? (
+              {top && !hinted && !restricted ? (
                 <View style={styles.hintPill} pointerEvents="none">
                   <Text style={styles.hintText}>左滑跳过 · 右滑喜欢</Text>
                 </View>
@@ -226,20 +253,32 @@ export default function Recommend() {
               {/* box-none：这一行铺满整宽，如果它自己吃掉触摸，
                   卡片下半部分就再也划不动了（按钮仍然照常响应） */}
               <View style={styles.actionsRow} pointerEvents="box-none">
+                {/* ⚠️ 被限制时按钮**不能 disabled**：disabled 的 Pressable 不触发 onPress，
+                    用户点下去毫无反应，只会以为 App 坏了。这里保持可点，但点下去只弹原因。 */}
                 <Pressable
                   accessibilityLabel="跳过"
-                  disabled={!top || busy}
-                  onPress={() => void act("pass")}
-                  style={({ pressed }) => [styles.pass, pressed && styles.pressed, (!top || busy) && styles.off]}
+                  accessibilityState={{ disabled: restricted || !top || busy }}
+                  disabled={!restricted && (!top || busy)}
+                  onPress={() => (restricted ? onRestricted("划卡") : void act("pass"))}
+                  style={({ pressed }) => [
+                    styles.pass,
+                    pressed && styles.pressed,
+                    (restricted || !top || busy) && styles.off,
+                  ]}
                 >
                   <Ionicons name="close" size={27} color={colors.muted} />
                 </Pressable>
 
                 <Pressable
                   accessibilityLabel="喜欢"
-                  disabled={!top || busy || exhausted}
-                  onPress={() => void act("like")}
-                  style={({ pressed }) => [styles.like, pressed && styles.pressed, (!top || busy || exhausted) && styles.off]}
+                  accessibilityState={{ disabled: restricted || !top || busy || exhausted }}
+                  disabled={!restricted && (!top || busy || exhausted)}
+                  onPress={() => (restricted ? onRestricted("喜欢别人") : void act("like"))}
+                  style={({ pressed }) => [
+                    styles.like,
+                    pressed && styles.pressed,
+                    (restricted || !top || busy || exhausted) && styles.off,
+                  ]}
                 >
                   <Ionicons name="heart" size={33} color={colors.white} />
                 </Pressable>
@@ -272,6 +311,8 @@ interface DeckCardProps {
   /** 卡片宽度，滑动阈值按它算 */
   width: number;
   interactive: boolean;
+  /** 账号被限制：不挂横滑手势（看资料仍然可以点开） */
+  restricted: boolean;
   canLike: boolean;
   onDecide: (dir: Dir, fromX: number) => void;
   onBlocked: () => void;
@@ -287,7 +328,7 @@ interface DeckCardProps {
  * （React 按 key 复用实例，所以 shift 之后同一个组件只是换了 depth 这个 prop，
  * 动画才能接上。）
  */
-function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocked, onOpen }: DeckCardProps) {
+function DeckCard({ card, depth, width, interactive, restricted, canLike, onDecide, onBlocked, onOpen }: DeckCardProps) {
   const d = useSharedValue(depth);
   const x = useSharedValue(0);
   useEffect(() => {
@@ -295,7 +336,8 @@ function DeckCard({ card, depth, width, interactive, canLike, onDecide, onBlocke
   }, [depth, d]);
 
   const pan = Gesture.Pan()
-    .enabled(interactive)
+    // 被限制的账号不挂横滑手势（下方按钮也会变成"说明按钮"）
+    .enabled(interactive && !restricted)
     // **别加 failOffsetY**：横向滑动时手腕是带弧线的，纵向很容易先超过十几像素，
     // 那样手势会直接判负——表现就是"左滑有时候划不过去"（上一版就这么坏的）。
     // 只要求横向动一点点就认，纵向位移一律忽略（卡片不做上下跟手）。

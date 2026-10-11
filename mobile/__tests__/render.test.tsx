@@ -7,7 +7,7 @@
  *
  * 网络全部打桩：测试不该依赖线上接口是否可用。
  */
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 // 版面约定靠样式值钉住（见"卡栈"那条用例里的两处）——RNTL 看不见"谁盖住了谁"
 import { StyleSheet } from "react-native";
 
@@ -191,6 +191,43 @@ describe("页面与组件渲染", () => {
       expect(StyleSheet.flatten(overlay.props.style).zIndex).toBeGreaterThan(10);
     } finally {
       get.mockImplementation(original);
+    }
+  });
+
+  it("被限制的账号：划卡页只剩「看」，喜欢/跳过按下去不动作", async () => {
+    // 用户报过"封禁的用户还是可以左滑右滑、点击喜欢"——服务端虽然会拒，
+    // 但界面上不该让他划（点了要有明确说法，而不是弹回来一句报错）。
+    const get = api.get as jest.Mock;
+    const post = api.post as jest.Mock;
+    const original = get.getMockImplementation();
+    get.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.startsWith("/cards")) return { cards: [card], quota: { used: 0, limit: 10, remain: 10 } };
+      if (u === "/users/me") return { userId: 7, accountStatus: "banned", banReason: "头像与本人不符" };
+      return {};
+    });
+    // ⚠️ AuthProvider 只在**有 token** 时才去拉 /users/me（没登录就不拉）。
+    // 这个文件里的替身默认 access 是空串，不设这一下的话限制状态永远读不到，
+    // 测试会"因为没登录而通过"——那就把要验的东西验丢了。
+    const mocked = jest.requireMock("@/lib/api") as { tokens: { access: string } };
+    const hadToken = mocked.tokens.access;
+    mocked.tokens.access = "test-token";
+
+    try {
+      const r = render(wrap(<Discover />));
+      await r.findByText("小晴");
+      // 横幅（说明为什么不能用）
+      await waitFor(() => expect(r.getByText(/账号被限制/)).toBeTruthy());
+      // 「左滑跳过 · 右滑喜欢」这条提示不该出现——被限制时它是个假承诺
+      expect(r.queryByText("左滑跳过 · 右滑喜欢")).toBeNull();
+
+      post.mockClear();
+      fireEvent.press(r.getByLabelText("喜欢"));
+      fireEvent.press(r.getByLabelText("跳过"));
+      expect(post).not.toHaveBeenCalled();
+    } finally {
+      get.mockImplementation(original);
+      mocked.tokens.access = hadToken;
     }
   });
 
